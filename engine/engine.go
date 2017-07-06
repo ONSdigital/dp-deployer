@@ -4,7 +4,6 @@ package engine
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -18,13 +17,15 @@ import (
 var wg sync.WaitGroup
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
-var BackoffStrategy = &backoff.ExponentialBackOff{
-	Clock:               backoff.SystemClock,
-	InitialInterval:     5 * time.Second,
-	MaxInterval:         10 * time.Second,
-	MaxElapsedTime:      120 * time.Second,
-	Multiplier:          backoff.DefaultMultiplier,
-	RandomizationFactor: backoff.DefaultRandomizationFactor,
+var BackoffStrategy = func() backoff.BackOff {
+	return &backoff.ExponentialBackOff{
+		Clock:               backoff.SystemClock,
+		InitialInterval:     5 * time.Second,
+		MaxInterval:         10 * time.Second,
+		MaxElapsedTime:      300 * time.Second,
+		Multiplier:          backoff.DefaultMultiplier,
+		RandomizationFactor: backoff.DefaultRandomizationFactor,
+	}
 }
 
 // ErrHandler is the handler function applied to an error.
@@ -44,6 +45,12 @@ type Message struct {
 	Bucket   string
 	Service  string
 	Type     string
+}
+
+type response struct {
+	Error   string
+	ID      string
+	Success bool
 }
 
 // HandlerFunc represents a function that is applied to a consumed message.
@@ -74,9 +81,10 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		handlers: hs,
 		producer: sqs.New(a, aws.Regions[c.Region]),
 		consumer: ssqs.New(&ssqs.Queue{
-			Name:   c.ConsumerQueue,
-			Region: c.Region,
-			URL:    c.ConsumerQueueURL,
+			Name:              c.ConsumerQueue,
+			Region:            c.Region,
+			URL:               c.ConsumerQueueURL,
+			VisibilityTimeout: 43200, // 12 hours
 		}),
 	}, nil
 }
@@ -102,10 +110,10 @@ func (e *Engine) run(ctx context.Context) {
 			ErrHandler(err)
 		case msg := <-e.consumer.Messages:
 			wg.Add(1)
-			go func() {
+			go func(ctx context.Context, msg *ssqs.Message) {
 				defer wg.Done()
 				e.handle(ctx, msg)
-			}()
+			}(ctx, msg)
 		case <-ctx.Done():
 			log.Info("halting consumer", nil)
 			e.consumer.Close()
@@ -118,11 +126,13 @@ func (e *Engine) run(ctx context.Context) {
 }
 
 func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
-	backOff := backoff.WithContext(BackoffStrategy, ctx)
+	var err error
+
+	backOff := backoff.WithContext(BackoffStrategy(), ctx)
 	success := true
 
 	var m Message
-	if err := json.Unmarshal([]byte(msg.Body), &m); err != nil {
+	if err = json.Unmarshal([]byte(msg.Body), &m); err != nil {
 		success = false
 		ErrHandler(err)
 		goto PostHandle
@@ -130,13 +140,17 @@ func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
 	if h, ok := e.handlers[m.Type]; !ok {
 		success = false
 		ErrHandler(&MissingHandlerError{m.Type})
-	} else if err := h(ctx, &m); err != nil {
+	} else if err = h(ctx, &m); err != nil {
 		success = false
 		ErrHandler(err)
 	}
 
 PostHandle:
-	backoff.RetryNotify(e.reply(msg.ID, success), backOff, func(err error, t time.Duration) { ErrHandler(err) })
+	result := &response{ID: msg.ID, Success: success}
+	if err != nil {
+		result.Error = err.Error()
+	}
+	backoff.RetryNotify(e.reply(result), backOff, func(e error, t time.Duration) { ErrHandler(e) })
 	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(err) })
 }
 
@@ -144,13 +158,17 @@ func (e *Engine) delete(msg *ssqs.Message) func() error {
 	return func() error { return e.consumer.Delete(msg) }
 }
 
-func (e *Engine) reply(id string, ok bool) func() error {
+func (e *Engine) reply(res *response) func() error {
 	return func() error {
+		j, err := json.Marshal(res)
+		if err != nil {
+			return err
+		}
 		q, err := e.producer.GetQueue(e.config.ProducerQueue)
 		if err != nil {
 			return err
 		}
-		if _, err := q.SendMessage(fmt.Sprintf(`{"id": "%s", "success": %t}`, id, ok)); err != nil {
+		if _, err := q.SendMessage(string(j)); err != nil {
 			return err
 		}
 		return nil
