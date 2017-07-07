@@ -150,7 +150,7 @@ PostHandle:
 	if err != nil {
 		result.Error = err.Error()
 	}
-	backoff.RetryNotify(e.reply(result), backOff, func(e error, t time.Duration) { ErrHandler(e) })
+	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(err) })
 	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(err) })
 }
 
