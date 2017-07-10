@@ -48,7 +48,7 @@ type Message struct {
 }
 
 type response struct {
-	Error   string
+	Error   *string `json:"Error,omitempty"`
 	ID      string
 	Success bool
 }
@@ -148,7 +148,8 @@ func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
 PostHandle:
 	result := &response{ID: msg.ID, Success: success}
 	if err != nil {
-		result.Error = err.Error()
+		errs := err.Error()
+		result.Error = &errs
 	}
 	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(err) })
 	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(err) })
