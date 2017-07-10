@@ -65,7 +65,7 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, ErrMissingConsumerQueueURL
 	}
 	if len(c.ProducerQueue) < 1 {
-		return nil, ErrMissingProdocerQueue
+		return nil, ErrMissingProducerQueue
 	}
 	if len(c.Region) < 1 {
 		return nil, ErrMissingRegion

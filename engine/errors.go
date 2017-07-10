@@ -10,13 +10,13 @@ var (
 	ErrMissingConsumerQueue = errors.New("missing consumer queue name")
 	// ErrMissingConsumerQueueURL is returned when the consumer queue url is missing.
 	ErrMissingConsumerQueueURL = errors.New("missing consumer queue url")
-	// ErrMissingProdocerQueue is returned when the producer queue name is missing.
-	ErrMissingProdocerQueue = errors.New("missing producer queue name")
+	// ErrMissingProducerQueue is returned when the producer queue name is missing.
+	ErrMissingProducerQueue = errors.New("missing producer queue name")
 	// ErrMissingRegion is returned when the queue region is missing.
 	ErrMissingRegion = errors.New("missing queue region")
 )
 
-// MissingHandlerError is an error implemtation that includes a consumed message type.
+// MissingHandlerError is an error implementation that includes a consumed message type.
 type MissingHandlerError struct {
 	messageType string
 }

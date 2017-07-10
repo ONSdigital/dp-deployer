@@ -10,7 +10,7 @@ type Config struct {
 	NomadEndpoint string
 	// Region is the region in which the queues reside.
 	Region string
-	// TImeout is the timeout configuration for the deployments.
+	// Timeout is the timeout configuration for the deployments.
 	Timeout *TimeoutConfig
 }
 

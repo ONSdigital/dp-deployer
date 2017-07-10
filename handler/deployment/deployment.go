@@ -138,7 +138,7 @@ func (d *Deployment) allocations(ctx context.Context, id string) error {
 		select {
 		case <-ctx.Done():
 			log.Info("bailing on deployment allocations", log.Data{"evaluation": id})
-			return nil
+			return &AllocationAbortedError{evaluationID: id}
 		case <-timeout:
 			return &TimeoutError{action: "allocation"}
 		case <-ticker:
@@ -163,10 +163,10 @@ func (d *Deployment) allocations(ctx context.Context, id string) error {
 
 func sumAllocations(allocations *[]api.Allocation) (pending, running int) {
 	for _, allocation := range *allocations {
-		if allocation.ClientStatus == statusRunning {
+		switch allocation.ClientStatus {
+		case statusRunning:
 			running++
-		}
-		if allocation.ClientStatus == statusPending {
+		case statusPending:
 			pending++
 		}
 	}
@@ -181,7 +181,7 @@ func (d *Deployment) evaluation(ctx context.Context, id string, msg *engine.Mess
 		select {
 		case <-ctx.Done():
 			log.Info("bailing on deployment evaluation", log.Data{"evaluation": id})
-			return nil
+			return &EvaluationAbortedError{id: id}
 		case <-timeout:
 			return &TimeoutError{action: "evaluation"}
 		case <-ticker:
