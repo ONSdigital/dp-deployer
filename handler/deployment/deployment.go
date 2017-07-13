@@ -24,7 +24,7 @@ const (
 	// DefaultAllocationTimeout is the default time to wait for an allocation to complete.
 	DefaultAllocationTimeout = time.Second * 300
 	// DefaultEvaluationTimeout is the default time to wait for an evaluation to complete.
-	DefaultEvaluationTimeout = time.Second * 30
+	DefaultEvaluationTimeout = time.Second * 120
 )
 
 const (
@@ -121,10 +121,17 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
 		return err
 	}
-	if err := d.evaluation(ctx, res.EvalID, msg); err != nil {
+	if err := d.monitor(ctx, res.EvalID); err != nil {
 		return err
 	}
-	if err := d.allocations(ctx, res.EvalID); err != nil {
+	return nil
+}
+
+func (d *Deployment) monitor(ctx context.Context, id string) error {
+	if err := d.evaluation(ctx, id); err != nil {
+		return err
+	}
+	if err := d.allocations(ctx, id); err != nil {
 		return err
 	}
 	return nil
@@ -148,11 +155,11 @@ func (d *Deployment) allocations(ctx context.Context, id string) error {
 			}
 			pending, running := sumAllocations(&allocations)
 			if pending > 0 {
-				log.Trace("allocations still pending", log.Data{"pending": pending, "total": len(allocations)})
+				log.Trace("allocations still pending", log.Data{"evaluation": id, "pending": pending, "total": len(allocations)})
 				continue
 			}
 			if running == len(allocations) {
-				log.Trace("all allocations running", log.Data{"running": running, "total": len(allocations)})
+				log.Trace("all allocations running", log.Data{"evaluation": id, "running": running, "total": len(allocations)})
 				return nil
 			}
 			return &AllocationError{pending, running, len(allocations)}
@@ -173,7 +180,7 @@ func sumAllocations(allocations *[]api.Allocation) (pending, running int) {
 	return
 }
 
-func (d *Deployment) evaluation(ctx context.Context, id string, msg *engine.Message) error {
+func (d *Deployment) evaluation(ctx context.Context, id string) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Evaluation)
 
@@ -193,11 +200,15 @@ func (d *Deployment) evaluation(ctx context.Context, id string, msg *engine.Mess
 				log.Trace("waiting for evaluation to be scheduled", log.Data{"id": evaluation.ID})
 				continue
 			}
-			if evaluation.Status == statusComplete {
-				log.Trace("evaluation complete", log.Data{"id": evaluation.ID})
+			if evaluation.Status != statusComplete {
+				return &EvaluationError{id: evaluation.ID}
+			}
+			log.Trace("evaluation complete", log.Data{"id": evaluation.ID})
+			if len(evaluation.NextEval) == 0 {
 				return nil
 			}
-			return &EvaluationError{id: evaluation.ID}
+			log.Info("waiting for next evaluation", log.Data{"id": evaluation.ID, "next evaluation": evaluation.NextEval})
+			return d.monitor(ctx, evaluation.NextEval)
 		default:
 		}
 	}
