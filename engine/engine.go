@@ -16,6 +16,8 @@ import (
 
 var wg sync.WaitGroup
 
+var sendMessage func(string) error
+
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
 	return &backoff.ExponentialBackOff{
@@ -76,7 +78,7 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, err
 	}
 
-	return &Engine{
+	e := &Engine{
 		config:   c,
 		handlers: hs,
 		producer: sqs.New(a, aws.Regions[c.Region]),
@@ -86,7 +88,13 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 			URL:               c.ConsumerQueueURL,
 			VisibilityTimeout: 1800, // 30 minutes
 		}),
-	}, nil
+	}
+
+	if sendMessage == nil {
+		sendMessage = e.sendMessage
+	}
+
+	return e, nil
 }
 
 // Start starts the queue consumer and applies a given handler function to each
@@ -138,8 +146,9 @@ func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
 		goto PostHandle
 	}
 	if h, ok := e.handlers[m.Type]; !ok {
+		err = &MissingHandlerError{m.Type}
 		success = false
-		ErrHandler(&MissingHandlerError{m.Type})
+		ErrHandler(err)
 	} else if err = h(ctx, &m); err != nil {
 		success = false
 		ErrHandler(err)
@@ -165,13 +174,20 @@ func (e *Engine) reply(res *response) func() error {
 		if err != nil {
 			return err
 		}
-		q, err := e.producer.GetQueue(e.config.ProducerQueue)
-		if err != nil {
-			return err
-		}
-		if _, err := q.SendMessage(string(j)); err != nil {
+		if err := sendMessage(string(j)); err != nil {
 			return err
 		}
 		return nil
 	}
+}
+
+func (e *Engine) sendMessage(body string) error {
+	q, err := e.producer.GetQueue(e.config.ProducerQueue)
+	if err != nil {
+		return err
+	}
+	if _, err := q.SendMessage(body); err != nil {
+		return err
+	}
+	return nil
 }
