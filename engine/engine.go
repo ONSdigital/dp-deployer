@@ -113,14 +113,20 @@ func (e *Engine) Start(ctx context.Context) {
 }
 
 func (e *Engine) run(ctx context.Context) {
+	sem := make(chan struct{}, 50)
+
 	for {
 		select {
 		case err := <-e.consumer.Errors:
 			ErrHandler("", err)
 		case msg := <-e.consumer.Messages:
+			sem <- struct{}{}
 			wg.Add(1)
 			go func(ctx context.Context, msg *ssqs.Message) {
-				defer wg.Done()
+				defer func() {
+					wg.Done()
+					<-sem
+				}()
 				e.handle(ctx, msg)
 			}(ctx, msg)
 		case <-ctx.Done():
