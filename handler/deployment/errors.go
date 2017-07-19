@@ -52,7 +52,7 @@ type EvaluationAbortedError struct {
 }
 
 func (e *EvaluationAbortedError) Error() string {
-	return fmt.Sprintf("aborted monitoring evaluation %s", e.id)
+	return fmt.Sprintf("aborted monitoring evaluation: %s", e.id)
 }
 
 // PlanError is an error implementation that includes the errors or warnings

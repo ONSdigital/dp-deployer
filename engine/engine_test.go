@@ -198,6 +198,7 @@ func TestStart(t *testing.T) {
 func withEnv(f func()) {
 	defer os.Clearenv()
 
+	os.Clearenv()
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_DEFAULT_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")

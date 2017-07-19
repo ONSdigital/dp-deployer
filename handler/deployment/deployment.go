@@ -40,6 +40,8 @@ const (
 	statusRunning  = "running"
 )
 
+var jsonFrom func(string) ([]byte, error)
+
 type payload struct {
 	Job *api.Job
 }
@@ -66,6 +68,10 @@ func New(c *Config) (*Deployment, error) {
 	}
 	if c.Timeout == nil {
 		c.Timeout = &TimeoutConfig{DefaultAllocationTimeout, DefaultEvaluationTimeout}
+	}
+
+	if jsonFrom == nil {
+		jsonFrom = jsonFromFile
 	}
 
 	return &Deployment{
@@ -250,7 +256,7 @@ func unmarshalAPIResponse(r *http.Response, v interface{}) error {
 	return nil
 }
 
-func jsonFrom(jobPath string) ([]byte, error) {
+func jsonFromFile(jobPath string) ([]byte, error) {
 	f, err := os.Open(jobPath)
 	if err != nil {
 		return nil, err
