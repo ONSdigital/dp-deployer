@@ -95,7 +95,7 @@ func TestPlan(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 		})
-	})()
+	})
 }
 
 func TestRun(t *testing.T) {
@@ -190,7 +190,7 @@ func TestRun(t *testing.T) {
 
 			Convey("allocation cancellation handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, `{"Status": "complete"}`))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationPending))
 				time.AfterFunc(time.Second*2, cancel)
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
@@ -201,7 +201,7 @@ func TestRun(t *testing.T) {
 
 			Convey("successful allocations handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, `{"Status": "complete"}`))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationRunning))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "test", Service: "test"})
@@ -209,7 +209,7 @@ func TestRun(t *testing.T) {
 				cancel()
 			})
 		})
-	})()
+	})
 }
 
 func withEnv(f func()) {
@@ -223,15 +223,13 @@ func withEnv(f func()) {
 	f()
 }
 
-func withMocks(f func()) func() {
+func withMocks(f func()) {
 	origJSONFrom := jsonFrom
 
-	return func() {
-		defer func() {
-			jsonFrom = origJSONFrom
-		}()
+	defer func() {
+		jsonFrom = origJSONFrom
+	}()
 
-		jsonFrom = func(string) ([]byte, error) { return nil, nil }
-		f()
-	}
+	jsonFrom = func(string) ([]byte, error) { return nil, nil }
+	f()
 }

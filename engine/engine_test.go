@@ -93,106 +93,93 @@ func TestNew(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-	config := &Config{"foo", "bar", "baz", "qux"}
-
-	withEnv(withMocks(true, invalidMessage, func(producer *mockProducer) {
-		Convey("queue errors handled correctly", t, func(c C) {
-			e, err := New(config, nil)
-			c.So(err, ShouldBeNil)
-
+	withEnv(func() {
+		Convey("start behaives correctly", t, func(c C) {
+			setup := func() (*Engine, error) { return New(&Config{"foo", "bar", "baz", "qux"}, nil) }
 			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 
-			ErrHandler = func(messageID string, err error) {
-				cancel()
-				c.So(messageID, ShouldEqual, "")
-				c.So(err.Error(), ShouldEqual, "test consume error")
-			}
+			Convey("queue errors handled correctly", func() {
+				withMocks(true, invalidMessage, func(producer *mockProducer) {
+					e, err := setup()
+					So(err, ShouldBeNil)
 
-			e.Start(ctx)
-			c.So(producer.message, ShouldEqual, "")
+					ErrHandler = func(messageID string, err error) {
+						cancel()
+						c.So(messageID, ShouldEqual, "")
+						c.So(err.Error(), ShouldEqual, "test consume error")
+					}
+
+					e.Start(ctx)
+					c.So(producer.message, ShouldEqual, "")
+				})
+			})
+
+			Convey("unmarshaling errors handled correctly", func() {
+				withMocks(false, invalidMessage, func(producer *mockProducer) {
+					e, err := setup()
+					So(err, ShouldBeNil)
+
+					ErrHandler = func(messageID string, err error) {
+						cancel()
+						c.So(messageID, ShouldEqual, "100")
+						c.So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+					}
+
+					e.Start(ctx)
+					c.So(producer.message, ShouldEqual, `{"Error":"unexpected end of JSON input","ID":"100","Success":false}`)
+				})
+			})
+
+			Convey("missing handlers handled correctly", func() {
+				withMocks(false, validMessage, func(producer *mockProducer) {
+					e, err := setup()
+					So(err, ShouldBeNil)
+
+					ErrHandler = func(messageID string, err error) {
+						cancel()
+						c.So(messageID, ShouldEqual, "200")
+						c.So(err.Error(), ShouldEqual, "missing handler for message type: test")
+					}
+
+					e.Start(ctx)
+					c.So(producer.message, ShouldEqual, `{"Error":"missing handler for message type: test","ID":"200","Success":false}`)
+				})
+			})
+
+			Convey("handler errors handled correctly", func() {
+				withMocks(false, validMessage, func(producer *mockProducer) {
+					e, err := setup()
+					So(err, ShouldBeNil)
+
+					hfunction := func(ctx context.Context, msg *Message) error { return errors.New("test handler error") }
+					e.handlers = map[string]HandlerFunc{"test": hfunction}
+					ErrHandler = func(messageID string, err error) {
+						cancel()
+						c.So(messageID, ShouldEqual, "200")
+						c.So(err.Error(), ShouldEqual, "test handler error")
+					}
+
+					e.Start(ctx)
+					So(producer.message, ShouldEqual, `{"Error":"test handler error","ID":"200","Success":false}`)
+				})
+			})
+
+			Convey("successful message handles handled correctly", func() {
+				withMocks(false, validMessage, func(producer *mockProducer) {
+					e, err := setup()
+					So(err, ShouldBeNil)
+
+					hfunction := func(ctx context.Context, msg *Message) error { return nil }
+					e.handlers = map[string]HandlerFunc{"test": hfunction}
+					ErrHandler = defaultErrHandler
+
+					go time.AfterFunc(time.Second*1, cancel)
+					e.Start(ctx)
+					So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
+				})
+			})
 		})
-	}))
-
-	withEnv(withMocks(false, invalidMessage, func(producer *mockProducer) {
-		Convey("unmarshaling errors handled correctly", t, func(c C) {
-			e, err := New(config, nil)
-			c.So(err, ShouldBeNil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			ErrHandler = func(messageID string, err error) {
-				cancel()
-				c.So(messageID, ShouldEqual, "100")
-				c.So(err.Error(), ShouldEqual, "unexpected end of JSON input")
-			}
-
-			e.Start(ctx)
-			c.So(producer.message, ShouldEqual, `{"Error":"unexpected end of JSON input","ID":"100","Success":false}`)
-		})
-	}))
-
-	withEnv(withMocks(false, validMessage, func(producer *mockProducer) {
-		Convey("missing handlers handled correctly", t, func(c C) {
-			e, err := New(config, nil)
-			c.So(err, ShouldBeNil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			ErrHandler = func(messageID string, err error) {
-				cancel()
-				c.So(messageID, ShouldEqual, "200")
-				c.So(err.Error(), ShouldEqual, "missing handler for message type: test")
-			}
-
-			e.Start(ctx)
-			c.So(producer.message, ShouldEqual, `{"Error":"missing handler for message type: test","ID":"200","Success":false}`)
-		})
-	}))
-
-	withEnv(withMocks(false, validMessage, func(producer *mockProducer) {
-		Convey("handler errors handled correctly", t, func(c C) {
-			fn := func(ctx context.Context, msg *Message) error { return errors.New("test handler error") }
-			hs := map[string]HandlerFunc{"test": fn}
-
-			e, err := New(config, hs)
-			So(err, ShouldBeNil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			ErrHandler = func(messageID string, err error) {
-				cancel()
-				c.So(messageID, ShouldEqual, "200")
-				c.So(err.Error(), ShouldEqual, "test handler error")
-			}
-
-			e.Start(ctx)
-			So(producer.message, ShouldEqual, `{"Error":"test handler error","ID":"200","Success":false}`)
-		})
-	}))
-
-	withEnv(withMocks(false, validMessage, func(producer *mockProducer) {
-		Convey("successful message handles handled correctly", t, func() {
-			ErrHandler = defaultErrHandler
-
-			fn := func(ctx context.Context, msg *Message) error { return nil }
-			hs := map[string]HandlerFunc{"test": fn}
-
-			e, err := New(config, hs)
-			So(err, ShouldBeNil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			go time.AfterFunc(time.Second*1, cancel)
-
-			e.Start(ctx)
-			So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
-		})
-	}))
+	})
 }
 
 func withEnv(f func()) {
@@ -205,22 +192,20 @@ func withEnv(f func()) {
 	f()
 }
 
-func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) func() {
+func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
 	origClient := ssqs.DefaultClient
 	origSendMsg := sendMessage
 
-	return func() {
-		defer func() {
-			sendMessage = origSendMsg
-			ssqs.DefaultClient = origClient
-		}()
+	defer func() {
+		sendMessage = origSendMsg
+		ssqs.DefaultClient = origClient
+	}()
 
-		ssqs.DefaultClient = func(q *ssqs.Queue) sqsiface.SQSAPI {
-			return &mockConsumer{errorable: errorable, message: msg}
-		}
-
-		mockedprod := &mockProducer{}
-		sendMessage = mockedprod.SendMessage
-		f(mockedprod)
+	ssqs.DefaultClient = func(q *ssqs.Queue) sqsiface.SQSAPI {
+		return &mockConsumer{errorable: errorable, message: msg}
 	}
+
+	mockedprod := &mockProducer{}
+	sendMessage = mockedprod.SendMessage
+	f(mockedprod)
 }
