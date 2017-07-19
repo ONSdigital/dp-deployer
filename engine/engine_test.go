@@ -21,13 +21,12 @@ type mockConsumer struct {
 	sqsiface.SQSAPI
 	errorable bool
 	message   *sqs.Message
+	mu        sync.Mutex
 }
 
-var mu sync.Mutex
-
 func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
-	defer mu.Unlock()
-	mu.Lock()
+	defer m.mu.Unlock()
+	m.mu.Lock()
 
 	if m.exhausted {
 		return &sqs.ReceiveMessageOutput{Messages: nil}, nil
@@ -54,8 +53,9 @@ func (m *mockProducer) SendMessage(body string) error {
 }
 
 var (
-	invalidMessage = &sqs.Message{Body: aws.String(""), MessageId: aws.String("100"), ReceiptHandle: aws.String("")}
-	validMessage   = &sqs.Message{Body: aws.String(`{"type": "test"}`), MessageId: aws.String("200"), ReceiptHandle: aws.String("")}
+	defaultErrHandler = ErrHandler
+	invalidMessage    = &sqs.Message{Body: aws.String(""), MessageId: aws.String("100"), ReceiptHandle: aws.String("")}
+	validMessage      = &sqs.Message{Body: aws.String(`{"type": "test"}`), MessageId: aws.String("200"), ReceiptHandle: aws.String("")}
 )
 
 func TestNew(t *testing.T) {
@@ -176,6 +176,8 @@ func TestStart(t *testing.T) {
 
 	withEnv(withMocks(false, validMessage, func(producer *mockProducer) {
 		Convey("successful message handles handled correctly", t, func() {
+			ErrHandler = defaultErrHandler
+
 			fn := func(ctx context.Context, msg *Message) error { return nil }
 			hs := map[string]HandlerFunc{"test": fn}
 
@@ -185,12 +187,7 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			go func() {
-				for producer.message == "" {
-					time.Sleep(time.Millisecond * 100)
-				}
-				cancel()
-			}()
+			go time.AfterFunc(time.Second*1, cancel)
 
 			e.Start(ctx)
 			So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
@@ -199,16 +196,11 @@ func TestStart(t *testing.T) {
 }
 
 func withEnv(f func()) {
-	defer func() {
-		os.Unsetenv("AWS_ACCESS_KEY_ID")
-		os.Unsetenv("AWS_DEFAULT_REGION")
-		os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-	}()
+	defer os.Clearenv()
 
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_DEFAULT_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
-
 	f()
 }
 
