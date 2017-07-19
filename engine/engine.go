@@ -31,7 +31,7 @@ var BackoffStrategy = func() backoff.BackOff {
 }
 
 // ErrHandler is the handler function applied to an error.
-var ErrHandler = func(err error) { log.Error(err, nil) }
+var ErrHandler = func(messageID string, err error) { log.ErrorC(messageID, err, nil) }
 
 // Engine represents an engine.
 type Engine struct {
@@ -45,6 +45,7 @@ type Engine struct {
 type Message struct {
 	Artifact string
 	Bucket   string
+	ID       string `json:"-"`
 	Service  string
 	Type     string
 }
@@ -115,7 +116,7 @@ func (e *Engine) run(ctx context.Context) {
 	for {
 		select {
 		case err := <-e.consumer.Errors:
-			ErrHandler(err)
+			ErrHandler("", err)
 		case msg := <-e.consumer.Messages:
 			wg.Add(1)
 			go func(ctx context.Context, msg *ssqs.Message) {
@@ -139,19 +140,20 @@ func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
 	backOff := backoff.WithContext(BackoffStrategy(), ctx)
 	success := true
 
-	var m Message
+	m := Message{ID: msg.ID}
 	if err = json.Unmarshal([]byte(msg.Body), &m); err != nil {
 		success = false
-		ErrHandler(err)
+		ErrHandler(m.ID, err)
 		goto PostHandle
 	}
+
 	if h, ok := e.handlers[m.Type]; !ok {
 		err = &MissingHandlerError{m.Type}
 		success = false
-		ErrHandler(err)
+		ErrHandler(m.ID, err)
 	} else if err = h(ctx, &m); err != nil {
 		success = false
-		ErrHandler(err)
+		ErrHandler(m.ID, err)
 	}
 
 PostHandle:
@@ -160,8 +162,8 @@ PostHandle:
 		errs := err.Error()
 		result.Error = &errs
 	}
-	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(err) })
-	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(err) })
+	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
+	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
 }
 
 func (e *Engine) delete(msg *ssqs.Message) func() error {

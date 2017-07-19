@@ -95,7 +95,7 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 }
 
 func (d *Deployment) plan(msg *engine.Message) error {
-	log.Trace("planning job", log.Data{"msg": msg, "service": msg.Service})
+	log.TraceC(msg.ID, "planning job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobPlanResponse
 	if err := d.post(fmt.Sprintf(planURL, d.endpoint, msg.Service), msg, &res); err != nil {
@@ -115,51 +115,51 @@ func (d *Deployment) plan(msg *engine.Message) error {
 }
 
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
-	log.Trace("running job", log.Data{"msg": msg, "service": msg.Service})
+	log.TraceC(msg.ID, "running job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
 		return err
 	}
-	if err := d.monitor(ctx, res.EvalID); err != nil {
+	if err := d.monitor(ctx, msg.ID, res.EvalID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) monitor(ctx context.Context, id string) error {
-	if err := d.evaluation(ctx, id); err != nil {
+func (d *Deployment) monitor(ctx context.Context, deploymentID, evaluationID string) error {
+	if err := d.evaluation(ctx, deploymentID, evaluationID); err != nil {
 		return err
 	}
-	if err := d.allocations(ctx, id); err != nil {
+	if err := d.allocations(ctx, deploymentID, evaluationID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) allocations(ctx context.Context, id string) error {
+func (d *Deployment) allocations(ctx context.Context, deploymentID, evaluationID string) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Allocation)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("bailing on deployment allocations", log.Data{"evaluation": id})
-			return &AllocationAbortedError{evaluationID: id}
+			log.InfoC(deploymentID, "bailing on deployment allocations", log.Data{"evaluation": evaluationID})
+			return &AllocationAbortedError{evaluationID: evaluationID}
 		case <-timeout:
 			return &TimeoutError{action: "allocation"}
 		case <-ticker:
 			var allocations []api.Allocation
-			if err := d.get(fmt.Sprintf(allocURL, d.endpoint, id), &allocations); err != nil {
+			if err := d.get(fmt.Sprintf(allocURL, d.endpoint, evaluationID), &allocations); err != nil {
 				return err
 			}
 			pending, running := sumAllocations(&allocations)
 			if pending > 0 {
-				log.Trace("allocations still pending", log.Data{"evaluation": id, "pending": pending, "total": len(allocations)})
+				log.TraceC(deploymentID, "allocations still pending", log.Data{"evaluation": evaluationID, "pending": pending, "total": len(allocations)})
 				continue
 			}
 			if running == len(allocations) {
-				log.Trace("all allocations running", log.Data{"evaluation": id, "running": running, "total": len(allocations)})
+				log.TraceC(deploymentID, "all allocations running", log.Data{"evaluation": evaluationID, "running": running, "total": len(allocations)})
 				return nil
 			}
 			return &AllocationError{pending, running, len(allocations)}
@@ -180,35 +180,35 @@ func sumAllocations(allocations *[]api.Allocation) (pending, running int) {
 	return
 }
 
-func (d *Deployment) evaluation(ctx context.Context, id string) error {
+func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID string) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Evaluation)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("bailing on deployment evaluation", log.Data{"evaluation": id})
-			return &EvaluationAbortedError{id: id}
+			log.InfoC(deploymentID, "bailing on deployment evaluation", log.Data{"evaluation": evaluationID})
+			return &EvaluationAbortedError{id: evaluationID}
 		case <-timeout:
 			return &TimeoutError{action: "evaluation"}
 		case <-ticker:
 			var evaluation api.Evaluation
-			if err := d.get(fmt.Sprintf(evalURL, d.endpoint, id), &evaluation); err != nil {
+			if err := d.get(fmt.Sprintf(evalURL, d.endpoint, evaluationID), &evaluation); err != nil {
 				return err
 			}
 			if evaluation.Status == statusPending {
-				log.Trace("waiting for evaluation to be scheduled", log.Data{"id": evaluation.ID})
+				log.TraceC(deploymentID, "waiting for evaluation to be scheduled", log.Data{"id": evaluation.ID})
 				continue
 			}
 			if evaluation.Status != statusComplete {
 				return &EvaluationError{id: evaluation.ID}
 			}
-			log.Trace("evaluation complete", log.Data{"id": evaluation.ID})
+			log.TraceC(deploymentID, "evaluation complete", log.Data{"id": evaluation.ID})
 			if len(evaluation.NextEval) == 0 {
 				return nil
 			}
-			log.Info("waiting for next evaluation", log.Data{"id": evaluation.ID, "next evaluation": evaluation.NextEval})
-			return d.monitor(ctx, evaluation.NextEval)
+			log.InfoC(deploymentID, "waiting for next evaluation", log.Data{"id": evaluation.ID, "next evaluation": evaluation.NextEval})
+			return d.monitor(ctx, deploymentID, evaluation.NextEval)
 		default:
 		}
 	}

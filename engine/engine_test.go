@@ -54,8 +54,8 @@ func (m *mockProducer) SendMessage(body string) error {
 }
 
 var (
-	invalidMessage = &sqs.Message{Body: aws.String(""), MessageId: aws.String(""), ReceiptHandle: aws.String("")}
-	validMessage   = &sqs.Message{Body: aws.String(`{"type": "test"}`), MessageId: aws.String(""), ReceiptHandle: aws.String("")}
+	invalidMessage = &sqs.Message{Body: aws.String(""), MessageId: aws.String("100"), ReceiptHandle: aws.String("")}
+	validMessage   = &sqs.Message{Body: aws.String(`{"type": "test"}`), MessageId: aws.String("200"), ReceiptHandle: aws.String("")}
 )
 
 func TestNew(t *testing.T) {
@@ -103,8 +103,9 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			ErrHandler = func(err error) {
+			ErrHandler = func(messageID string, err error) {
 				cancel()
+				c.So(messageID, ShouldEqual, "")
 				c.So(err.Error(), ShouldEqual, "test consume error")
 			}
 
@@ -121,13 +122,14 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			ErrHandler = func(err error) {
+			ErrHandler = func(messageID string, err error) {
 				cancel()
+				c.So(messageID, ShouldEqual, "100")
 				c.So(err.Error(), ShouldEqual, "unexpected end of JSON input")
 			}
 
 			e.Start(ctx)
-			c.So(producer.message, ShouldEqual, `{"Error":"unexpected end of JSON input","ID":"","Success":false}`)
+			c.So(producer.message, ShouldEqual, `{"Error":"unexpected end of JSON input","ID":"100","Success":false}`)
 		})
 	}))
 
@@ -139,13 +141,14 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			ErrHandler = func(err error) {
+			ErrHandler = func(messageID string, err error) {
 				cancel()
+				c.So(messageID, ShouldEqual, "200")
 				c.So(err.Error(), ShouldEqual, "missing handler for message type: test")
 			}
 
 			e.Start(ctx)
-			c.So(producer.message, ShouldEqual, `{"Error":"missing handler for message type: test","ID":"","Success":false}`)
+			c.So(producer.message, ShouldEqual, `{"Error":"missing handler for message type: test","ID":"200","Success":false}`)
 		})
 	}))
 
@@ -160,13 +163,14 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			ErrHandler = func(err error) {
+			ErrHandler = func(messageID string, err error) {
 				cancel()
+				c.So(messageID, ShouldEqual, "200")
 				c.So(err.Error(), ShouldEqual, "test handler error")
 			}
 
 			e.Start(ctx)
-			So(producer.message, ShouldEqual, `{"Error":"test handler error","ID":"","Success":false}`)
+			So(producer.message, ShouldEqual, `{"Error":"test handler error","ID":"200","Success":false}`)
 		})
 	}))
 
@@ -189,7 +193,7 @@ func TestStart(t *testing.T) {
 			}()
 
 			e.Start(ctx)
-			So(producer.message, ShouldEqual, `{"ID":"","Success":true}`)
+			So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
 		})
 	}))
 }
