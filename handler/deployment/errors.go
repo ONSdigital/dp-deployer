@@ -2,7 +2,7 @@ package deployment
 
 import "fmt"
 
-// AllocationError is an error implementation that includes pending, runnning and total
+// AllocationError is an error implementation that includes pending, running and total
 // allocation counts.
 type AllocationError struct {
 	pending int
