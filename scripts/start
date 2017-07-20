@@ -1,0 +1,10 @@
+#!/bin/bash -eux
+
+export AWS_DEFAULT_REGION=eu-west-1
+export CONSUMER_QUEUE=$ENV-inbound-service-events
+export CONSUMER_QUEUE_URL=https://sqs.eu-west-1.amazonaws.com/352437599875/$ENV-inbound-service-events
+export DEPLOYMENT_ROOT=$NOMAD_TASK_DIR
+export HUMAN_LOG=1
+export PRODUCER_QUEUE=$ENV-service-event-results
+
+$NOMAD_TASK_DIR/awdry
