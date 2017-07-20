@@ -3,10 +3,10 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "6fUdWo5ZbK92UFDHZnsqP8uzGfg=",
+			"checksumSHA1": "MYIVbAAzofS3fPCRAN0S6jnjNaw=",
 			"path": "github.com/LloydGriffiths/ssqs",
-			"revision": "66d88a8477b56e83ea008223a3c180e8ea05c7e5",
-			"revisionTime": "2017-06-29T07:17:32Z"
+			"revision": "643bf97d9e145229150ecdb53d1fe5bc65f3f83e",
+			"revisionTime": "2017-07-20T06:23:23Z"
 		},
 		{
 			"checksumSHA1": "AjbjbhFVAOP/1NU5HL+uy+X/yJo=",

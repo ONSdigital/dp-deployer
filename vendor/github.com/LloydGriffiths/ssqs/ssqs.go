@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
 
-// DefaultClient ...
+// DefaultClient returns a new SQS client.
 var DefaultClient = func(q *Queue) sqsiface.SQSAPI {
 	return sqs.New(session.New(), &aws.Config{Region: &q.Region})
 }
