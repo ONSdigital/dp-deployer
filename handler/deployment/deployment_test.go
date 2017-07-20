@@ -18,6 +18,8 @@ var (
 	allocationRunning  = `[{"ClientStatus": "running"}]`
 	evaluationComplete = `{"Status": "complete"}`
 	evaluationError    = `{"ID": "12345", "Status": "failed"}`
+	evaluationWithNext = `{"ID": "12345", "Status": "complete", "NextEval": "67890"}`
+	evaluationNext     = `{"ID": "67890", "Status": "complete}`
 	evaluationPending  = `{"ID": "12345", "Status": "pending"}`
 	jobSuccess         = `{"EvalID": "12345"}`
 	planErrors         = `{"FailedTGAllocs": { "test": {} } }`
@@ -203,6 +205,18 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationRunning))
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				err := dep.run(ctx, &engine.Message{ID: "test", Service: "test"})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("successful allocations handled correctly for multiple evaluations", func() {
+				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationWithNext))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/67890", httpmock.NewStringResponder(200, evaluationComplete))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationRunning))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/67890/allocations", httpmock.NewStringResponder(200, allocationRunning))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "test", Service: "test"})
 				So(err, ShouldBeNil)
