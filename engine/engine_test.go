@@ -76,10 +76,12 @@ func TestNew(t *testing.T) {
 
 	for _, test := range tests {
 		Convey("an error is returned with misconfiguration", t, func() {
+			os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 			e, err := New(test.input, nil)
 			So(e, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, test.expected)
+			os.Unsetenv("AWS_CREDENTIAL_FILE")
 		})
 	}
 

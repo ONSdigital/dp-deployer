@@ -33,10 +33,12 @@ func TestNew(t *testing.T) {
 	}
 
 	Convey("an error is returned with misconfiguration", t, func() {
+		os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 		d, err := New(&Config{"foo", "bar", "baz", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
+		os.Unsetenv("AWS_CREDENTIAL_FILE")
 	})
 
 	withEnv(func() {
