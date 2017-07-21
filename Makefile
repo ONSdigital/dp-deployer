@@ -1,7 +1,10 @@
 clean:
 	@rm -f latest.tar.gz awdry
 
-build: clean
+test:
+	@go test -v -cover $(shell go list ./... | grep -v vendor)
+
+build: clean test
 	@GOOS=linux GOARCH=amd64 go build -o awdry cmd/awdry/main.go
 
 package: build
