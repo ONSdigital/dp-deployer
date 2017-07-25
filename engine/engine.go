@@ -43,11 +43,11 @@ type Engine struct {
 
 // Message represents a message that has been consumed.
 type Message struct {
-	Artifact string
-	Bucket   string
-	ID       string `json:"-"`
-	Service  string
-	Type     string
+	Artifacts []string
+	Bucket    string
+	ID        string `json:"-"`
+	Service   string
+	Type      string
 }
 
 type response struct {

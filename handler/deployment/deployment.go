@@ -84,7 +84,7 @@ func New(c *Config) (*Deployment, error) {
 
 // Handler handles deployment messages that are delegated by the engine.
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
-	b, err := d.client.Bucket(msg.Bucket).Get(msg.Artifact)
+	b, err := d.client.Bucket(msg.Bucket).Get(msg.Artifacts[0])
 	if err != nil {
 		return err
 	}
