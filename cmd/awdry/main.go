@@ -19,6 +19,7 @@ var (
 	consumerQueueURL = flag.String("consumer-queue-url", "", "sqs queue url")
 	deploymentRoot   = flag.String("deployment-root", "", "root deployment directory")
 	nomadEndpoint    = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
+	privateKeyPath   = flag.String("private-key-path", "", "path to private key")
 	producerQueue    = flag.String("producer-queue", "", "sqs producer queue name")
 	region           = flag.String("aws-default-region", "", "sqs queue region")
 )
@@ -29,26 +30,21 @@ func main() {
 	log.Namespace = "awdry"
 	flag.Parse()
 
-	dc := &deployment.Config{
-		DeploymentRoot: *deploymentRoot,
-		NomadEndpoint:  *nomadEndpoint,
-		Region:         *region,
+	h, err := initHandlers()
+	if err != nil {
+		log.Error(err, nil)
+		os.Exit(1)
 	}
+
 	ec := &engine.Config{
 		ConsumerQueue:    *consumerQueue,
 		ConsumerQueueURL: *consumerQueueURL,
 		ProducerQueue:    *producerQueue,
 		Region:           *region,
 	}
-
-	h, err := deployment.New(dc)
+	e, err := engine.New(ec, h)
 	if err != nil {
-		log.Error(err, log.Data{"configuration": dc})
-		os.Exit(1)
-	}
-	e, err := engine.New(ec, map[string]engine.HandlerFunc{"deployment": h.Handler, "secret": secret.Handler})
-	if err != nil {
-		log.Error(err, log.Data{"configuration": ec})
+		log.Error(err, nil)
 		os.Exit(1)
 	}
 
@@ -66,4 +62,30 @@ func main() {
 	log.Info("received exit signal", log.Data{"signal": sig})
 	cancel()
 	wg.Wait()
+}
+
+func initHandlers() (map[string]engine.HandlerFunc, error) {
+	dc := &deployment.Config{
+		DeploymentRoot: *deploymentRoot,
+		NomadEndpoint:  *nomadEndpoint,
+		Region:         *region,
+	}
+	d, err := deployment.New(dc)
+	if err != nil {
+		return nil, err
+	}
+
+	sc := &secret.Config{
+		PrivateKeyPath: *privateKeyPath,
+		Region:         *region,
+	}
+	s, err := secret.New(sc)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]engine.HandlerFunc{
+		"deployment": d.Handler,
+		"secret":     s.Handler,
+	}, nil
 }
