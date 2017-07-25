@@ -9,6 +9,7 @@ import (
 
 	"github.com/ONSdigital/dp-ci/awdry/engine"
 	"github.com/ONSdigital/dp-ci/awdry/handler/deployment"
+	"github.com/ONSdigital/dp-ci/awdry/handler/secret"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/namsral/flag"
 )
@@ -45,7 +46,7 @@ func main() {
 		log.Error(err, log.Data{"configuration": dc})
 		os.Exit(1)
 	}
-	e, err := engine.New(ec, map[string]engine.HandlerFunc{"deployment": h.Handler})
+	e, err := engine.New(ec, map[string]engine.HandlerFunc{"deployment": h.Handler, "secret": secret.Handler})
 	if err != nil {
 		log.Error(err, log.Data{"configuration": ec})
 		os.Exit(1)
