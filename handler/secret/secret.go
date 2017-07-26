@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -54,38 +55,61 @@ func New(c *Config) (*Secret, error) {
 // Handler handles secret messages that are delegated by the engine.
 func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	for _, artifact := range msg.Artifacts {
-		a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)
+		a, err := s.dearmorArtifact(msg.Bucket, artifact)
 		if err != nil {
 			return err
 		}
-		b, err := armor.Decode(bytes.NewReader(a))
+		m, err := s.decryptArtifact(a.Body)
 		if err != nil {
 			return err
 		}
-		m, err := openpgp.ReadMessage(b.Body, s.pgpEntities, nil, nil)
-		if err != nil {
-			return err
-		}
-		d, err := ioutil.ReadAll(m.UnverifiedBody)
-		if err != nil {
-			return err
-		}
-
-		var j map[string]interface{}
-		if err := json.Unmarshal(d, &j); err != nil {
-			return err
-		}
-
-		ps := strings.Split(artifact, "/")
-		fs := strings.Split(ps[1], ".")
-		log.Trace("writing secret", log.Data{"object": artifact, "secret": fs[0]})
-
-		if _, err := s.vault.Write(fmt.Sprintf("secret/%s", fs[0]), j); err != nil {
+		if err := s.write(pathFor(artifact), m); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (s *Secret) dearmorArtifact(bucket, artifact string) (*armor.Block, error) {
+	a, err := s.s3Client.Bucket(bucket).Get(artifact)
+	if err != nil {
+		return nil, err
+	}
+	b, err := armor.Decode(bytes.NewReader(a))
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (s *Secret) decryptArtifact(body io.Reader) ([]byte, error) {
+	m, err := openpgp.ReadMessage(body, s.pgpEntities, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	d, err := ioutil.ReadAll(m.UnverifiedBody)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+func (s *Secret) write(path string, secret []byte) error {
+	log.Trace("writing secret", log.Data{"secret": path})
+
+	var j map[string]interface{}
+	if err := json.Unmarshal(secret, &j); err != nil {
+		return err
+	}
+	if _, err := s.vault.Write(fmt.Sprintf("secret/%s", path), j); err != nil {
+		return err
+	}
+	return nil
+}
+
+func pathFor(artifact string) string {
+	return strings.Split(strings.Split(artifact, "/")[1], ".")[0]
 }
 
 func entityList(path string) (openpgp.EntityList, error) {
@@ -103,6 +127,5 @@ func entityList(path string) (openpgp.EntityList, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return openpgp.EntityList{e}, nil
 }
