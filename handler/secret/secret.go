@@ -23,11 +23,20 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
+// AbortedError is an error implementation that includes the id of the aborted message.
+type AbortedError struct {
+	id string
+}
+
+func (e *AbortedError) Error() string {
+	return fmt.Sprintf("aborted updating secrets for message %s", e.id)
+}
+
 // Secret represents a secret.
 type Secret struct {
-	pgpEntities openpgp.EntityList
-	s3Client    *s3.S3
-	vault       *api.Logical
+	entities openpgp.EntityList
+	s3Client *s3.S3
+	vault    *api.Logical
 }
 
 // New returns a new secret.
@@ -46,28 +55,34 @@ func New(c *Config) (*Secret, error) {
 	}
 
 	return &Secret{
-		pgpEntities: e,
-		s3Client:    s3.New(a, aws.Regions[c.Region], http.DefaultClient),
-		vault:       v.Logical(),
+		entities: e,
+		s3Client: s3.New(a, aws.Regions[c.Region], http.DefaultClient),
+		vault:    v.Logical(),
 	}, nil
 }
 
 // Handler handles secret messages that are delegated by the engine.
 func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	for _, artifact := range msg.Artifacts {
-		a, err := s.dearmorArtifact(msg.Bucket, artifact)
-		if err != nil {
-			return err
-		}
-		m, err := s.decryptArtifact(a.Body)
-		if err != nil {
-			return err
-		}
-		if err := s.write(pathFor(artifact), m); err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			log.InfoC(msg.ID, "bailing on updating secrets", nil)
+			return &AbortedError{id: msg.ID}
+		default:
+			a, err := s.dearmorArtifact(msg.Bucket, artifact)
+			if err != nil {
+				return err
+			}
+			m, err := s.decryptArtifact(a.Body)
+			if err != nil {
+				return err
+			}
+			log.TraceC(msg.ID, "writing secret", log.Data{"artifact": artifact})
+			if err := s.write(pathFor(artifact), m); err != nil {
+				return err
+			}
 		}
 	}
-
 	return nil
 }
 
@@ -84,7 +99,7 @@ func (s *Secret) dearmorArtifact(bucket, artifact string) (*armor.Block, error) 
 }
 
 func (s *Secret) decryptArtifact(body io.Reader) ([]byte, error) {
-	m, err := openpgp.ReadMessage(body, s.pgpEntities, nil, nil)
+	m, err := openpgp.ReadMessage(body, s.entities, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,8 +111,6 @@ func (s *Secret) decryptArtifact(body io.Reader) ([]byte, error) {
 }
 
 func (s *Secret) write(path string, secret []byte) error {
-	log.Trace("writing secret", log.Data{"secret": path})
-
 	var j map[string]interface{}
 	if err := json.Unmarshal(secret, &j); err != nil {
 		return err
