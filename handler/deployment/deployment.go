@@ -78,7 +78,7 @@ func New(c *Config) (*Deployment, error) {
 	}
 
 	return &Deployment{
-		client:   s3.New(a, aws.Regions[c.Region], http.DefaultClient),
+		client:   s3.New(a, aws.Regions[c.Region], HTTPClient),
 		root:     c.DeploymentRoot,
 		endpoint: c.NomadEndpoint,
 		timeout:  c.Timeout,
@@ -236,7 +236,7 @@ func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error 
 	if err != nil {
 		return err
 	}
-	r, err := http.DefaultClient.Post(url, "application/json", bytes.NewReader(j))
+	r, err := HTTPClient.Post(url, "application/json", bytes.NewReader(j))
 	if err != nil {
 		return err
 	}
