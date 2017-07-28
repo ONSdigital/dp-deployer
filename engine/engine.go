@@ -87,7 +87,7 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 			Name:              c.ConsumerQueue,
 			Region:            c.Region,
 			URL:               c.ConsumerQueueURL,
-			VisibilityTimeout: 1800, // 30 minutes
+			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
 		}),
 	}
 
