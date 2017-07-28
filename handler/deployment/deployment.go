@@ -46,6 +46,9 @@ type payload struct {
 	Job *api.Job
 }
 
+// HTTPClient is the default http client.
+var HTTPClient = &http.Client{Timeout: time.Second * 10}
+
 // Deployment represents a deployment.
 type Deployment struct {
 	client   *s3.S3
@@ -221,7 +224,7 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 }
 
 func (d *Deployment) get(url string, v interface{}) error {
-	r, err := http.DefaultClient.Get(url)
+	r, err := HTTPClient.Get(url)
 	if err != nil {
 		return err
 	}
