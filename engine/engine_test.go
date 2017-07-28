@@ -58,6 +58,14 @@ var (
 	validMessage      = &sqs.Message{Body: aws.String(`{"type": "test"}`), MessageId: aws.String("200"), ReceiptHandle: aws.String("")}
 )
 
+type testHandlerError struct {
+	Field1, Field2 string
+}
+
+func (e *testHandlerError) Error() string {
+	return "test handler error"
+}
+
 func TestNew(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short test run - skipping")
@@ -128,7 +136,7 @@ func TestStart(t *testing.T) {
 					}
 
 					e.Start(ctx)
-					c.So(producer.message, ShouldEqual, `{"Error":"unexpected end of JSON input","ID":"100","Success":false}`)
+					c.So(producer.message, ShouldEqual, `{"Error":{"Data":{"Offset":0},"Message":"unexpected end of JSON input"},"ID":"100","Success":false}`)
 				})
 			})
 
@@ -140,11 +148,11 @@ func TestStart(t *testing.T) {
 					ErrHandler = func(messageID string, err error) {
 						cancel()
 						c.So(messageID, ShouldEqual, "200")
-						c.So(err.Error(), ShouldEqual, "missing handler for message type: test")
+						c.So(err.Error(), ShouldEqual, "missing handler for message")
 					}
 
 					e.Start(ctx)
-					c.So(producer.message, ShouldEqual, `{"Error":"missing handler for message type: test","ID":"200","Success":false}`)
+					c.So(producer.message, ShouldEqual, `{"Error":{"Data":{"MessageType":"test"},"Message":"missing handler for message"},"ID":"200","Success":false}`)
 				})
 			})
 
@@ -153,7 +161,7 @@ func TestStart(t *testing.T) {
 					e, err := setup()
 					So(err, ShouldBeNil)
 
-					hfunction := func(ctx context.Context, msg *Message) error { return errors.New("test handler error") }
+					hfunction := func(ctx context.Context, msg *Message) error { return &testHandlerError{"foo", "bar"} }
 					e.handlers = map[string]HandlerFunc{"test": hfunction}
 					ErrHandler = func(messageID string, err error) {
 						cancel()
@@ -162,7 +170,7 @@ func TestStart(t *testing.T) {
 					}
 
 					e.Start(ctx)
-					So(producer.message, ShouldEqual, `{"Error":"test handler error","ID":"200","Success":false}`)
+					So(producer.message, ShouldEqual, `{"Error":{"Data":{"Field1":"foo","Field2":"bar"},"Message":"test handler error"},"ID":"200","Success":false}`)
 				})
 			})
 

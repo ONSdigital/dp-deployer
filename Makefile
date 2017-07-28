@@ -13,4 +13,4 @@ package: build
 publish: package
 	@aws s3 cp latest.tar.gz s3://ons-dp-deployments/awdry/
 
-.PHONY: clean build package publish
+.PHONY: clean test build package publish

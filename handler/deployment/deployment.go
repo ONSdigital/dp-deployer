@@ -46,6 +46,9 @@ type payload struct {
 	Job *api.Job
 }
 
+// HTTPClient is the default http client.
+var HTTPClient = &http.Client{Timeout: time.Second * 10}
+
 // Deployment represents a deployment.
 type Deployment struct {
 	client   *s3.S3
@@ -75,7 +78,7 @@ func New(c *Config) (*Deployment, error) {
 	}
 
 	return &Deployment{
-		client:   s3.New(a, aws.Regions[c.Region], http.DefaultClient),
+		client:   s3.New(a, aws.Regions[c.Region], HTTPClient),
 		root:     c.DeploymentRoot,
 		endpoint: c.NomadEndpoint,
 		timeout:  c.Timeout,
@@ -111,13 +114,13 @@ func (d *Deployment) plan(msg *engine.Message) error {
 		return nil
 	}
 	if len(res.Warnings) > 0 {
-		return &PlanError{service: msg.Service, warnings: res.Warnings}
+		return &PlanError{Service: msg.Service, Warnings: res.Warnings}
 	}
 	j, err := json.Marshal(res.FailedTGAllocs)
 	if err != nil {
 		return err
 	}
-	return &PlanError{errors: string(j), service: msg.Service}
+	return &PlanError{Errors: string(j), Service: msg.Service}
 }
 
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
@@ -151,9 +154,9 @@ func (d *Deployment) allocations(ctx context.Context, deploymentID, evaluationID
 		select {
 		case <-ctx.Done():
 			log.InfoC(deploymentID, "bailing on deployment allocations", log.Data{"evaluation": evaluationID})
-			return &AllocationAbortedError{evaluationID: evaluationID}
+			return &AllocationAbortedError{EvaluationID: evaluationID}
 		case <-timeout:
-			return &TimeoutError{action: "allocation"}
+			return &TimeoutError{Action: "allocation"}
 		case <-ticker:
 			var allocations []api.Allocation
 			if err := d.get(fmt.Sprintf(allocURL, d.endpoint, evaluationID), &allocations); err != nil {
@@ -194,9 +197,9 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 		select {
 		case <-ctx.Done():
 			log.InfoC(deploymentID, "bailing on deployment evaluation", log.Data{"evaluation": evaluationID})
-			return &EvaluationAbortedError{id: evaluationID}
+			return &EvaluationAbortedError{ID: evaluationID}
 		case <-timeout:
-			return &TimeoutError{action: "evaluation"}
+			return &TimeoutError{Action: "evaluation"}
 		case <-ticker:
 			var evaluation api.Evaluation
 			if err := d.get(fmt.Sprintf(evalURL, d.endpoint, evaluationID), &evaluation); err != nil {
@@ -207,7 +210,7 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 				continue
 			}
 			if evaluation.Status != statusComplete {
-				return &EvaluationError{id: evaluation.ID}
+				return &EvaluationError{ID: evaluation.ID}
 			}
 			log.TraceC(deploymentID, "evaluation complete", log.Data{"id": evaluation.ID})
 			if len(evaluation.NextEval) == 0 {
@@ -221,7 +224,7 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 }
 
 func (d *Deployment) get(url string, v interface{}) error {
-	r, err := http.DefaultClient.Get(url)
+	r, err := HTTPClient.Get(url)
 	if err != nil {
 		return err
 	}
@@ -233,7 +236,7 @@ func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error 
 	if err != nil {
 		return err
 	}
-	r, err := http.DefaultClient.Post(url, "application/json", bytes.NewReader(j))
+	r, err := HTTPClient.Post(url, "application/json", bytes.NewReader(j))
 	if err != nil {
 		return err
 	}
@@ -248,7 +251,7 @@ func unmarshalAPIResponse(r *http.Response, v interface{}) error {
 		return err
 	}
 	if r.StatusCode != http.StatusOK {
-		return &ClientResponseError{body: string(b), statusCode: r.StatusCode}
+		return &ClientResponseError{Body: string(b), StatusCode: r.StatusCode}
 	}
 	if err := json.Unmarshal(b, v); err != nil {
 		return err

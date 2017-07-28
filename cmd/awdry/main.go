@@ -48,6 +48,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	sigC := make(chan os.Signal)
+	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	wg.Add(1)
@@ -56,9 +59,7 @@ func main() {
 		e.Start(ctx)
 	}()
 
-	chn := make(chan os.Signal)
-	signal.Notify(chn, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-	sig := <-chn
+	sig := <-sigC
 	log.Info("received exit signal", log.Data{"signal": sig})
 	cancel()
 	wg.Wait()
