@@ -11,7 +11,7 @@ job "awdry" {
   group "management" {
     count = 1
 
-    task "runner" {
+    task "awdry" {
       driver = "exec"
 
       artifact {
@@ -19,7 +19,11 @@ job "awdry" {
       }
 
       config {
-        command = "${NOMAD_TASK_DIR}/scripts/start"
+        command = "${NOMAD_TASK_DIR}/start-task"
+
+        args = [
+          "${NOMAD_TASK_DIR}/awdry",
+        ]
       }
 
       service {
@@ -30,6 +34,11 @@ job "awdry" {
       resources {
         cpu    = 500
         memory = 512
+      }
+
+      template {
+        source      = "${NOMAD_TASK_DIR}/vars-template"
+        destination = "${NOMAD_TASK_DIR}/vars"
       }
 
       vault {
