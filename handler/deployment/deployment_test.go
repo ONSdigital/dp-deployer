@@ -73,7 +73,7 @@ func TestPlan(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646"}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "unexpected response from client (500): server error")
+				So(err.Error(), ShouldEqual, "unexpected response from client")
 			})
 
 			Convey("plan warnings handled correctly", func() {
@@ -81,7 +81,7 @@ func TestPlan(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646"}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldContainSubstring, "plan for service test generated errors or warnings")
+				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
 			})
 
 			Convey("plan allocation errors handled correctly", func() {
@@ -89,7 +89,7 @@ func TestPlan(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646"}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldContainSubstring, "plan for service test generated errors or warnings")
+				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
 			})
 
 			Convey("valid plans handled correctly", func() {
@@ -115,7 +115,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646"}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "unexpected response from client (500): server error")
+				So(err.Error(), ShouldEqual, "unexpected response from client")
 				cancel()
 			})
 
@@ -125,7 +125,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "unexpected response from client (403): client error")
+				So(err.Error(), ShouldEqual, "unexpected response from client")
 				cancel()
 			})
 
@@ -135,7 +135,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "error occurred for evaluation: 12345")
+				So(err.Error(), ShouldEqual, "error occurred for evaluation")
 				cancel()
 			})
 
@@ -145,7 +145,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "timed out waiting for action to complete: evaluation")
+				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
 				cancel()
 			})
 
@@ -156,7 +156,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "aborted monitoring evaluation: 12345")
+				So(err.Error(), ShouldEqual, "aborted monitoring evaluation")
 			})
 
 			Convey("allocation api errors handled correctly", func() {
@@ -166,7 +166,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "unexpected response from client (500): server error")
+				So(err.Error(), ShouldEqual, "unexpected response from client")
 				cancel()
 			})
 
@@ -177,7 +177,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "failed to start all allocations (pending: 0, running: 0, total: 1)")
+				So(err.Error(), ShouldEqual, "failed to start all allocations")
 				cancel()
 			})
 
@@ -188,7 +188,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "timed out waiting for action to complete: allocation")
+				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
 				cancel()
 			})
 
@@ -200,7 +200,7 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "aborted monitoring allocations for evaluation 12345")
+				So(err.Error(), ShouldEqual, "aborted monitoring allocations for evaluation")
 			})
 
 			Convey("successful allocations handled correctly", func() {

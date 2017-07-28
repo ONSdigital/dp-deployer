@@ -114,13 +114,13 @@ func (d *Deployment) plan(msg *engine.Message) error {
 		return nil
 	}
 	if len(res.Warnings) > 0 {
-		return &PlanError{service: msg.Service, warnings: res.Warnings}
+		return &PlanError{Service: msg.Service, Warnings: res.Warnings}
 	}
 	j, err := json.Marshal(res.FailedTGAllocs)
 	if err != nil {
 		return err
 	}
-	return &PlanError{errors: string(j), service: msg.Service}
+	return &PlanError{Errors: string(j), Service: msg.Service}
 }
 
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
@@ -154,9 +154,9 @@ func (d *Deployment) allocations(ctx context.Context, deploymentID, evaluationID
 		select {
 		case <-ctx.Done():
 			log.InfoC(deploymentID, "bailing on deployment allocations", log.Data{"evaluation": evaluationID})
-			return &AllocationAbortedError{evaluationID: evaluationID}
+			return &AllocationAbortedError{EvaluationID: evaluationID}
 		case <-timeout:
-			return &TimeoutError{action: "allocation"}
+			return &TimeoutError{Action: "allocation"}
 		case <-ticker:
 			var allocations []api.Allocation
 			if err := d.get(fmt.Sprintf(allocURL, d.endpoint, evaluationID), &allocations); err != nil {
@@ -197,9 +197,9 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 		select {
 		case <-ctx.Done():
 			log.InfoC(deploymentID, "bailing on deployment evaluation", log.Data{"evaluation": evaluationID})
-			return &EvaluationAbortedError{id: evaluationID}
+			return &EvaluationAbortedError{ID: evaluationID}
 		case <-timeout:
-			return &TimeoutError{action: "evaluation"}
+			return &TimeoutError{Action: "evaluation"}
 		case <-ticker:
 			var evaluation api.Evaluation
 			if err := d.get(fmt.Sprintf(evalURL, d.endpoint, evaluationID), &evaluation); err != nil {
@@ -210,7 +210,7 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 				continue
 			}
 			if evaluation.Status != statusComplete {
-				return &EvaluationError{id: evaluation.ID}
+				return &EvaluationError{ID: evaluation.ID}
 			}
 			log.TraceC(deploymentID, "evaluation complete", log.Data{"id": evaluation.ID})
 			if len(evaluation.NextEval) == 0 {
@@ -251,7 +251,7 @@ func unmarshalAPIResponse(r *http.Response, v interface{}) error {
 		return err
 	}
 	if r.StatusCode != http.StatusOK {
-		return &ClientResponseError{body: string(b), statusCode: r.StatusCode}
+		return &ClientResponseError{Body: string(b), StatusCode: r.StatusCode}
 	}
 	if err := json.Unmarshal(b, v); err != nil {
 		return err

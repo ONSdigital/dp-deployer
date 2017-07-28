@@ -2,7 +2,6 @@ package engine
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
@@ -18,9 +17,9 @@ var (
 
 // MissingHandlerError is an error implementation that includes a consumed message type.
 type MissingHandlerError struct {
-	messageType string
+	MessageType string
 }
 
 func (e *MissingHandlerError) Error() string {
-	return fmt.Sprintf("missing handler for message type: %s", e.messageType)
+	return "missing handler for message"
 }

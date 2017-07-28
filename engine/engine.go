@@ -51,9 +51,14 @@ type Message struct {
 }
 
 type response struct {
-	Error   *string `json:"Error,omitempty"`
+	Error   *responseError `json:"Error,omitempty"`
 	ID      string
 	Success bool
+}
+
+type responseError struct {
+	Data    error
+	Message string
 }
 
 // HandlerFunc represents a function that is applied to a consumed message.
@@ -165,8 +170,7 @@ func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
 PostHandle:
 	result := &response{ID: msg.ID, Success: success}
 	if err != nil {
-		errs := err.Error()
-		result.Error = &errs
+		result.Error = &responseError{Data: err, Message: err.Error()}
 	}
 	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
 	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
