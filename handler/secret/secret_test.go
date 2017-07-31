@@ -1,14 +1,17 @@
 package secret
 
 import (
+	"context"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
+	. "github.com/smartystreets/goconvey/convey"
+
 	httpmock "gopkg.in/jarcoal/httpmock.v1"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/ONSdigital/dp-ci/awdry/engine"
 )
 
 var testMessage = `-----BEGIN PGP MESSAGE-----
@@ -190,6 +193,25 @@ func TestWrite(t *testing.T) {
 					So(err, ShouldNotBeNil)
 					So(err.Error(), ShouldStartWith, "Error making API request")
 				})
+			})
+		})
+	})
+}
+
+func TestContext(t *testing.T) {
+	withEnv(func() {
+		withMocks(func() {
+			Convey("handler behaives correctly when context is cancelled", t, func() {
+				s, err := New(&Config{"", "eu-west-1"})
+				So(err, ShouldBeNil)
+				So(s, ShouldNotBeNil)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+
+				err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted updating secrets for message")
 			})
 		})
 	})
