@@ -34,6 +34,9 @@ func (e *AbortedError) Error() string {
 	return "aborted updating secrets for message"
 }
 
+// HTTPClient is the default http client.
+var HTTPClient = &http.Client{Timeout: time.Second * 10}
+
 // Secret represents a secret.
 type Secret struct {
 	entities openpgp.EntityList
@@ -66,7 +69,7 @@ func New(c *Config) (*Secret, error) {
 
 	return &Secret{
 		entities: e,
-		s3Client: s3.New(a, aws.Regions[c.Region], http.DefaultClient),
+		s3Client: s3.New(a, aws.Regions[c.Region], HTTPClient),
 		vault:    v.Logical(),
 	}, nil
 }
