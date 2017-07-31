@@ -23,13 +23,15 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
+var keyReader func() (io.Reader, error)
+
 // AbortedError is an error implementation that includes the id of the aborted message.
 type AbortedError struct {
-	id string
+	ID string
 }
 
 func (e *AbortedError) Error() string {
-	return fmt.Sprintf("aborted updating secrets for message %s", e.id)
+	return "aborted updating secrets for message"
 }
 
 // Secret represents a secret.
@@ -41,7 +43,15 @@ type Secret struct {
 
 // New returns a new secret.
 func New(c *Config) (*Secret, error) {
-	e, err := entityList(c.PrivateKeyPath)
+	if keyReader == nil {
+		keyReader = fsKeyReader(c.PrivateKeyPath)
+	}
+
+	r, err := keyReader()
+	if err != nil {
+		return nil, err
+	}
+	e, err := entityList(r)
 	if err != nil {
 		return nil, err
 	}
@@ -67,18 +77,18 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 		select {
 		case <-ctx.Done():
 			log.InfoC(msg.ID, "bailing on updating secrets", nil)
-			return &AbortedError{id: msg.ID}
+			return &AbortedError{ID: msg.ID}
 		default:
-			a, err := s.dearmorArtifact(msg.Bucket, artifact)
+			a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)
 			if err != nil {
 				return err
 			}
-			m, err := s.decryptArtifact(a.Body)
+			d, err := s.decryptMessage(a)
 			if err != nil {
 				return err
 			}
 			log.TraceC(msg.ID, "writing secret", log.Data{"artifact": artifact})
-			if err := s.write(pathFor(artifact), m); err != nil {
+			if err := s.write(pathFor(artifact), d); err != nil {
 				return err
 			}
 		}
@@ -86,20 +96,12 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-func (s *Secret) dearmorArtifact(bucket, artifact string) (*armor.Block, error) {
-	a, err := s.s3Client.Bucket(bucket).Get(artifact)
+func (s *Secret) decryptMessage(message []byte) ([]byte, error) {
+	a, err := dearmorMessage(bytes.NewReader(message))
 	if err != nil {
 		return nil, err
 	}
-	b, err := armor.Decode(bytes.NewReader(a))
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-func (s *Secret) decryptArtifact(body io.Reader) ([]byte, error) {
-	m, err := openpgp.ReadMessage(body, s.entities, nil, nil)
+	m, err := openpgp.ReadMessage(a.Body, s.entities, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -125,14 +127,19 @@ func pathFor(artifact string) string {
 	return strings.Split(strings.Split(artifact, "/")[1], ".")[0]
 }
 
-func entityList(path string) (openpgp.EntityList, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+func fsKeyReader(path string) func() (io.Reader, error) {
+	return func() (io.Reader, error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		return f, nil
 	}
-	defer f.Close()
+}
 
-	b, err := armor.Decode(f)
+func entityList(r io.Reader) (openpgp.EntityList, error) {
+	b, err := dearmorMessage(r)
 	if err != nil {
 		return nil, err
 	}
@@ -141,4 +148,12 @@ func entityList(path string) (openpgp.EntityList, error) {
 		return nil, err
 	}
 	return openpgp.EntityList{e}, nil
+}
+
+func dearmorMessage(reader io.Reader) (*armor.Block, error) {
+	b, err := armor.Decode(reader)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
