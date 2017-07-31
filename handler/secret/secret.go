@@ -144,12 +144,12 @@ func fsKeyReader(path string) func() (io.Reader, error) {
 	}
 }
 
-func entityList(r io.Reader) (openpgp.EntityList, error) {
-	if v, ok := r.(io.Closer); ok {
+func entityList(reader io.Reader) (openpgp.EntityList, error) {
+	if v, ok := reader.(io.Closer); ok {
 		defer v.Close()
 	}
 
-	b, err := dearmorMessage(r)
+	b, err := dearmorMessage(reader)
 	if err != nil {
 		return nil, err
 	}
