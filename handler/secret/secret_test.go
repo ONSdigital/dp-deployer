@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	httpmock "gopkg.in/jarcoal/httpmock.v1"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -161,7 +163,7 @@ func TestDecrypt(t *testing.T) {
 	})
 }
 
-/*func TestWrite(t *testing.T) {
+func TestWrite(t *testing.T) {
 	withEnv(func() {
 		withMocks(func() {
 			Convey("wite behaives correctly", t, func() {
@@ -174,7 +176,7 @@ func TestDecrypt(t *testing.T) {
 				So(m, ShouldNotBeNil)
 
 				httpmock.DeactivateAndReset()
-				httpmock.Activate()
+				httpmock.ActivateNonDefault(s.vaultHTTPClient)
 
 				Convey("writes secret correctly", func() {
 					httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(200, "{}"))
@@ -183,13 +185,15 @@ func TestDecrypt(t *testing.T) {
 				})
 
 				Convey("handles error correctly", func() {
+					httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(401, "{}"))
 					err := s.write("test", m)
 					So(err, ShouldNotBeNil)
+					So(err.Error(), ShouldStartWith, "Error making API request")
 				})
 			})
 		})
 	})
-}*/
+}
 
 func withEnv(f func()) {
 	defer os.Clearenv()

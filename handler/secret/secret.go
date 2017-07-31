@@ -23,8 +23,6 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
-var keyReader func() (io.Reader, error)
-
 // AbortedError is an error implementation that includes the id of the aborted message.
 type AbortedError struct {
 	ID string
@@ -34,14 +32,17 @@ func (e *AbortedError) Error() string {
 	return "aborted updating secrets for message"
 }
 
+var keyReader func() (io.Reader, error)
+
 // HTTPClient is the default http client.
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Secret represents a secret.
 type Secret struct {
-	entities openpgp.EntityList
-	s3Client *s3.S3
-	vault    *api.Logical
+	entities        openpgp.EntityList
+	s3Client        *s3.S3
+	vault           *api.Logical
+	vaultHTTPClient *http.Client
 }
 
 // New returns a new secret.
@@ -62,15 +63,18 @@ func New(c *Config) (*Secret, error) {
 	if err != nil {
 		return nil, err
 	}
-	v, err := api.NewClient(api.DefaultConfig())
+
+	vaultc := api.DefaultConfig()
+	v, err := api.NewClient(vaultc)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Secret{
-		entities: e,
-		s3Client: s3.New(a, aws.Regions[c.Region], HTTPClient),
-		vault:    v.Logical(),
+		entities:        e,
+		s3Client:        s3.New(a, aws.Regions[c.Region], HTTPClient),
+		vault:           v.Logical(),
+		vaultHTTPClient: vaultc.HttpClient,
 	}, nil
 }
 
