@@ -169,7 +169,7 @@ func TestDecrypt(t *testing.T) {
 func TestWrite(t *testing.T) {
 	withEnv(func() {
 		withMocks(func() {
-			Convey("wite behaives correctly", t, func() {
+			Convey("write behaves correctly", t, func() {
 				s, err := New(&Config{"", "eu-west-1"})
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
