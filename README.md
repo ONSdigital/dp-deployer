@@ -24,6 +24,6 @@ Currently the deployer needs to manually be scheduled as we have a bootstrapping
 * Tunnel to an instance running Nomad within the target environment from the `ansible` directory in `dp-setup`
   * `ssh -F ssh.cfg -L 4646:localhost:4646 <node-ip>`
 * Plan the tasks
-  * `nomad plam awdry.nomad`
+  * `nomad plan -address=https://localhost:4646 -ca-cert=<path-to-ca-cert> -client-cert=<path-to-client-cert> -client-key=<path-to-client-key> awdry.nomad`
 * Schedule the tasks
-  * `nomad run awdry.nomad`
+  * `nomad run -address=https://localhost:4646 -ca-cert=<path-to-ca-cert> -client-cert=<path-to-client-cert> -client-key=<path-to-client-key> awdry.nomad`
