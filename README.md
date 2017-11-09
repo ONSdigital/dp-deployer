@@ -22,8 +22,8 @@ The application also expects your AWS credentials to be configured.
 Currently the deployer needs to manually be scheduled as we have a bootstrapping issue
 
 * Tunnel to an instance running Nomad within the target environment from the `ansible` directory in `dp-setup`
-  * `ssh -F ssh.cfg -L 4646:localhost:4646 <node-ip>`
+  * `ssh -F ssh.cfg -L 4646:localhost:4646 -l <your user> <nomad client or server ip>`
 * Plan the tasks
-  * `nomad plan -address=https://localhost:4646 -ca-cert=<path-to-ca-cert> -client-cert=<path-to-client-cert> -client-key=<path-to-client-key> awdry.nomad`
+  * `nomad plan -address=https://localhost:4646 -tls-skip-verify awdry.nomad`
 * Schedule the tasks
-  * `nomad run -address=https://localhost:4646 -ca-cert=<path-to-ca-cert> -client-cert=<path-to-client-cert> -client-key=<path-to-client-key> awdry.nomad`
+  * `nomad run -address=https://localhost:4646 -tls-skip-verify awdry.nomad`
