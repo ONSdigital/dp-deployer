@@ -19,6 +19,7 @@ var (
 	consumerQueueURL = flag.String("consumer-queue-url", "", "sqs queue url")
 	deploymentRoot   = flag.String("deployment-root", "", "root deployment directory")
 	nomadEndpoint    = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
+	nomadToken       = flag.String("nomad-token", "", "nomad acl token")
 	privateKeyPath   = flag.String("private-key-path", "", "path to private key")
 	producerQueue    = flag.String("producer-queue", "", "sqs producer queue name")
 	region           = flag.String("aws-default-region", "", "sqs queue region")
@@ -69,6 +70,7 @@ func initHandlers() (map[string]engine.HandlerFunc, error) {
 	dc := &deployment.Config{
 		DeploymentRoot: *deploymentRoot,
 		NomadEndpoint:  *nomadEndpoint,
+		NomadToken:     *nomadToken,
 		Region:         *region,
 	}
 	d, err := deployment.New(dc)

@@ -96,6 +96,7 @@ func TestNew(t *testing.T) {
 
 	withMocks(func() {
 		Convey("an error is returned with misconfiguration", t, func() {
+			os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 			s, err := New(&Config{"", "foo"})
 			So(s, ShouldBeNil)
 			So(err, ShouldNotBeNil)

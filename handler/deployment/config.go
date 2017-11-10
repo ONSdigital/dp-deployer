@@ -8,6 +8,8 @@ type Config struct {
 	DeploymentRoot string
 	// NomadEndpoint is the Nomad client endpoint.
 	NomadEndpoint string
+	// NomadToken is the ACL token used to authorise HTTP requests.
+	NomadToken string
 	// Region is the region in which the deployment artifacts bucket resides.
 	Region string
 	// Timeout is the timeout configuration for the deployments.

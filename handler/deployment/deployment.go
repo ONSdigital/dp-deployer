@@ -54,6 +54,7 @@ type Deployment struct {
 	client   *s3.S3
 	root     string
 	endpoint string
+	token    string
 	timeout  *TimeoutConfig
 }
 
@@ -81,6 +82,7 @@ func New(c *Config) (*Deployment, error) {
 		client:   s3.New(a, aws.Regions[c.Region], HTTPClient),
 		root:     c.DeploymentRoot,
 		endpoint: c.NomadEndpoint,
+		token:    c.NomadToken,
 		timeout:  c.Timeout,
 	}, nil
 }
@@ -224,11 +226,19 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 }
 
 func (d *Deployment) get(url string, v interface{}) error {
-	r, err := HTTPClient.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-	return unmarshalAPIResponse(r, &v)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Nomad-Token", d.token)
+
+	res, err := HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return unmarshalAPIResponse(res, &v)
 }
 
 func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error {
@@ -236,11 +246,20 @@ func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error 
 	if err != nil {
 		return err
 	}
-	r, err := HTTPClient.Post(url, "application/json", bytes.NewReader(j))
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(j))
 	if err != nil {
 		return err
 	}
-	return unmarshalAPIResponse(r, v)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Nomad-Token", d.token)
+
+	res, err := HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	return unmarshalAPIResponse(res, v)
 }
 
 func unmarshalAPIResponse(r *http.Response, v interface{}) error {

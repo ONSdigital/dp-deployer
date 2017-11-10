@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 
 	Convey("an error is returned with misconfiguration", t, func() {
 		os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
-		d, err := New(&Config{"foo", "bar", "baz", nil})
+		d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
@@ -43,7 +43,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("timeout configuration defaults are used when timeout is nil", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", nil})
+			d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
@@ -53,7 +53,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("timeout configuration defaults are used when timeout is unreasonable", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", &TimeoutConfig{0, 0}})
+			d, err := New(&Config{"foo", "bar", "baz", "qux", &TimeoutConfig{0, 0}})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
