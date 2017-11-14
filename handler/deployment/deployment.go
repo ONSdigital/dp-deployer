@@ -238,7 +238,7 @@ func (d *Deployment) get(url string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	return unmarshalAPIResponse(res, &v)
+	return unmarshalAPIResponse(res, v)
 }
 
 func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error {
