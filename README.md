@@ -3,7 +3,8 @@ awdry
 
 Event handler for Digital Publishing CI
 
-### Configuration
+Configuration
+-------------
 
 | Environment variable | Default               | Description
 | -------------------- | --------------------- | ---------------------------------------------
@@ -18,13 +19,53 @@ Event handler for Digital Publishing CI
 
 The application also expects your AWS credentials to be configured.
 
-### Deploying
+Deploying awdry
+---------------
 
-Currently the deployer needs to manually be scheduled as we have a bootstrapping issue
+Currently the deployer needs to manually be scheduled as we have a bootstrapping issue.
 
-* Tunnel to an instance running Nomad within the target environment from the `ansible` directory in `dp-setup`
-  * `ssh -F ssh.cfg -L 4646:localhost:4646 -l <your user> <nomad client or server ip>`
-* Plan the tasks
-  * `NOMAD_TOKEN=<token> nomad plan -address=https://localhost:4646 -tls-skip-verify awdry.nomad`
-* Schedule the tasks
-  * `NOMAD_TOKEN=<token> nomad run -address=https://localhost:4646 -tls-skip-verify awdry.nomad`
+**NB:** Before continuing ensure you [vault](https://www.vaultproject.io) and [nomad](https://www.nomadproject.io) installed locally with the same versions specified in the `dp-setup` repo.
+
+1. If awdry's secrets file (`../secrets/<environment name>/awdry.json.asc`) does not contain the nomad acl token you need to [get the nomad acl token generated for awdry using ansible](https://github.com/ONSdigital/dp-setup/blob/develop/ansible/README.md#setup-nomad)
+
+2. [Write awdry secrets to vault](#writing-awdry-secrets-to-vault)
+
+3. [Deploy awdry tasks to nomad](#scheduling-awdry-tasks-to-nomad)
+
+Writing awdry secrets to vault
+------------------------------
+
+1. In one terminal, change to the `ansible` directory in the [dp-setup repo](https://github.com/ONSdigital/dp-setup) and tunnel to a nomad server instance on port `8200`:
+   ```
+   ssh -F ssh.cfg -L 8200:localhost:8200 <your user>@<nomad server ip>
+   ```
+
+2. In a second terminal, decrypt and write awdry secrets to vault:
+   ```
+   cd ../secrets/<environment name>
+   gpg -d awdry.json.asc > awdry.json
+   VAULT_ADDR=http://localhost:8200 VAULT_TOKEN=<root vault token> vault write secret/awdry @awdry.json
+   ```
+
+Scheduling awdry on nomad
+-------------------------
+
+1. In one terminal, change to the `ansible` directory in the [dp-setup repo](https://github.com/ONSdigital/dp-setup) and tunnel to a nomad server instance on port `4646`:
+   ```
+   ssh -F ssh.cfg -L 4646:localhost:4646 <your user>@<nomad server ip>
+   ```
+
+2. In a second terminal, plan the tasks (from this directory):
+   ```
+   NOMAD_TOKEN=<nomad acl token> nomad plan -address=https://localhost:4646 -tls-skip-verify awdry.nomad
+   ```
+
+3. Schedule the tasks:
+   ```
+   NOMAD_TOKEN=<nomad acl token> nomad run -address=https://localhost:4646 -tls-skip-verify awdry.nomad
+   ```
+
+4. Verify that awdry successfully started:
+   ```
+   NOMAD_TOKEN=<nomad acl token> nomad status -address=https://localhost:4646 -tls-skip-verify awdry
+   ```
