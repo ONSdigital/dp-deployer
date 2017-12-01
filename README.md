@@ -24,7 +24,7 @@ Deploying awdry
 
 Currently the deployer needs to manually be scheduled as we have a bootstrapping issue.
 
-**NB:** Before continuing ensure you [vault](https://www.vaultproject.io) and [nomad](https://www.nomadproject.io) installed locally with the same versions specified in the `dp-setup` repo.
+**NB:** Before continuing ensure you have [vault](https://www.vaultproject.io) and [nomad](https://www.nomadproject.io) installed locally with the same versions specified in the `dp-setup` repo.
 
 1. If awdry's secrets file (`../secrets/<environment name>/awdry.json.asc`) does not contain the nomad acl token you need to [get the nomad acl token generated for awdry using ansible](https://github.com/ONSdigital/dp-setup/blob/develop/ansible/README.md#setup-nomad)
 
