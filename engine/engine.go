@@ -47,10 +47,11 @@ type Config struct {
 
 // Engine represents an engine.
 type Engine struct {
-	config   *Config
-	consumer *ssqs.Consumer
-	handlers map[string]HandlerFunc
-	producer *sqs.SQS
+	config    *Config
+	consumer  *ssqs.Consumer
+	handlers  map[string]HandlerFunc
+	producer  *sqs.SQS
+	semaphore chan struct{}
 }
 
 // Message represents a message that has been consumed.
@@ -97,9 +98,10 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 	}
 
 	e := &Engine{
-		config:   c,
-		handlers: hs,
-		producer: sqs.New(a, aws.Regions[c.Region]),
+		config:    c,
+		handlers:  hs,
+		semaphore: make(chan struct{}, 50),
+		producer:  sqs.New(a, aws.Regions[c.Region]),
 		consumer: ssqs.New(&ssqs.Queue{
 			Name:              c.ConsumerQueue,
 			Region:            c.Region,
@@ -130,19 +132,17 @@ func (e *Engine) Start(ctx context.Context) {
 }
 
 func (e *Engine) run(ctx context.Context) {
-	sem := make(chan struct{}, 50)
-
 	for {
 		select {
 		case err := <-e.consumer.Errors:
 			ErrHandler("", err)
 		case msg := <-e.consumer.Messages:
-			sem <- struct{}{}
+			e.semaphore <- struct{}{}
 			wg.Add(1)
 			go func(ctx context.Context, msg *ssqs.Message) {
 				defer func() {
 					wg.Done()
-					<-sem
+					<-e.semaphore
 				}()
 				e.handle(ctx, msg)
 			}(ctx, msg)
