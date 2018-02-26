@@ -14,8 +14,6 @@ import (
 	"github.com/goamz/goamz/sqs"
 )
 
-var wg sync.WaitGroup
-
 var sendMessage func(string) error
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
@@ -52,6 +50,7 @@ type Engine struct {
 	handlers  map[string]HandlerFunc
 	producer  *sqs.SQS
 	semaphore chan struct{}
+	wg        sync.WaitGroup
 }
 
 // Message represents a message that has been consumed.
@@ -123,9 +122,9 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 // the result is written successfully, the message that was originally consumed
 // is removed from the queue.
 func (e *Engine) Start(ctx context.Context) {
-	wg.Add(1)
+	e.wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer e.wg.Done()
 		e.consumer.Start()
 	}()
 	e.run(ctx)
@@ -138,10 +137,10 @@ func (e *Engine) run(ctx context.Context) {
 			ErrHandler("", err)
 		case msg := <-e.consumer.Messages:
 			e.semaphore <- struct{}{}
-			wg.Add(1)
+			e.wg.Add(1)
 			go func(ctx context.Context, msg *ssqs.Message) {
 				defer func() {
-					wg.Done()
+					e.wg.Done()
 					<-e.semaphore
 				}()
 				e.handle(ctx, msg)
@@ -150,7 +149,7 @@ func (e *Engine) run(ctx context.Context) {
 			log.Info("halting consumer", nil)
 			e.consumer.Close()
 			log.Info("waiting for handlers", nil)
-			wg.Wait()
+			e.wg.Wait()
 			return
 		default:
 		}
