@@ -49,6 +49,28 @@ type payload struct {
 // HTTPClient is the default http client.
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
+// Config represents the configuration for a deployment.
+type Config struct {
+	// DeploymentRoot is the path to root of deployments.
+	DeploymentRoot string
+	// NomadEndpoint is the Nomad client endpoint.
+	NomadEndpoint string
+	// NomadToken is the ACL token used to authorise HTTP requests.
+	NomadToken string
+	// Region is the region in which the deployment artifacts bucket resides.
+	Region string
+	// Timeout is the timeout configuration for the deployments.
+	Timeout *TimeoutConfig
+}
+
+// TimeoutConfig represents the configuration for deployment timeouts.
+type TimeoutConfig struct {
+	// Allocation is the max time to wait for all allocations to complete.
+	Allocation time.Duration
+	// Evaluation is the max time to wait for an Evaluation to complete.
+	Evaluation time.Duration
+}
+
 // Deployment represents a deployment.
 type Deployment struct {
 	client   *s3.S3
