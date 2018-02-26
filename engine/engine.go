@@ -33,6 +33,18 @@ var BackoffStrategy = func() backoff.BackOff {
 // ErrHandler is the handler function applied to an error.
 var ErrHandler = func(messageID string, err error) { log.ErrorC(messageID, err, nil) }
 
+// Config represents the configuration for an engine.
+type Config struct {
+	// ConsumerQueue is the name of the queue to consume messages from.
+	ConsumerQueue string
+	// ConsumerQueueURL is the URL of the queue to consume messages from.
+	ConsumerQueueURL string
+	// ProducerQueue is the name of the queue to produce messages to.
+	ProducerQueue string
+	// Region is the region of the queues.
+	Region string
+}
+
 // Engine represents an engine.
 type Engine struct {
 	config   *Config
