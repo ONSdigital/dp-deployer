@@ -37,6 +37,14 @@ var keyReader func() (io.Reader, error)
 // HTTPClient is the default http client.
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
+// Config represents the configuration for a secret.
+type Config struct {
+	// PrivateKeyPath is the path of the private key file.
+	PrivateKeyPath string
+	// Region is the region in which the secret artifacts bucket resides.
+	Region string
+}
+
 // Secret represents a secret.
 type Secret struct {
 	entities        openpgp.EntityList
