@@ -62,6 +62,9 @@ type Message struct {
 	Type      string
 }
 
+// HandlerFunc represents a function that is applied to a consumed message.
+type HandlerFunc func(context.Context, *Message) error
+
 type response struct {
 	Error   *responseError `json:"Error,omitempty"`
 	ID      string
@@ -72,9 +75,6 @@ type responseError struct {
 	Data    error
 	Message string
 }
-
-// HandlerFunc represents a function that is applied to a consumed message.
-type HandlerFunc func(context.Context, *Message) error
 
 // New returns a new engine.
 func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
@@ -136,15 +136,7 @@ func (e *Engine) run(ctx context.Context) {
 		case err := <-e.consumer.Errors:
 			ErrHandler("", err)
 		case msg := <-e.consumer.Messages:
-			e.semaphore <- struct{}{}
-			e.wg.Add(1)
-			go func(ctx context.Context, msg *ssqs.Message) {
-				defer func() {
-					e.wg.Done()
-					<-e.semaphore
-				}()
-				e.handle(ctx, msg)
-			}(ctx, msg)
+			e.handle(ctx, msg)
 		case <-ctx.Done():
 			log.Info("halting consumer", nil)
 			e.consumer.Close()
@@ -156,35 +148,54 @@ func (e *Engine) run(ctx context.Context) {
 	}
 }
 
-func (e *Engine) handle(ctx context.Context, msg *ssqs.Message) {
-	var err error
+func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
+	e.semaphore <- struct{}{}
+	e.wg.Add(1)
 
-	backOff := backoff.WithContext(BackoffStrategy(), ctx)
-	success := true
+	go func() {
+		defer func() {
+			e.wg.Done()
+			<-e.semaphore
+		}()
 
-	m := Message{ID: msg.ID}
-	if err = json.Unmarshal([]byte(msg.Body), &m); err != nil {
-		success = false
-		ErrHandler(m.ID, err)
-		goto PostHandle
+		engMsg := Message{ID: rawMsg.ID}
+		if err := json.Unmarshal([]byte(rawMsg.Body), &engMsg); err != nil {
+			e.postHandle(ctx, rawMsg, err)
+			return
+		}
+		if _, ok := e.handlers[engMsg.Type]; !ok {
+			e.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
+			return
+		}
+		if err := e.handlers[engMsg.Type](ctx, &engMsg); err != nil {
+			e.postHandle(ctx, rawMsg, err)
+			return
+		}
+
+		e.postHandle(ctx, rawMsg, nil)
+	}()
+}
+
+func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
+	if err != nil {
+		ErrHandler(msg.ID, err)
 	}
 
-	if h, ok := e.handlers[m.Type]; !ok {
-		err = &MissingHandlerError{m.Type}
-		success = false
-		ErrHandler(m.ID, err)
-	} else if err = h(ctx, &m); err != nil {
-		success = false
-		ErrHandler(m.ID, err)
-	}
-
-PostHandle:
-	result := &response{ID: msg.ID, Success: success}
+	result := &response{ID: msg.ID, Success: err == nil}
 	if err != nil {
 		result.Error = &responseError{Data: err, Message: err.Error()}
 	}
-	backoff.RetryNotify(e.reply(result), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
-	backoff.RetryNotify(e.delete(msg), backOff, func(err error, t time.Duration) { ErrHandler(m.ID, err) })
+
+	backoff.RetryNotify(
+		e.reply(result),
+		backoff.WithContext(BackoffStrategy(), ctx),
+		func(err error, t time.Duration) { ErrHandler(msg.ID, err) },
+	)
+	backoff.RetryNotify(
+		e.delete(msg),
+		backoff.WithContext(BackoffStrategy(), ctx),
+		func(err error, t time.Duration) { ErrHandler(msg.ID, err) },
+	)
 }
 
 func (e *Engine) delete(msg *ssqs.Message) func() error {
