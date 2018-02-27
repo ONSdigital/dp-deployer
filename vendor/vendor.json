@@ -557,6 +557,12 @@
 			"revisionTime": "2017-07-15T21:28:07Z"
 		},
 		{
+			"checksumSHA1": "KsxFyUbL2BqNvs3h80/XtnpFlTo=",
+			"path": "golang.org/x/crypto/openpgp/clearsign",
+			"revision": "4bc1c249b153ce1da9f55437759cec51fe6acabb",
+			"revisionTime": "2017-07-15T21:28:07Z"
+		},
+		{
 			"checksumSHA1": "eo/KtdjieJQXH7Qy+faXFcF70ME=",
 			"path": "golang.org/x/crypto/openpgp/elgamal",
 			"revision": "4bc1c249b153ce1da9f55437759cec51fe6acabb",
