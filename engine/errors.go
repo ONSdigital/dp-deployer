@@ -15,9 +15,9 @@ var (
 	ErrMissingRegion = errors.New("missing queue region")
 )
 
-// ErrInvalidBlock is returned when a message isn't a clearsigned message.
+// InvalidBlockError is an error implementation that includes a consumed message ID.
 type InvalidBlockError struct {
-	MessageId string
+	MessageID string
 }
 
 func (e *InvalidBlockError) Error() string {
