@@ -2,10 +2,15 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 
 	"github.com/LloydGriffiths/ssqs"
 	"github.com/ONSdigital/go-ns/log"
@@ -41,12 +46,15 @@ type Config struct {
 	ProducerQueue string
 	// Region is the region of the queues.
 	Region string
+	// VerificationKey is used to verify the authenticity of a message.
+	VerificationKey string
 }
 
 // Engine represents an engine.
 type Engine struct {
 	config    *Config
 	consumer  *ssqs.Consumer
+	keyring   openpgp.EntityList
 	handlers  map[string]HandlerFunc
 	producer  *sqs.SQS
 	semaphore chan struct{}
@@ -96,8 +104,14 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, err
 	}
 
+	k, err := openpgp.ReadArmoredKeyRing(strings.NewReader(c.VerificationKey))
+	if err != nil {
+		return nil, err
+	}
+
 	e := &Engine{
 		config:    c,
+		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, 50),
 		producer:  sqs.New(a, aws.Regions[c.Region]),
@@ -158,8 +172,14 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			<-e.semaphore
 		}()
 
+		m, err := e.verifyMessage(rawMsg)
+		if err != nil {
+			e.postHandle(ctx, rawMsg, err)
+			return
+		}
+
 		engMsg := Message{ID: rawMsg.ID}
-		if err := json.Unmarshal([]byte(rawMsg.Body), &engMsg); err != nil {
+		if err := json.Unmarshal(m, &engMsg); err != nil {
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}
@@ -224,4 +244,15 @@ func (e *Engine) sendMessage(body string) error {
 		return err
 	}
 	return nil
+}
+
+func (e *Engine) verifyMessage(rawMsg *ssqs.Message) ([]byte, error) {
+	decoded, _ := clearsign.Decode([]byte(rawMsg.Body))
+	if decoded == nil {
+		return nil, &InvalidBlockError{rawMsg.ID}
+	}
+	if _, err := openpgp.CheckDetachedSignature(e.keyring, bytes.NewReader(decoded.Bytes), decoded.ArmoredSignature.Body); err != nil {
+		return nil, err
+	}
+	return decoded.Plaintext, nil
 }

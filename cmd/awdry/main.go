@@ -23,6 +23,7 @@ var (
 	privateKeyPath   = flag.String("private-key-path", "", "path to private key")
 	producerQueue    = flag.String("producer-queue", "", "sqs producer queue name")
 	region           = flag.String("aws-default-region", "", "sqs queue region")
+	verificationKey  = flag.String("verification-key", "", "public key for verifying queue messages")
 )
 
 var wg sync.WaitGroup
@@ -42,6 +43,7 @@ func main() {
 		ConsumerQueueURL: *consumerQueueURL,
 		ProducerQueue:    *producerQueue,
 		Region:           *region,
+		VerificationKey:  *verificationKey,
 	}
 	e, err := engine.New(ec, h)
 	if err != nil {
