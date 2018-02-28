@@ -28,21 +28,19 @@ var (
 )
 
 func TestNew(t *testing.T) {
-	if testing.Short() {
-		t.Skip("short test run - skipping")
-	}
+	os.Clearenv()
+	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
+	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
-	Convey("an error is returned with misconfiguration", t, func() {
-		os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
+	Convey("an error is returned with invalid configuration", t, func() {
 		d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
-		os.Unsetenv("AWS_CREDENTIAL_FILE")
 	})
 
 	withEnv(func() {
-		Convey("timeout configuration defaults are used when timeout is nil", t, func() {
+		Convey("default timeout configuration is used when timeout is not configured", t, func() {
 			d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
@@ -52,7 +50,7 @@ func TestNew(t *testing.T) {
 	})
 
 	withEnv(func() {
-		Convey("timeout configuration defaults are used when timeout is unreasonable", t, func() {
+		Convey("default timeout configuration is used when timeout is unreasonable", t, func() {
 			d, err := New(&Config{"foo", "bar", "baz", "qux", &TimeoutConfig{0, 0}})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
@@ -64,7 +62,7 @@ func TestNew(t *testing.T) {
 
 func TestPlan(t *testing.T) {
 	withMocks(func() {
-		Convey("plan behaives correctly", t, func() {
+		Convey("plan functions as expected", t, func() {
 			httpmock.DeactivateAndReset()
 			httpmock.Activate()
 
@@ -104,7 +102,7 @@ func TestPlan(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	withMocks(func() {
-		Convey("run behaives correctly", t, func() {
+		Convey("run functions as expected", t, func() {
 			httpmock.DeactivateAndReset()
 			httpmock.Activate()
 
@@ -230,20 +228,17 @@ func TestRun(t *testing.T) {
 
 func withEnv(f func()) {
 	defer os.Clearenv()
-
-	os.Clearenv()
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_DEFAULT_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
-
 	f()
 }
 
 func withMocks(f func()) {
-	origJSONFrom := jsonFrom
+	defaultJSONFrom := jsonFrom
 
 	defer func() {
-		jsonFrom = origJSONFrom
+		jsonFrom = defaultJSONFrom
 	}()
 
 	jsonFrom = func(string) ([]byte, error) { return nil, nil }

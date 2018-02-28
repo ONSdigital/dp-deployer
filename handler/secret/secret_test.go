@@ -14,7 +14,8 @@ import (
 	"github.com/ONSdigital/dp-ci/awdry/engine"
 )
 
-var testMessage = `-----BEGIN PGP MESSAGE-----
+var testMessage = `
+-----BEGIN PGP MESSAGE-----
 
 hQEMA48Y0Zt/+vrbAQf+Ka5lMaIhBL63DcQvIRf6ozwxXag5lvhcjnDWkJqjjWSr
 BXgY8TQUoWtsDcC2eN80Fluv3oLsRxTwzxvImKzm4AQ26zAgCUlD57RJ4pk/H7PT
@@ -27,7 +28,8 @@ qqFh4AwsD5fkANp8Rmwwx0woYdsVY0WOdAoF9Xk=
 =Dvb6
 -----END PGP MESSAGE-----`
 
-var testPrivateKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
+var testPrivateKey = `
+-----BEGIN PGP PRIVATE KEY BLOCK-----
 
 lQOXBFl7mTcBCACdFjfnLgBuj71EBZeVJjpIOsSY5n243BZHjanbHQdrmGpBNL6a
 Z1SFhKmZtXLi+X/36yoCKo1THzII0TqfJvICjGiNZrQkWWVCx24F6IorOoHYZC55
@@ -90,13 +92,12 @@ func stringKeyReader(str string) func() (io.Reader, error) {
 }
 
 func TestNew(t *testing.T) {
-	if testing.Short() {
-		t.Skip("short test run - skipping")
-	}
+	os.Clearenv()
+	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
+	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	withMocks(func() {
-		Convey("an error is returned with misconfiguration", t, func() {
-			os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
+		Convey("an error is returned with invalid configuration", t, func() {
 			s, err := New(&Config{"", "foo"})
 			So(s, ShouldBeNil)
 			So(err, ShouldNotBeNil)
@@ -106,7 +107,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		withMocks(func() {
-			Convey("a handler is returned with good configuration", t, func() {
+			Convey("a handler is returned with valid configuration", t, func() {
 				s, err := New(&Config{"", "bar"})
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -170,7 +171,7 @@ func TestDecrypt(t *testing.T) {
 func TestWrite(t *testing.T) {
 	withEnv(func() {
 		withMocks(func() {
-			Convey("write behaves correctly", t, func() {
+			Convey("write functions as expected", t, func() {
 				s, err := New(&Config{"", "eu-west-1"})
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -202,7 +203,7 @@ func TestWrite(t *testing.T) {
 func TestContext(t *testing.T) {
 	withEnv(func() {
 		withMocks(func() {
-			Convey("handler behaives correctly when context is cancelled", t, func() {
+			Convey("handler functions as expected when context is cancelled", t, func() {
 				s, err := New(&Config{"", "eu-west-1"})
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -220,13 +221,10 @@ func TestContext(t *testing.T) {
 
 func withEnv(f func()) {
 	defer os.Clearenv()
-
-	os.Clearenv()
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
 	os.Setenv("AWS_DEFAULT_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	os.Setenv("VAULT_ADDR", "http://localhost:8200")
-
 	f()
 }
 
