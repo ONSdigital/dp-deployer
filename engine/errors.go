@@ -21,7 +21,7 @@ type InvalidBlockError struct {
 }
 
 func (e *InvalidBlockError) Error() string {
-	return "invalid block in message"
+	return "invalid clearsign block for message"
 }
 
 // MissingHandlerError is an error implementation that includes a consumed message type.

@@ -99,12 +99,12 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, ErrMissingRegion
 	}
 
-	a, err := aws.GetAuth("", "", "", time.Time{})
+	k, err := openpgp.ReadArmoredKeyRing(strings.NewReader(c.VerificationKey))
 	if err != nil {
 		return nil, err
 	}
 
-	k, err := openpgp.ReadArmoredKeyRing(strings.NewReader(c.VerificationKey))
+	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err
 	}
