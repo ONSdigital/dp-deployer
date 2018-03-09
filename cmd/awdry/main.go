@@ -20,7 +20,7 @@ var (
 	deploymentRoot   = flag.String("deployment-root", "", "root deployment directory")
 	nomadEndpoint    = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
 	nomadToken       = flag.String("nomad-token", "", "nomad acl token")
-	privateKeyPath   = flag.String("private-key-path", "", "path to private key")
+	privateKey       = flag.String("private-key", "", "private key used to decrypt secrets")
 	producerQueue    = flag.String("producer-queue", "", "sqs producer queue name")
 	region           = flag.String("aws-default-region", "", "sqs queue region")
 	verificationKey  = flag.String("verification-key", "", "public key for verifying queue messages")
@@ -81,8 +81,8 @@ func initHandlers() (map[string]engine.HandlerFunc, error) {
 	}
 
 	sc := &secret.Config{
-		PrivateKeyPath: *privateKeyPath,
-		Region:         *region,
+		PrivateKey: *privateKey,
+		Region:     *region,
 	}
 	s, err := secret.New(sc)
 	if err != nil {

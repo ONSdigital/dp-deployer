@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -32,15 +31,13 @@ func (e *AbortedError) Error() string {
 	return "aborted updating secrets for message"
 }
 
-var keyReader func() (io.Reader, error)
-
 // HTTPClient is the default http client.
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Config represents the configuration for a secret.
 type Config struct {
-	// PrivateKeyPath is the path of the private key file.
-	PrivateKeyPath string
+	// PrivateKey is the private key used to decrypt secrets.
+	PrivateKey string
 	// Region is the region in which the secret artifacts bucket resides.
 	Region string
 }
@@ -55,15 +52,7 @@ type Secret struct {
 
 // New returns a new secret.
 func New(c *Config) (*Secret, error) {
-	if keyReader == nil {
-		keyReader = fsKeyReader(c.PrivateKeyPath)
-	}
-
-	r, err := keyReader()
-	if err != nil {
-		return nil, err
-	}
-	e, err := entityList(r)
+	e, err := entityList(c.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -142,22 +131,8 @@ func pathFor(artifact string) string {
 	return strings.Split(strings.Split(artifact, "/")[1], ".")[0]
 }
 
-func fsKeyReader(path string) func() (io.Reader, error) {
-	return func() (io.Reader, error) {
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		return f, nil
-	}
-}
-
-func entityList(reader io.Reader) (openpgp.EntityList, error) {
-	if v, ok := reader.(io.Closer); ok {
-		defer v.Close()
-	}
-
-	b, err := dearmorMessage(reader)
+func entityList(privateKey string) (openpgp.EntityList, error) {
+	b, err := dearmorMessage(strings.NewReader(privateKey))
 	if err != nil {
 		return nil, err
 	}

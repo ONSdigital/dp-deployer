@@ -87,114 +87,105 @@ Z/E5hX0lDHzAklyBHfVeUdarqA==
 =1vcd
 -----END PGP PRIVATE KEY BLOCK-----`
 
-func stringKeyReader(str string) func() (io.Reader, error) {
-	return func() (io.Reader, error) { return strings.NewReader(str), nil }
-}
-
 func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
-	withMocks(func() {
-		Convey("an error is returned with invalid configuration", t, func() {
-			s, err := New(&Config{"", "foo"})
-			So(s, ShouldBeNil)
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, "No valid AWS authentication found")
-		})
+	Convey("an error is returned with an invalid AWS configuration", t, func() {
+		s, err := New(&Config{PrivateKey: testPrivateKey, Region: "foo"})
+		So(s, ShouldBeNil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
+	})
+
+	Convey("an error is returned with an invalid private key", t, func() {
+		s, err := New(&Config{PrivateKey: "", Region: "foo"})
+		So(s, ShouldBeNil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, io.EOF.Error())
 	})
 
 	withEnv(func() {
-		withMocks(func() {
-			Convey("a handler is returned with valid configuration", t, func() {
-				s, err := New(&Config{"", "bar"})
-				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
-			})
+		Convey("a handler is returned with valid configuration", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "bar"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
 		})
 	})
 }
 
 func TestEntity(t *testing.T) {
 	withEnv(func() {
-		withMocks(func() {
-			Convey("successfully creates openpgp entity", t, func() {
-				s, err := New(&Config{"", "foo"})
-				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
+		Convey("successfully creates openpgp entity", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "foo"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
 
-				e, err := entityList(strings.NewReader(testPrivateKey))
-				So(err, ShouldBeNil)
-				So(e, ShouldNotBeNil)
-				So(len(e.DecryptionKeys()), ShouldEqual, 1)
-			})
+			e, err := entityList(testPrivateKey)
+			So(err, ShouldBeNil)
+			So(e, ShouldNotBeNil)
+			So(len(e.DecryptionKeys()), ShouldEqual, 1)
 		})
 	})
 }
 
 func TestDearmor(t *testing.T) {
 	withEnv(func() {
-		withMocks(func() {
-			Convey("successfully strips armor", t, func() {
-				s, err := New(&Config{"", "eu-west-1"})
-				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
+		Convey("successfully strips armor", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "eu-west-1"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
 
-				for _, v := range []string{testMessage, testPrivateKey} {
-					m, err := dearmorMessage(strings.NewReader(v))
-					So(err, ShouldBeNil)
-					So(m, ShouldNotBeNil)
-				}
-			})
+			for _, v := range []string{testMessage, testPrivateKey} {
+				m, err := dearmorMessage(strings.NewReader(v))
+				So(err, ShouldBeNil)
+				So(m, ShouldNotBeNil)
+			}
 		})
 	})
 }
 
 func TestDecrypt(t *testing.T) {
 	withEnv(func() {
-		withMocks(func() {
-			Convey("successfully decrypts message", t, func() {
-				s, err := New(&Config{"", "eu-west-1"})
-				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
+		Convey("successfully decrypts message", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "eu-west-1"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
 
-				m, err := s.decryptMessage([]byte(testMessage))
-				So(err, ShouldBeNil)
-				So(m, ShouldNotBeNil)
-				So(string(m), ShouldStartWith, `{ "message": "hello world" }`)
-			})
+			m, err := s.decryptMessage([]byte(testMessage))
+			So(err, ShouldBeNil)
+			So(m, ShouldNotBeNil)
+			So(string(m), ShouldStartWith, `{ "message": "hello world" }`)
 		})
 	})
 }
 
 func TestWrite(t *testing.T) {
 	withEnv(func() {
-		withMocks(func() {
-			Convey("write functions as expected", t, func() {
-				s, err := New(&Config{"", "eu-west-1"})
+		Convey("write functions as expected", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "eu-west-1"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
+
+			m, err := s.decryptMessage([]byte(testMessage))
+			So(err, ShouldBeNil)
+			So(m, ShouldNotBeNil)
+
+			httpmock.DeactivateAndReset()
+			httpmock.ActivateNonDefault(s.vaultHTTPClient)
+
+			Convey("writes secret correctly", func() {
+				httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(200, "{}"))
+				err := s.write("test", m)
 				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
+			})
 
-				m, err := s.decryptMessage([]byte(testMessage))
-				So(err, ShouldBeNil)
-				So(m, ShouldNotBeNil)
-
-				httpmock.DeactivateAndReset()
-				httpmock.ActivateNonDefault(s.vaultHTTPClient)
-
-				Convey("writes secret correctly", func() {
-					httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(200, "{}"))
-					err := s.write("test", m)
-					So(err, ShouldBeNil)
-				})
-
-				Convey("handles error correctly", func() {
-					httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(401, "{}"))
-					err := s.write("test", m)
-					So(err, ShouldNotBeNil)
-					So(err.Error(), ShouldStartWith, "Error making API request")
-				})
+			Convey("handles error correctly", func() {
+				httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(401, "{}"))
+				err := s.write("test", m)
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldStartWith, "Error making API request")
 			})
 		})
 	})
@@ -202,19 +193,17 @@ func TestWrite(t *testing.T) {
 
 func TestContext(t *testing.T) {
 	withEnv(func() {
-		withMocks(func() {
-			Convey("handler functions as expected when context is cancelled", t, func() {
-				s, err := New(&Config{"", "eu-west-1"})
-				So(err, ShouldBeNil)
-				So(s, ShouldNotBeNil)
+		Convey("handler functions as expected when context is cancelled", t, func() {
+			s, err := New(&Config{PrivateKey: testPrivateKey, Region: "eu-west-1"})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
 
-				ctx, cancel := context.WithCancel(context.Background())
-				cancel()
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
 
-				err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "aborted updating secrets for message")
-			})
+			err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "aborted updating secrets for message")
 		})
 	})
 }
@@ -225,16 +214,5 @@ func withEnv(f func()) {
 	os.Setenv("AWS_DEFAULT_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	os.Setenv("VAULT_ADDR", "http://localhost:8200")
-	f()
-}
-
-func withMocks(f func()) {
-	origJSONFrom := keyReader
-
-	defer func() {
-		keyReader = origJSONFrom
-	}()
-
-	keyReader = stringKeyReader(testPrivateKey)
 	f()
 }
