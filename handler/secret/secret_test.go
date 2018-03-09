@@ -179,6 +179,7 @@ func TestWrite(t *testing.T) {
 				httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(200, "{}"))
 				err := s.write("test", m)
 				So(err, ShouldBeNil)
+				So(m, ShouldNotBeNil)
 			})
 
 			Convey("handles error correctly", func() {
