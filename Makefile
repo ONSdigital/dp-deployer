@@ -2,7 +2,7 @@ clean:
 	@rm -f latest.tar.gz awdry
 
 test:
-	@go test -v -cover -short -race ./...
+	@go test -cover -short -race ./...
 
 build: clean test
 	@GOOS=linux GOARCH=amd64 go build -o awdry cmd/awdry/main.go
