@@ -158,6 +158,7 @@ func (e *Engine) run(ctx context.Context) {
 			e.wg.Wait()
 			return
 		default:
+			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
