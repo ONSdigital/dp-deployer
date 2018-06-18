@@ -11,6 +11,13 @@ job "awdry" {
   group "management" {
     count = 1
 
+    restart {
+      attempts = 3
+      delay    = "15s"
+      interval = "1m"
+      mode     = "delay"
+    }
+
     task "awdry" {
       driver = "exec"
 
