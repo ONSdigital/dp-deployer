@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	Convey("an error is returned with invalid configuration", t, func() {
-		d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
+		d, err := New(&Config{"foo", "bar", "baz", "", "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
@@ -41,7 +42,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is not configured", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "qux", nil})
+			d, err := New(&Config{"foo", "bar", "baz", "", "qux", nil})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
@@ -51,7 +52,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is unreasonable", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "qux", &TimeoutConfig{0, 0}})
+			d, err := New(&Config{"foo", "bar", "baz", "", "qux", &TimeoutConfig{0, 0}})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
@@ -68,7 +69,7 @@ func TestPlan(t *testing.T) {
 
 			Convey("api errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(500, "server error"))
-				dep := &Deployment{endpoint: "http://localhost:4646"}
+				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
@@ -76,7 +77,7 @@ func TestPlan(t *testing.T) {
 
 			Convey("plan warnings handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planWarnings))
-				dep := &Deployment{endpoint: "http://localhost:4646"}
+				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
@@ -84,7 +85,7 @@ func TestPlan(t *testing.T) {
 
 			Convey("plan allocation errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planErrors))
-				dep := &Deployment{endpoint: "http://localhost:4646"}
+				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
@@ -92,7 +93,7 @@ func TestPlan(t *testing.T) {
 
 			Convey("valid plans handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planSuccess))
-				dep := &Deployment{endpoint: "http://localhost:4646"}
+				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.plan(&engine.Message{Service: "test"})
 				So(err, ShouldBeNil)
 			})
@@ -110,7 +111,7 @@ func TestRun(t *testing.T) {
 
 			Convey("job api errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(500, "server error"))
-				dep := &Deployment{endpoint: "http://localhost:4646"}
+				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
@@ -120,7 +121,7 @@ func TestRun(t *testing.T) {
 			Convey("evaluation api errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(403, "client error"))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
@@ -130,7 +131,7 @@ func TestRun(t *testing.T) {
 			Convey("evaluation failures handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationError))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "error occurred for evaluation")
@@ -140,7 +141,7 @@ func TestRun(t *testing.T) {
 			Convey("evaluation timeouts handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationPending))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
@@ -151,7 +152,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationPending))
 				time.AfterFunc(time.Second*2, cancel)
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "aborted monitoring evaluation")
@@ -161,7 +162,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(500, "server error"))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
@@ -172,7 +173,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationError))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "failed to start all allocations")
@@ -183,7 +184,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationPending))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 2, time.Second * 2}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
@@ -195,7 +196,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationPending))
 				time.AfterFunc(time.Second*2, cancel)
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "aborted monitoring allocations for evaluation")
@@ -205,7 +206,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationRunning))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "test", Service: "test"})
 				So(err, ShouldBeNil)
 				cancel()
@@ -217,7 +218,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/67890", httpmock.NewStringResponder(200, evaluationComplete))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/12345/allocations", httpmock.NewStringResponder(200, allocationRunning))
 				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/evaluation/67890/allocations", httpmock.NewStringResponder(200, allocationRunning))
-				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}}
+				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &TimeoutConfig{time.Second * 10, time.Second * 10}, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "test", Service: "test"})
 				So(err, ShouldBeNil)
 				cancel()

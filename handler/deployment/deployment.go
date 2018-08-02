@@ -4,7 +4,10 @@ package deployment
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -57,6 +60,8 @@ type Config struct {
 	NomadEndpoint string
 	// NomadToken is the ACL token used to authorise HTTP requests.
 	NomadToken string
+	// NomadCACert is the path to the root nomad CA cert.
+	NomadCACert string
 	// Region is the region in which the deployment artifacts bucket resides.
 	Region string
 	// Timeout is the timeout configuration for the deployments.
@@ -73,11 +78,12 @@ type TimeoutConfig struct {
 
 // Deployment represents a deployment.
 type Deployment struct {
-	client   *s3.S3
-	root     string
-	endpoint string
-	token    string
-	timeout  *TimeoutConfig
+	s3Client    *s3.S3
+	nomadClient *http.Client
+	root        string
+	endpoint    string
+	token       string
+	timeout     *TimeoutConfig
 }
 
 // New returns a new deployment.
@@ -96,22 +102,50 @@ func New(c *Config) (*Deployment, error) {
 		c.Timeout = &TimeoutConfig{DefaultAllocationTimeout, DefaultEvaluationTimeout}
 	}
 
+	NomadClient := HTTPClient
+	if c.NomadCACert != "" {
+		log.Trace("loading custom ca cert", log.Data{"ca_cert_path": c.NomadCACert})
+
+		caCertPool, _ := x509.SystemCertPool()
+		if caCertPool == nil {
+			caCertPool = x509.NewCertPool()
+		}
+
+		caCert, err := ioutil.ReadFile(c.NomadCACert)
+		if err != nil {
+			return nil, err
+		}
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, errors.New("failed to append ca cert to pool")
+		}
+
+		tlsConfig := &tls.Config{
+			RootCAs: caCertPool,
+		}
+		transport := &http.Transport{TLSClientConfig: tlsConfig}
+		NomadClient = &http.Client{
+			Timeout:   time.Second * 10,
+			Transport: transport,
+		}
+	}
+
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile
 	}
 
 	return &Deployment{
-		client:   s3.New(a, aws.Regions[c.Region], HTTPClient),
-		root:     c.DeploymentRoot,
-		endpoint: c.NomadEndpoint,
-		token:    c.NomadToken,
-		timeout:  c.Timeout,
+		s3Client:    s3.New(a, aws.Regions[c.Region], HTTPClient),
+		nomadClient: NomadClient,
+		root:        c.DeploymentRoot,
+		endpoint:    c.NomadEndpoint,
+		token:       c.NomadToken,
+		timeout:     c.Timeout,
 	}, nil
 }
 
 // Handler handles deployment messages that are delegated by the engine.
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
-	b, err := d.client.Bucket(msg.Bucket).Get(msg.Artifacts[0])
+	b, err := d.s3Client.Bucket(msg.Bucket).Get(msg.Artifacts[0])
 	if err != nil {
 		return err
 	}
@@ -256,7 +290,7 @@ func (d *Deployment) get(url string, v interface{}) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Nomad-Token", d.token)
 
-	res, err := HTTPClient.Do(req)
+	res, err := d.nomadClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -277,7 +311,7 @@ func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Nomad-Token", d.token)
 
-	res, err := HTTPClient.Do(req)
+	res, err := d.nomadClient.Do(req)
 	if err != nil {
 		return err
 	}
