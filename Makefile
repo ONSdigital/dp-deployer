@@ -1,16 +1,20 @@
-clean:
-	@rm -f latest.tar.gz dp-deployer
+SHELL=bash
+
+BUILD=build
+BUILD_ARCH=$(BUILD)/$(GOOS)-$(GOARCH)
+BIN_DIR?=.
+
+export GOOS?=$(shell go env GOOS)
+export GOARCH?=$(shell go env GOARCH)
+
+build:
+	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)
+	go build -o $(BUILD_ARCH)/$(BIN_DIR)/dp-deployer cmd/dp-deployer/main.go
+
+debug: build
+	HUMAN_LOG=1 go run -race cmd/dp-deployer/main.go
 
 test:
-	@go test -cover -short -race ./...
+	go test -cover $(shell go list ./... | grep -v /vendor/)
 
-build: clean test
-	@GOOS=linux GOARCH=amd64 go build -o dp-deployer cmd/dp-deployer/main.go
-
-package: build
-	@tar czf latest.tar.gz dp-deployer -C ../nomad-glue .
-
-publish: package
-	@aws s3 cp latest.tar.gz s3://ons-dp-deployments/dp-deployer/
-
-.PHONY: clean test build package publish
+.PHONY: build debug test

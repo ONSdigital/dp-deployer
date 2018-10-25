@@ -9,7 +9,7 @@ job "dp-deployer" {
   }
 
   group "management" {
-    count = 1
+    count = "{{MANAGEMENT_TASK_COUNT}}"
 
     restart {
       attempts = 3
@@ -19,18 +19,18 @@ job "dp-deployer" {
     }
 
     task "dp-deployer" {
-      driver = "exec"
+      driver = "docker"
 
       artifact {
-        source = "s3::https://s3-eu-west-1.amazonaws.com/ons-dp-deployments/dp-deployer/latest.tar.gz"
+        source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-deployer/{{REVISION}}.tar.gz"
       }
 
       config {
         command = "${NOMAD_TASK_DIR}/start-task"
 
-        args = [
-          "${NOMAD_TASK_DIR}/dp-deployer",
-        ]
+        args = ["./dp-deployer"]
+
+        image = "{{ECR_URL}}:concourse-{{REVISION}}"
       }
 
       service {
@@ -39,8 +39,8 @@ job "dp-deployer" {
       }
 
       resources {
-        cpu    = 500
-        memory = 512
+        cpu    = "{{MANAGEMENT_RESOURCE_CPU}}"
+        memory = "{{MANAGEMENT_RESOURCE_MEM}}"
       }
 
       template {

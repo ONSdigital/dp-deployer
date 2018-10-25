@@ -1,3 +1,5 @@
 # Ignore build artifacts
+debug
+build
 /dp-deployer
-/*.tar.gz
+*.tar.gz

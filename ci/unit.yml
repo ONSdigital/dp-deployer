@@ -1,0 +1,16 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: golang
+    tag: 1.9.1
+
+inputs:
+  - name: dp-deployer
+    path: go/src/github.com/ONSdigital/dp-deployer
+
+run:
+  path: go/src/github.com/ONSdigital/dp-deployer/ci/scripts/unit.sh
