@@ -1,4 +1,4 @@
-job "awdry" {
+job "dp-deployer" {
   datacenters = ["eu-west-1"]
   region      = "eu"
   type        = "service"
@@ -18,23 +18,23 @@ job "awdry" {
       mode     = "delay"
     }
 
-    task "awdry" {
+    task "dp-deployer" {
       driver = "exec"
 
       artifact {
-        source = "s3::https://s3-eu-west-1.amazonaws.com/ons-dp-deployments/awdry/latest.tar.gz"
+        source = "s3::https://s3-eu-west-1.amazonaws.com/ons-dp-deployments/dp-deployer/latest.tar.gz"
       }
 
       config {
         command = "${NOMAD_TASK_DIR}/start-task"
 
         args = [
-          "${NOMAD_TASK_DIR}/awdry",
+          "${NOMAD_TASK_DIR}/dp-deployer",
         ]
       }
 
       service {
-        name = "awdry"
+        name = "dp-deployer"
         tags = ["management"]
       }
 
@@ -49,7 +49,7 @@ job "awdry" {
       }
 
       vault {
-        policies = ["awdry"]
+        policies = ["dp-deployer"]
       }
     }
   }

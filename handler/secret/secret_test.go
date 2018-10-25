@@ -11,7 +11,7 @@ import (
 
 	httpmock "gopkg.in/jarcoal/httpmock.v1"
 
-	"github.com/ONSdigital/dp-ci/awdry/engine"
+	"github.com/ONSdigital/dp-deployer/engine"
 )
 
 var testMessage = `

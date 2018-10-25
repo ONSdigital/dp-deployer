@@ -7,9 +7,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/ONSdigital/dp-ci/awdry/engine"
-	"github.com/ONSdigital/dp-ci/awdry/handler/deployment"
-	"github.com/ONSdigital/dp-ci/awdry/handler/secret"
+	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/handler/deployment"
+	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/namsral/flag"
 )
@@ -30,7 +30,7 @@ var (
 var wg sync.WaitGroup
 
 func main() {
-	log.Namespace = "awdry"
+	log.Namespace = "dp-deployer"
 	flag.Parse()
 
 	h, err := initHandlers()

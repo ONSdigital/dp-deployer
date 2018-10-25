@@ -14,7 +14,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/ONSdigital/dp-ci/awdry/engine"
+	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
