@@ -21,6 +21,6 @@ The application also expects your AWS credentials to be configured.
 
 ### Licence
 
-Copyright © 2017, Office for National Statistics (https://www.ons.gov.uk)
+Copyright © 2019, Office for National Statistics (https://www.ons.gov.uk)
 
 Released under MIT license, see [LICENSE](LICENSE.md) for details.

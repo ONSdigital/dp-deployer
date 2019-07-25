@@ -145,8 +145,9 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
-		config *Config
-		errMsg string
+		config   *Config
+		errMsg   string
+		isPrefix bool
 	}{
 		{
 			&Config{
@@ -157,6 +158,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue name",
+			false,
 		},
 		{
 			&Config{
@@ -167,6 +169,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue url",
+			false,
 		},
 		{
 			&Config{
@@ -177,6 +180,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			},
 			"missing producer queue name",
+			false,
 		},
 		{
 			&Config{
@@ -187,6 +191,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			},
 			"missing queue region",
+			false,
 		},
 		{
 			&Config{
@@ -197,6 +202,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			},
 			"No valid AWS authentication found",
+			true,
 		},
 		{
 			&Config{
@@ -207,6 +213,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  "",
 			},
 			"openpgp: invalid argument: no armored data found",
+			false,
 		},
 	}
 
@@ -215,7 +222,11 @@ func TestNew(t *testing.T) {
 			e, err := New(fixture.config, nil)
 			So(e, ShouldBeNil)
 			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldEqual, fixture.errMsg)
+			if fixture.isPrefix {
+				So(err.Error(), ShouldStartWith, fixture.errMsg)
+			} else {
+				So(err.Error(), ShouldEqual, fixture.errMsg)
+			}
 		})
 	}
 

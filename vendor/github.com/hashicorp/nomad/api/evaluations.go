@@ -58,19 +58,23 @@ type Evaluation struct {
 	Priority             int
 	Type                 string
 	TriggeredBy          string
+	Namespace            string
 	JobID                string
 	JobModifyIndex       uint64
 	NodeID               string
 	NodeModifyIndex      uint64
+	DeploymentID         string
 	Status               string
 	StatusDescription    string
 	Wait                 time.Duration
+	WaitUntil            time.Time
 	NextEval             string
 	PreviousEval         string
 	BlockedEval          string
 	FailedTGAllocs       map[string]*AllocationMetric
 	ClassEligibility     map[string]bool
 	EscapedComputedClass bool
+	QuotaLimitReached    string
 	AnnotatePlan         bool
 	QueuedAllocations    map[string]int
 	SnapshotIndex        uint64

@@ -96,7 +96,7 @@ func TestNew(t *testing.T) {
 		s, err := New(&Config{PrivateKey: testPrivateKey, Region: "foo"})
 		So(s, ShouldBeNil)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
+		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
 	})
 
 	Convey("an error is returned with an invalid private key", t, func() {

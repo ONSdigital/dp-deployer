@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/gorhill/cronexpr"
-	"github.com/hashicorp/nomad/helper"
-	"github.com/hashicorp/nomad/nomad/structs"
 )
 
 const (
@@ -19,8 +17,14 @@ const (
 	// JobTypeBatch indicates a short-lived process
 	JobTypeBatch = "batch"
 
+	// JobTypeSystem indicates a system process that should run on all clients
+	JobTypeSystem = "system"
+
 	// PeriodicSpecCron is used for a cron spec.
 	PeriodicSpecCron = "cron"
+
+	// DefaultNamespace is the default namespace.
+	DefaultNamespace = "default"
 )
 
 const (
@@ -34,9 +38,31 @@ type Jobs struct {
 	client *Client
 }
 
+// JobsParseRequest is used for arguments of the /vi/jobs/parse endpoint
+type JobsParseRequest struct {
+	// JobHCL is an hcl jobspec
+	JobHCL string
+
+	// Canonicalize is a flag as to if the server should return default values
+	// for unset fields
+	Canonicalize bool
+}
+
 // Jobs returns a handle on the jobs endpoints.
 func (c *Client) Jobs() *Jobs {
 	return &Jobs{client: c}
+}
+
+// Parse is used to convert the HCL repesentation of a Job to JSON server side.
+// To parse the HCL client side see package github.com/hashicorp/nomad/jobspec
+func (j *Jobs) ParseHCL(jobHCL string, canonicalize bool) (*Job, error) {
+	var job Job
+	req := &JobsParseRequest{
+		JobHCL:       jobHCL,
+		Canonicalize: canonicalize,
+	}
+	_, err := j.client.write("/v1/jobs/parse", req, &job, nil)
+	return &job, err
 }
 
 func (j *Jobs) Validate(job *Job, q *WriteOptions) (*JobValidateResponse, *WriteMeta, error) {
@@ -49,30 +75,43 @@ func (j *Jobs) Validate(job *Job, q *WriteOptions) (*JobValidateResponse, *Write
 	return &resp, wm, err
 }
 
+// RegisterOptions is used to pass through job registration parameters
+type RegisterOptions struct {
+	EnforceIndex   bool
+	ModifyIndex    uint64
+	PolicyOverride bool
+}
+
 // Register is used to register a new job. It returns the ID
 // of the evaluation, along with any errors encountered.
 func (j *Jobs) Register(job *Job, q *WriteOptions) (*JobRegisterResponse, *WriteMeta, error) {
-
-	var resp JobRegisterResponse
-
-	req := &RegisterJobRequest{Job: job}
-	wm, err := j.client.write("/v1/jobs", req, &resp, q)
-	if err != nil {
-		return nil, nil, err
-	}
-	return &resp, wm, nil
+	return j.RegisterOpts(job, nil, q)
 }
 
 // EnforceRegister is used to register a job enforcing its job modify index.
 func (j *Jobs) EnforceRegister(job *Job, modifyIndex uint64, q *WriteOptions) (*JobRegisterResponse, *WriteMeta, error) {
+	opts := RegisterOptions{EnforceIndex: true, ModifyIndex: modifyIndex}
+	return j.RegisterOpts(job, &opts, q)
+}
+
+// Register is used to register a new job. It returns the ID
+// of the evaluation, along with any errors encountered.
+func (j *Jobs) RegisterOpts(job *Job, opts *RegisterOptions, q *WriteOptions) (*JobRegisterResponse, *WriteMeta, error) {
+	// Format the request
+	req := &RegisterJobRequest{
+		Job: job,
+	}
+	if opts != nil {
+		if opts.EnforceIndex {
+			req.EnforceIndex = true
+			req.JobModifyIndex = opts.ModifyIndex
+		}
+		if opts.PolicyOverride {
+			req.PolicyOverride = true
+		}
+	}
 
 	var resp JobRegisterResponse
-
-	req := &RegisterJobRequest{
-		Job:            job,
-		EnforceIndex:   true,
-		JobModifyIndex: modifyIndex,
-	}
 	wm, err := j.client.write("/v1/jobs", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
@@ -107,15 +146,15 @@ func (j *Jobs) Info(jobID string, q *QueryOptions) (*Job, *QueryMeta, error) {
 	return &resp, qm, nil
 }
 
-// Versions is used to retrieve all versions of a particular
-// job given its unique ID.
-func (j *Jobs) Versions(jobID string, q *QueryOptions) ([]*Job, *QueryMeta, error) {
-	var resp []*Job
-	qm, err := j.client.query("/v1/job/"+jobID+"/versions", &resp, q)
+// Versions is used to retrieve all versions of a particular job given its
+// unique ID.
+func (j *Jobs) Versions(jobID string, diffs bool, q *QueryOptions) ([]*Job, []*JobDiff, *QueryMeta, error) {
+	var resp JobVersionsResponse
+	qm, err := j.client.query(fmt.Sprintf("/v1/job/%s/versions?diffs=%v", jobID, diffs), &resp, q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return resp, qm, nil
+	return resp.Versions, resp.Diffs, qm, nil
 }
 
 // Allocations is used to return the allocs for a given job ID.
@@ -138,8 +177,39 @@ func (j *Jobs) Allocations(jobID string, allAllocs bool, q *QueryOptions) ([]*Al
 	return resp, qm, nil
 }
 
-// Evaluations is used to query the evaluations associated with
+// Deployments is used to query the deployments associated with the given job
+// ID.
+func (j *Jobs) Deployments(jobID string, all bool, q *QueryOptions) ([]*Deployment, *QueryMeta, error) {
+	var resp []*Deployment
+	u, err := url.Parse("/v1/job/" + jobID + "/deployments")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v := u.Query()
+	v.Add("all", strconv.FormatBool(all))
+	u.RawQuery = v.Encode()
+	qm, err := j.client.query(u.String(), &resp, q)
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Sort(DeploymentIndexSort(resp))
+	return resp, qm, nil
+}
+
+// LatestDeployment is used to query for the latest deployment associated with
 // the given job ID.
+func (j *Jobs) LatestDeployment(jobID string, q *QueryOptions) (*Deployment, *QueryMeta, error) {
+	var resp *Deployment
+	qm, err := j.client.query("/v1/job/"+jobID+"/deployment", &resp, q)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp, qm, nil
+}
+
+// Evaluations is used to query the evaluations associated with the given job
+// ID.
 func (j *Jobs) Evaluations(jobID string, q *QueryOptions) ([]*Evaluation, *QueryMeta, error) {
 	var resp []*Evaluation
 	qm, err := j.client.query("/v1/job/"+jobID+"/evaluations", &resp, q)
@@ -172,6 +242,22 @@ func (j *Jobs) ForceEvaluate(jobID string, q *WriteOptions) (string, *WriteMeta,
 	return resp.EvalID, wm, nil
 }
 
+// EvaluateWithOpts is used to force-evaluate an existing job and takes additional options
+// for whether to force reschedule failed allocations
+func (j *Jobs) EvaluateWithOpts(jobID string, opts EvalOptions, q *WriteOptions) (string, *WriteMeta, error) {
+	req := &JobEvaluateRequest{
+		JobID:       jobID,
+		EvalOptions: opts,
+	}
+
+	var resp JobRegisterResponse
+	wm, err := j.client.write("/v1/job/"+jobID+"/evaluate", req, &resp, q)
+	if err != nil {
+		return "", nil, err
+	}
+	return resp.EvalID, wm, nil
+}
+
 // PeriodicForce spawns a new instance of the periodic job and returns the eval ID
 func (j *Jobs) PeriodicForce(jobID string, q *WriteOptions) (string, *WriteMeta, error) {
 	var resp periodicForceResponse
@@ -182,21 +268,36 @@ func (j *Jobs) PeriodicForce(jobID string, q *WriteOptions) (string, *WriteMeta,
 	return resp.EvalID, wm, nil
 }
 
+// PlanOptions is used to pass through job planning parameters
+type PlanOptions struct {
+	Diff           bool
+	PolicyOverride bool
+}
+
 func (j *Jobs) Plan(job *Job, diff bool, q *WriteOptions) (*JobPlanResponse, *WriteMeta, error) {
+	opts := PlanOptions{Diff: diff}
+	return j.PlanOpts(job, &opts, q)
+}
+
+func (j *Jobs) PlanOpts(job *Job, opts *PlanOptions, q *WriteOptions) (*JobPlanResponse, *WriteMeta, error) {
 	if job == nil {
 		return nil, nil, fmt.Errorf("must pass non-nil job")
 	}
 
-	var resp JobPlanResponse
+	// Setup the request
 	req := &JobPlanRequest{
-		Job:  job,
-		Diff: diff,
+		Job: job,
 	}
+	if opts != nil {
+		req.Diff = opts.Diff
+		req.PolicyOverride = opts.PolicyOverride
+	}
+
+	var resp JobPlanResponse
 	wm, err := j.client.write("/v1/job/"+*job.ID+"/plan", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return &resp, wm, nil
 }
 
@@ -228,15 +329,33 @@ func (j *Jobs) Dispatch(jobID string, meta map[string]string,
 // enforceVersion is set, the job is only reverted if the current version is at
 // the passed version.
 func (j *Jobs) Revert(jobID string, version uint64, enforcePriorVersion *uint64,
-	q *WriteOptions) (*JobRegisterResponse, *WriteMeta, error) {
+	q *WriteOptions, vaultToken string) (*JobRegisterResponse, *WriteMeta, error) {
 
 	var resp JobRegisterResponse
 	req := &JobRevertRequest{
 		JobID:               jobID,
 		JobVersion:          version,
 		EnforcePriorVersion: enforcePriorVersion,
+		VaultToken:          vaultToken,
 	}
 	wm, err := j.client.write("/v1/job/"+jobID+"/revert", req, &resp, q)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &resp, wm, nil
+}
+
+// Stable is used to mark a job version's stability.
+func (j *Jobs) Stable(jobID string, version uint64, stable bool,
+	q *WriteOptions) (*JobStabilityResponse, *WriteMeta, error) {
+
+	var resp JobStabilityResponse
+	req := &JobStabilityRequest{
+		JobID:      jobID,
+		JobVersion: version,
+		Stable:     stable,
+	}
+	wm, err := j.client.write("/v1/job/"+jobID+"/stable", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -250,14 +369,31 @@ type periodicForceResponse struct {
 
 // UpdateStrategy defines a task groups update strategy.
 type UpdateStrategy struct {
-	// COMPAT: Remove in 0.7.0. Stagger is deprecated in 0.6.0.
-	Stagger         time.Duration  `mapstructure:"stagger"`
-	MaxParallel     *int           `mapstructure:"max_parallel"`
-	HealthCheck     *string        `mapstructure:"health_check"`
-	MinHealthyTime  *time.Duration `mapstructure:"min_healthy_time"`
-	HealthyDeadline *time.Duration `mapstructure:"healthy_deadline"`
-	AutoRevert      *bool          `mapstructure:"auto_revert"`
-	Canary          *int           `mapstructure:"canary"`
+	Stagger          *time.Duration `mapstructure:"stagger"`
+	MaxParallel      *int           `mapstructure:"max_parallel"`
+	HealthCheck      *string        `mapstructure:"health_check"`
+	MinHealthyTime   *time.Duration `mapstructure:"min_healthy_time"`
+	HealthyDeadline  *time.Duration `mapstructure:"healthy_deadline"`
+	ProgressDeadline *time.Duration `mapstructure:"progress_deadline"`
+	Canary           *int           `mapstructure:"canary"`
+	AutoRevert       *bool          `mapstructure:"auto_revert"`
+	AutoPromote      *bool          `mapstructure:"auto_promote"`
+}
+
+// DefaultUpdateStrategy provides a baseline that can be used to upgrade
+// jobs with the old policy or for populating field defaults.
+func DefaultUpdateStrategy() *UpdateStrategy {
+	// boolPtr fields are omitted to avoid masking an unconfigured nil
+	return &UpdateStrategy{
+		Stagger:          timeToPtr(30 * time.Second),
+		MaxParallel:      intToPtr(1),
+		HealthCheck:      stringToPtr("checks"),
+		MinHealthyTime:   timeToPtr(10 * time.Second),
+		HealthyDeadline:  timeToPtr(5 * time.Minute),
+		ProgressDeadline: timeToPtr(10 * time.Minute),
+		AutoRevert:       boolToPtr(false),
+		Canary:           intToPtr(0),
+	}
 }
 
 func (u *UpdateStrategy) Copy() *UpdateStrategy {
@@ -267,31 +403,40 @@ func (u *UpdateStrategy) Copy() *UpdateStrategy {
 
 	copy := new(UpdateStrategy)
 
-	// COMPAT: Remove in 0.7.0. Stagger is deprecated in 0.6.0.
-	copy.Stagger = u.Stagger
+	if u.Stagger != nil {
+		copy.Stagger = timeToPtr(*u.Stagger)
+	}
 
 	if u.MaxParallel != nil {
-		copy.MaxParallel = helper.IntToPtr(*u.MaxParallel)
+		copy.MaxParallel = intToPtr(*u.MaxParallel)
 	}
 
 	if u.HealthCheck != nil {
-		copy.HealthCheck = helper.StringToPtr(*u.HealthCheck)
+		copy.HealthCheck = stringToPtr(*u.HealthCheck)
 	}
 
 	if u.MinHealthyTime != nil {
-		copy.MinHealthyTime = helper.TimeToPtr(*u.MinHealthyTime)
+		copy.MinHealthyTime = timeToPtr(*u.MinHealthyTime)
 	}
 
 	if u.HealthyDeadline != nil {
-		copy.HealthyDeadline = helper.TimeToPtr(*u.HealthyDeadline)
+		copy.HealthyDeadline = timeToPtr(*u.HealthyDeadline)
+	}
+
+	if u.ProgressDeadline != nil {
+		copy.ProgressDeadline = timeToPtr(*u.ProgressDeadline)
 	}
 
 	if u.AutoRevert != nil {
-		copy.AutoRevert = helper.BoolToPtr(*u.AutoRevert)
+		copy.AutoRevert = boolToPtr(*u.AutoRevert)
 	}
 
 	if u.Canary != nil {
-		copy.Canary = helper.IntToPtr(*u.Canary)
+		copy.Canary = intToPtr(*u.Canary)
+	}
+
+	if u.AutoPromote != nil {
+		copy.AutoPromote = boolToPtr(*u.AutoPromote)
 	}
 
 	return copy
@@ -302,57 +447,120 @@ func (u *UpdateStrategy) Merge(o *UpdateStrategy) {
 		return
 	}
 
+	if o.Stagger != nil {
+		u.Stagger = timeToPtr(*o.Stagger)
+	}
+
 	if o.MaxParallel != nil {
-		u.MaxParallel = helper.IntToPtr(*o.MaxParallel)
+		u.MaxParallel = intToPtr(*o.MaxParallel)
 	}
 
 	if o.HealthCheck != nil {
-		u.HealthCheck = helper.StringToPtr(*o.HealthCheck)
+		u.HealthCheck = stringToPtr(*o.HealthCheck)
 	}
 
 	if o.MinHealthyTime != nil {
-		u.MinHealthyTime = helper.TimeToPtr(*o.MinHealthyTime)
+		u.MinHealthyTime = timeToPtr(*o.MinHealthyTime)
 	}
 
 	if o.HealthyDeadline != nil {
-		u.HealthyDeadline = helper.TimeToPtr(*o.HealthyDeadline)
+		u.HealthyDeadline = timeToPtr(*o.HealthyDeadline)
+	}
+
+	if o.ProgressDeadline != nil {
+		u.ProgressDeadline = timeToPtr(*o.ProgressDeadline)
 	}
 
 	if o.AutoRevert != nil {
-		u.AutoRevert = helper.BoolToPtr(*o.AutoRevert)
+		u.AutoRevert = boolToPtr(*o.AutoRevert)
 	}
 
 	if o.Canary != nil {
-		u.Canary = helper.IntToPtr(*o.Canary)
+		u.Canary = intToPtr(*o.Canary)
+	}
+
+	if o.AutoPromote != nil {
+		u.AutoPromote = boolToPtr(*o.AutoPromote)
 	}
 }
 
 func (u *UpdateStrategy) Canonicalize() {
+	d := DefaultUpdateStrategy()
+
+	// boolPtr fields are omitted to avoid masking an unconfigured nil
+
 	if u.MaxParallel == nil {
-		u.MaxParallel = helper.IntToPtr(0)
+		u.MaxParallel = d.MaxParallel
 	}
 
-	d := structs.DefaultUpdateStrategy
+	if u.Stagger == nil {
+		u.Stagger = d.Stagger
+	}
 
 	if u.HealthCheck == nil {
-		u.HealthCheck = helper.StringToPtr(d.HealthCheck)
+		u.HealthCheck = d.HealthCheck
 	}
 
 	if u.HealthyDeadline == nil {
-		u.HealthyDeadline = helper.TimeToPtr(d.HealthyDeadline)
+		u.HealthyDeadline = d.HealthyDeadline
+	}
+
+	if u.ProgressDeadline == nil {
+		u.ProgressDeadline = d.ProgressDeadline
 	}
 
 	if u.MinHealthyTime == nil {
-		u.MinHealthyTime = helper.TimeToPtr(d.MinHealthyTime)
+		u.MinHealthyTime = d.MinHealthyTime
 	}
 
 	if u.AutoRevert == nil {
-		u.AutoRevert = helper.BoolToPtr(d.AutoRevert)
+		u.AutoRevert = d.AutoRevert
 	}
 
 	if u.Canary == nil {
-		u.Canary = helper.IntToPtr(d.Canary)
+		u.Canary = d.Canary
 	}
+}
+
+// Empty returns whether the UpdateStrategy is empty or has user defined values.
+func (u *UpdateStrategy) Empty() bool {
+	if u == nil {
+		return true
+	}
+
+	if u.Stagger != nil && *u.Stagger != 0 {
+		return false
+	}
+
+	if u.MaxParallel != nil && *u.MaxParallel != 0 {
+		return false
+	}
+
+	if u.HealthCheck != nil && *u.HealthCheck != "" {
+		return false
+	}
+
+	if u.MinHealthyTime != nil && *u.MinHealthyTime != 0 {
+		return false
+	}
+
+	if u.HealthyDeadline != nil && *u.HealthyDeadline != 0 {
+		return false
+	}
+
+	if u.ProgressDeadline != nil && *u.ProgressDeadline != 0 {
+		return false
+	}
+
+	if u.AutoRevert != nil && *u.AutoRevert {
+		return false
+	}
+
+	if u.Canary != nil && *u.Canary != 0 {
+		return false
+	}
+
+	return true
 }
 
 // PeriodicConfig is for serializing periodic config for a job.
@@ -366,19 +574,19 @@ type PeriodicConfig struct {
 
 func (p *PeriodicConfig) Canonicalize() {
 	if p.Enabled == nil {
-		p.Enabled = helper.BoolToPtr(true)
+		p.Enabled = boolToPtr(true)
 	}
 	if p.Spec == nil {
-		p.Spec = helper.StringToPtr("")
+		p.Spec = stringToPtr("")
 	}
 	if p.SpecType == nil {
-		p.SpecType = helper.StringToPtr(PeriodicSpecCron)
+		p.SpecType = stringToPtr(PeriodicSpecCron)
 	}
 	if p.ProhibitOverlap == nil {
-		p.ProhibitOverlap = helper.BoolToPtr(false)
+		p.ProhibitOverlap = boolToPtr(false)
 	}
 	if p.TimeZone == nil || *p.TimeZone == "" {
-		p.TimeZone = helper.StringToPtr("UTC")
+		p.TimeZone = stringToPtr("UTC")
 	}
 }
 
@@ -386,16 +594,30 @@ func (p *PeriodicConfig) Canonicalize() {
 // passed time. If no matching instance exists, the zero value of time.Time is
 // returned. The `time.Location` of the returned value matches that of the
 // passed time.
-func (p *PeriodicConfig) Next(fromTime time.Time) time.Time {
+func (p *PeriodicConfig) Next(fromTime time.Time) (time.Time, error) {
 	if *p.SpecType == PeriodicSpecCron {
 		if e, err := cronexpr.Parse(*p.Spec); err == nil {
-			return e.Next(fromTime)
+			return cronParseNext(e, fromTime, *p.Spec)
 		}
 	}
 
-	return time.Time{}
+	return time.Time{}, nil
 }
 
+// cronParseNext is a helper that parses the next time for the given expression
+// but captures any panic that may occur in the underlying library.
+// ---  THIS FUNCTION IS REPLICATED IN nomad/structs/structs.go
+// and should be kept in sync.
+func cronParseNext(e *cronexpr.Expression, fromTime time.Time, spec string) (t time.Time, err error) {
+	defer func() {
+		if recover() != nil {
+			t = time.Time{}
+			err = fmt.Errorf("failed parsing cron expression: %q", spec)
+		}
+	}()
+
+	return e.Next(fromTime), nil
+}
 func (p *PeriodicConfig) GetLocation() (*time.Location, error) {
 	if p.TimeZone == nil || *p.TimeZone == "" {
 		return time.UTC, nil
@@ -415,6 +637,7 @@ type ParameterizedJobConfig struct {
 type Job struct {
 	Stop              *bool
 	Region            *string
+	Namespace         *string
 	ID                *string
 	ParentID          *string
 	Name              *string
@@ -423,17 +646,23 @@ type Job struct {
 	AllAtOnce         *bool `mapstructure:"all_at_once"`
 	Datacenters       []string
 	Constraints       []*Constraint
+	Affinities        []*Affinity
 	TaskGroups        []*TaskGroup
 	Update            *UpdateStrategy
+	Spreads           []*Spread
 	Periodic          *PeriodicConfig
 	ParameterizedJob  *ParameterizedJobConfig
+	Dispatched        bool
 	Payload           []byte
+	Reschedule        *ReschedulePolicy
+	Migrate           *MigrateStrategy
 	Meta              map[string]string
 	VaultToken        *string `mapstructure:"vault_token"`
 	Status            *string
 	StatusDescription *string
 	Stable            *bool
 	Version           *uint64
+	SubmitTime        *int64
 	CreateIndex       *uint64
 	ModifyIndex       *uint64
 	JobModifyIndex    *uint64
@@ -446,57 +675,63 @@ func (j *Job) IsPeriodic() bool {
 
 // IsParameterized returns whether a job is parameterized job.
 func (j *Job) IsParameterized() bool {
-	return j.ParameterizedJob != nil
+	return j.ParameterizedJob != nil && !j.Dispatched
 }
 
 func (j *Job) Canonicalize() {
 	if j.ID == nil {
-		j.ID = helper.StringToPtr("")
+		j.ID = stringToPtr("")
 	}
 	if j.Name == nil {
-		j.Name = helper.StringToPtr(*j.ID)
+		j.Name = stringToPtr(*j.ID)
 	}
 	if j.ParentID == nil {
-		j.ParentID = helper.StringToPtr("")
+		j.ParentID = stringToPtr("")
+	}
+	if j.Namespace == nil {
+		j.Namespace = stringToPtr(DefaultNamespace)
 	}
 	if j.Priority == nil {
-		j.Priority = helper.IntToPtr(50)
+		j.Priority = intToPtr(50)
 	}
 	if j.Stop == nil {
-		j.Stop = helper.BoolToPtr(false)
+		j.Stop = boolToPtr(false)
 	}
 	if j.Region == nil {
-		j.Region = helper.StringToPtr("global")
+		j.Region = stringToPtr("global")
+	}
+	if j.Namespace == nil {
+		j.Namespace = stringToPtr("default")
 	}
 	if j.Type == nil {
-		j.Type = helper.StringToPtr("service")
+		j.Type = stringToPtr("service")
 	}
 	if j.AllAtOnce == nil {
-		j.AllAtOnce = helper.BoolToPtr(false)
+		j.AllAtOnce = boolToPtr(false)
 	}
 	if j.VaultToken == nil {
-		j.VaultToken = helper.StringToPtr("")
+		j.VaultToken = stringToPtr("")
 	}
 	if j.Status == nil {
-		j.Status = helper.StringToPtr("")
+		j.Status = stringToPtr("")
 	}
 	if j.StatusDescription == nil {
-		j.StatusDescription = helper.StringToPtr("")
+		j.StatusDescription = stringToPtr("")
 	}
 	if j.Stable == nil {
-		j.Stable = helper.BoolToPtr(false)
+		j.Stable = boolToPtr(false)
 	}
 	if j.Version == nil {
-		j.Version = helper.Uint64ToPtr(0)
+		j.Version = uint64ToPtr(0)
 	}
 	if j.CreateIndex == nil {
-		j.CreateIndex = helper.Uint64ToPtr(0)
+		j.CreateIndex = uint64ToPtr(0)
 	}
 	if j.ModifyIndex == nil {
-		j.ModifyIndex = helper.Uint64ToPtr(0)
+		j.ModifyIndex = uint64ToPtr(0)
 	}
 	if j.JobModifyIndex == nil {
-		j.JobModifyIndex = helper.Uint64ToPtr(0)
+		j.JobModifyIndex = uint64ToPtr(0)
 	}
 	if j.Periodic != nil {
 		j.Periodic.Canonicalize()
@@ -508,13 +743,31 @@ func (j *Job) Canonicalize() {
 	for _, tg := range j.TaskGroups {
 		tg.Canonicalize(j)
 	}
+
+	for _, spread := range j.Spreads {
+		spread.Canonicalize()
+	}
+	for _, a := range j.Affinities {
+		a.Canonicalize()
+	}
+}
+
+// LookupTaskGroup finds a task group by name
+func (j *Job) LookupTaskGroup(name string) *TaskGroup {
+	for _, tg := range j.TaskGroups {
+		if *tg.Name == name {
+			return tg
+		}
+	}
+	return nil
 }
 
 // JobSummary summarizes the state of the allocations of a job
 type JobSummary struct {
-	JobID    string
-	Summary  map[string]TaskGroupSummary
-	Children *JobChildrenSummary
+	JobID     string
+	Namespace string
+	Summary   map[string]TaskGroupSummary
+	Children  *JobChildrenSummary
 
 	// Raft Indexes
 	CreateIndex uint64
@@ -553,6 +806,7 @@ type JobListStub struct {
 	ID                string
 	ParentID          string
 	Name              string
+	Datacenters       []string
 	Type              string
 	Priority          int
 	Periodic          bool
@@ -564,6 +818,7 @@ type JobListStub struct {
 	CreateIndex       uint64
 	ModifyIndex       uint64
 	JobModifyIndex    uint64
+	SubmitTime        int64
 }
 
 // JobIDSort is used to sort jobs by their job ID's.
@@ -627,6 +882,12 @@ func (j *Job) Constrain(c *Constraint) *Job {
 	return j
 }
 
+// AddAffinity is used to add an affinity to a job.
+func (j *Job) AddAffinity(a *Affinity) *Job {
+	j.Affinities = append(j.Affinities, a)
+	return j
+}
+
 // AddTaskGroup adds a task group to an existing job.
 func (j *Job) AddTaskGroup(grp *TaskGroup) *Job {
 	j.TaskGroups = append(j.TaskGroups, grp)
@@ -639,9 +900,20 @@ func (j *Job) AddPeriodicConfig(cfg *PeriodicConfig) *Job {
 	return j
 }
 
+func (j *Job) AddSpread(s *Spread) *Job {
+	j.Spreads = append(j.Spreads, s)
+	return j
+}
+
 type WriteRequest struct {
 	// The target region for this write
 	Region string
+
+	// Namespace is the target namespace for this write
+	Namespace string
+
+	// SecretID is the secret ID of an ACL token
+	SecretID string
 }
 
 // JobValidateRequest is used to validate a job
@@ -659,7 +931,7 @@ type JobValidateResponse struct {
 	// ValidationErrors is a list of validation errors
 	ValidationErrors []string
 
-	// Error is a string version of any error that may have occured
+	// Error is a string version of any error that may have occurred
 	Error string
 
 	// Warnings contains any warnings about the given job. These may include
@@ -679,6 +951,12 @@ type JobRevertRequest struct {
 	// version before reverting.
 	EnforcePriorVersion *uint64
 
+	// VaultToken is the Vault token that proves the submitter of the job revert
+	// has access to any Vault policies specified in the targeted job version. This
+	// field is only used to authorize the revert and is not stored after the Job
+	// revert.
+	VaultToken string `json:",omitempty"`
+
 	WriteRequest
 }
 
@@ -690,6 +968,7 @@ type JobRegisterRequest struct {
 	// register only occurs if the job is new.
 	EnforceIndex   bool
 	JobModifyIndex uint64
+	PolicyOverride bool
 
 	WriteRequest
 }
@@ -699,6 +978,7 @@ type RegisterJobRequest struct {
 	Job            *Job
 	EnforceIndex   bool   `json:",omitempty"`
 	JobModifyIndex uint64 `json:",omitempty"`
+	PolicyOverride bool   `json:",omitempty"`
 }
 
 // JobRegisterResponse is used to respond to a job registration
@@ -723,8 +1003,9 @@ type JobDeregisterResponse struct {
 }
 
 type JobPlanRequest struct {
-	Job  *Job
-	Diff bool
+	Job            *Job
+	Diff           bool
+	PolicyOverride bool
 	WriteRequest
 }
 
@@ -782,6 +1063,7 @@ type ObjectDiff struct {
 
 type PlanAnnotations struct {
 	DesiredTGUpdates map[string]*DesiredUpdates
+	PreemptedAllocs  []*AllocationListStub
 }
 
 type DesiredUpdates struct {
@@ -791,6 +1073,8 @@ type DesiredUpdates struct {
 	Stop              uint64
 	InPlaceUpdate     uint64
 	DestructiveUpdate uint64
+	Canary            uint64
+	Preemptions       uint64
 }
 
 type JobDispatchRequest struct {
@@ -805,4 +1089,40 @@ type JobDispatchResponse struct {
 	EvalCreateIndex uint64
 	JobCreateIndex  uint64
 	WriteMeta
+}
+
+// JobVersionsResponse is used for a job get versions request
+type JobVersionsResponse struct {
+	Versions []*Job
+	Diffs    []*JobDiff
+	QueryMeta
+}
+
+// JobStabilityRequest is used to marked a job as stable.
+type JobStabilityRequest struct {
+	// Job to set the stability on
+	JobID      string
+	JobVersion uint64
+
+	// Set the stability
+	Stable bool
+	WriteRequest
+}
+
+// JobStabilityResponse is the response when marking a job as stable.
+type JobStabilityResponse struct {
+	JobModifyIndex uint64
+	WriteMeta
+}
+
+// JobEvaluateRequest is used when we just need to re-evaluate a target job
+type JobEvaluateRequest struct {
+	JobID       string
+	EvalOptions EvalOptions
+	WriteRequest
+}
+
+// EvalOptions is used to encapsulate options when forcing a job evaluation
+type EvalOptions struct {
+	ForceReschedule bool
 }

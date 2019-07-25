@@ -37,7 +37,7 @@ func TestNew(t *testing.T) {
 		d, err := New(&Config{"foo", "bar", "baz", "", "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No valid AWS authentication found")
+		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
 	})
 
 	withEnv(func() {
