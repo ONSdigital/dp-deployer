@@ -51,6 +51,11 @@ job "dp-deployer" {
       vault {
         policies = ["dp-deployer"]
       }
+
+      volumes = [
+        "/etc/nomad/tls:/etc/nomad/tls",
+      ]
+
     }
   }
 }
