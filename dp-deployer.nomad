@@ -31,6 +31,10 @@ job "dp-deployer" {
         args = ["./dp-deployer"]
 
         image = "{{ECR_URL}}:concourse-{{REVISION}}"
+
+        volumes = [
+          "/etc/nomad/tls:/etc/nomad/tls",
+        ]
       }
 
       service {
@@ -51,10 +55,6 @@ job "dp-deployer" {
       vault {
         policies = ["dp-deployer"]
       }
-
-      volumes = [
-        "/etc/nomad/tls:/etc/nomad/tls",
-      ]
 
     }
   }
