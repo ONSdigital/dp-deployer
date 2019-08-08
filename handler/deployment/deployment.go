@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -127,6 +128,9 @@ func New(c *Config) (*Deployment, error) {
 			Timeout:   time.Second * 10,
 			Transport: transport,
 		}
+	} else if strings.HasPrefix(c.NomadEndpoint, "https://localhost:") {
+		// no CA file, using local nomad => do not check cert  XXX DANGER DANGER XXX
+		NomadClient.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify = true
 	}
 
 	if jsonFrom == nil {
