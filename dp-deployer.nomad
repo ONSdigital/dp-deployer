@@ -31,10 +31,6 @@ job "dp-deployer" {
         args = ["./dp-deployer"]
 
         image = "{{ECR_URL}}:concourse-{{REVISION}}"
-
-        volumes = [
-          "/etc/nomad/tls:/etc/nomad/tls",
-        ]
       }
 
       service {
