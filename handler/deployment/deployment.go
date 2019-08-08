@@ -130,6 +130,7 @@ func New(c *Config) (*Deployment, error) {
 		}
 	} else if strings.HasPrefix(c.NomadEndpoint, "https://localhost:") {
 		// no CA file, using local nomad => do not check cert  XXX DANGER DANGER XXX
+		log.Trace("using TLS without verification", nil)
 		NomadClient.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify = true
 	}
 
