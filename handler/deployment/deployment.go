@@ -103,7 +103,7 @@ func New(c *Config) (*Deployment, error) {
 		c.Timeout = &TimeoutConfig{DefaultAllocationTimeout, DefaultEvaluationTimeout}
 	}
 
-	NomadClient := HTTPClient
+	var tlsConfig *tls.Config
 	if c.NomadCACert != "" {
 		log.Trace("loading custom ca cert", log.Data{"ca_cert_path": c.NomadCACert})
 
@@ -120,19 +120,18 @@ func New(c *Config) (*Deployment, error) {
 			return nil, errors.New("failed to append ca cert to pool")
 		}
 
-		tlsConfig := &tls.Config{
+		tlsConfig = &tls.Config{
 			RootCAs: caCertPool,
-		}
-		transport := &http.Transport{TLSClientConfig: tlsConfig}
-		NomadClient = &http.Client{
-			Timeout:   time.Second * 10,
-			Transport: transport,
 		}
 	} else if strings.HasPrefix(c.NomadEndpoint, "https://localhost:") {
 		// no CA file, using local nomad => do not check cert  XXX DANGER DANGER XXX
 		log.Trace("using TLS without verification", nil)
-		NomadClient.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify = true
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 	}
+	NomadClient := HTTPClient
+	NomadClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile
