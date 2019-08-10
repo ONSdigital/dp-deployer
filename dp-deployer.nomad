@@ -41,6 +41,10 @@ job "dp-deployer" {
       resources {
         cpu    = "{{MANAGEMENT_RESOURCE_CPU}}"
         memory = "{{MANAGEMENT_RESOURCE_MEM}}"
+
+        network {
+          port "http" {}
+        }
       }
 
       template {
