@@ -63,6 +63,8 @@ type Config struct {
 	NomadToken string
 	// NomadCACert is the path to the root nomad CA cert.
 	NomadCACert string
+	// NomadTlsSkipVerify disables TLS verification for nomad api calls.
+	NomadTlsSkipVerify bool
 	// Region is the region in which the deployment artifacts bucket resides.
 	Region string
 	// Timeout is the timeout configuration for the deployments.
@@ -103,35 +105,39 @@ func New(c *Config) (*Deployment, error) {
 		c.Timeout = &TimeoutConfig{DefaultAllocationTimeout, DefaultEvaluationTimeout}
 	}
 
-	var tlsConfig *tls.Config
-	if c.NomadCACert != "" {
-		log.Trace("loading custom ca cert", log.Data{"ca_cert_path": c.NomadCACert})
-
-		caCertPool, _ := x509.SystemCertPool()
-		if caCertPool == nil {
-			caCertPool = x509.NewCertPool()
-		}
-
-		caCert, err := ioutil.ReadFile(c.NomadCACert)
-		if err != nil {
-			return nil, err
-		}
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			return nil, errors.New("failed to append ca cert to pool")
-		}
-
-		tlsConfig = &tls.Config{
-			RootCAs: caCertPool,
-		}
-	} else if strings.HasPrefix(c.NomadEndpoint, "https://localhost:") {
-		// no CA file, using local nomad => do not check cert  XXX DANGER DANGER XXX
-		log.Trace("using TLS without verification", nil)
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
-	}
 	NomadClient := HTTPClient
-	NomadClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	if strings.HasPrefix(c.NomadEndpoint, "https://") {
+		var tlsConfig *tls.Config
+		if c.NomadCACert != "" {
+			log.Trace("loading custom ca cert", log.Data{"ca_cert_path": c.NomadCACert})
+
+			caCertPool, _ := x509.SystemCertPool()
+			if caCertPool == nil {
+				caCertPool = x509.NewCertPool()
+			}
+
+			caCert, err := ioutil.ReadFile(c.NomadCACert)
+			if err != nil {
+				return nil, err
+			}
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return nil, errors.New("failed to append ca cert to pool")
+			}
+
+			tlsConfig = &tls.Config{
+				RootCAs: caCertPool,
+			}
+		} else if c.NomadTlsSkipVerify {
+			// no CA file => do not check cert  XXX DANGER DANGER XXX
+			log.Trace("using TLS without verification", nil)
+			tlsConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		} else {
+			return nil, errors.New("invalid configuration with https but no CA cert or skip verification enabled")
+		}
+		NomadClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+	}
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile

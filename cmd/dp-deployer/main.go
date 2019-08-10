@@ -15,16 +15,17 @@ import (
 )
 
 var (
-	consumerQueue    = flag.String("consumer-queue", "", "sqs consumer queue name")
-	consumerQueueURL = flag.String("consumer-queue-url", "", "sqs queue url")
-	deploymentRoot   = flag.String("deployment-root", "", "root deployment directory")
-	nomadEndpoint    = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
-	nomadToken       = flag.String("nomad-token", "", "nomad acl token")
-	nomadCACert      = flag.String("nomad-ca-cert", "", "nomad CA cert file")
-	privateKey       = flag.String("private-key", "", "private key used to decrypt secrets")
-	producerQueue    = flag.String("producer-queue", "", "sqs producer queue name")
-	region           = flag.String("aws-default-region", "", "sqs queue region")
-	verificationKey  = flag.String("verification-key", "", "public key for verifying queue messages")
+	consumerQueue      = flag.String("consumer-queue", "", "sqs consumer queue name")
+	consumerQueueURL   = flag.String("consumer-queue-url", "", "sqs queue url")
+	deploymentRoot     = flag.String("deployment-root", "", "root deployment directory")
+	nomadEndpoint      = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
+	nomadTlsSkipVerify = flag.Bool("nomad-tls-skip-verify", false, "skip tls verification of nomad cert")
+	nomadToken         = flag.String("nomad-token", "", "nomad acl token")
+	nomadCACert        = flag.String("nomad-ca-cert", "", "nomad CA cert file")
+	privateKey         = flag.String("private-key", "", "private key used to decrypt secrets")
+	producerQueue      = flag.String("producer-queue", "", "sqs producer queue name")
+	region             = flag.String("aws-default-region", "", "sqs queue region")
+	verificationKey    = flag.String("verification-key", "", "public key for verifying queue messages")
 )
 
 var wg sync.WaitGroup
@@ -71,11 +72,12 @@ func main() {
 
 func initHandlers() (map[string]engine.HandlerFunc, error) {
 	dc := &deployment.Config{
-		DeploymentRoot: *deploymentRoot,
-		NomadEndpoint:  *nomadEndpoint,
-		NomadToken:     *nomadToken,
-		NomadCACert:    *nomadCACert,
-		Region:         *region,
+		DeploymentRoot:     *deploymentRoot,
+		NomadEndpoint:      *nomadEndpoint,
+		NomadTlsSkipVerify: *nomadTlsSkipVerify,
+		NomadToken:         *nomadToken,
+		NomadCACert:        *nomadCACert,
+		Region:             *region,
 	}
 	d, err := deployment.New(dc)
 	if err != nil {

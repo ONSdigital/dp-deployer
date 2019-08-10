@@ -34,15 +34,24 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	Convey("an error is returned with invalid configuration", t, func() {
-		d, err := New(&Config{"foo", "bar", "baz", "", "qux", nil})
+		d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
 	})
 
 	withEnv(func() {
+		Convey("an error is returned with invalid tls configuration", t, func() {
+			d, err := New(&Config{"foo", "https://", "baz", "", false, "qux", nil})
+			So(d, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldStartWith, "invalid configuration with https")
+		})
+	})
+
+	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is not configured", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "", "qux", nil})
+			d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", nil})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
@@ -52,7 +61,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is unreasonable", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "", "qux", &TimeoutConfig{0, 0}})
+			d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", &TimeoutConfig{0, 0}})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Allocation, ShouldEqual, DefaultAllocationTimeout)
