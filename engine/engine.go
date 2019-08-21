@@ -19,6 +19,9 @@ import (
 	"github.com/goamz/goamz/sqs"
 )
 
+// maxConcurrentHandlers limit on goroutines (each handling a message)
+const maxConcurrentHandlers = 50
+
 var sendMessage func(string) error
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
@@ -113,7 +116,7 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		config:    c,
 		keyring:   k,
 		handlers:  hs,
-		semaphore: make(chan struct{}, 50),
+		semaphore: make(chan struct{}, maxConcurrentHandlers),
 		producer:  sqs.New(a, aws.Regions[c.Region]),
 		consumer: ssqs.New(&ssqs.Queue{
 			Name:              c.ConsumerQueue,
@@ -184,11 +187,14 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}
-		if _, ok := e.handlers[engMsg.Type]; !ok {
+
+		var handlerFunc HandlerFunc
+		var ok bool
+		if handlerFunc, ok = e.handlers[engMsg.Type]; !ok {
 			e.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
 			return
 		}
-		if err := e.handlers[engMsg.Type](ctx, &engMsg); err != nil {
+		if err := handlerFunc(ctx, &engMsg); err != nil {
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}

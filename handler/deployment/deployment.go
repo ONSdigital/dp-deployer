@@ -50,7 +50,7 @@ type payload struct {
 	Job *api.Job
 }
 
-// HTTPClient is the default http client.
+// HTTPClient is the default http client - used for s3
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Config represents the configuration for a deployment.
@@ -64,7 +64,7 @@ type Config struct {
 	// NomadCACert is the path to the root nomad CA cert.
 	NomadCACert string
 	// NomadTlsSkipVerify disables TLS verification for nomad api calls.
-	NomadTlsSkipVerify bool
+	NomadTLSSkipVerify bool
 	// Region is the region in which the deployment artifacts bucket resides.
 	Region string
 	// Timeout is the timeout configuration for the deployments.
@@ -127,7 +127,8 @@ func New(c *Config) (*Deployment, error) {
 			tlsConfig = &tls.Config{
 				RootCAs: caCertPool,
 			}
-		} else if c.NomadTlsSkipVerify {
+		} else if c.NomadTLSSkipVerify {
+
 			// no CA file => do not check cert  XXX DANGER DANGER XXX
 			log.Trace("using TLS without verification", nil)
 			tlsConfig = &tls.Config{
@@ -286,7 +287,6 @@ func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID 
 			}
 			log.InfoC(deploymentID, "waiting for next evaluation", log.Data{"id": evaluation.ID, "next evaluation": evaluation.NextEval})
 			return d.monitor(ctx, deploymentID, evaluation.NextEval)
-		default:
 		}
 	}
 }
