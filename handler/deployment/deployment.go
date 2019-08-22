@@ -21,6 +21,7 @@ import (
 	"github.com/goamz/goamz/s3"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
+	"github.com/hashicorp/nomad/nomad/structs"
 	"github.com/slimsag/untargz"
 )
 
@@ -29,16 +30,12 @@ const (
 	DefaultAllocationTimeout = time.Second * 300
 	// DefaultEvaluationTimeout is the default time to wait for an evaluation to complete.
 	DefaultEvaluationTimeout = time.Second * 120
-)
 
-const (
-	allocURL = "%s/v1/evaluation/%s/allocations"
-	evalURL  = "%s/v1/evaluation/%s"
-	planURL  = "%s/v1/job/%s/plan"
-	runURL   = "%s/v1/jobs"
-)
+	evalURL       = "%s/v1/evaluation/%s"
+	deploymentURL = "%s/v1/deployment/%s"
+	planURL       = "%s/v1/job/%s/plan"
+	runURL        = "%s/v1/jobs"
 
-const (
 	statusComplete = "complete"
 	statusPending  = "pending"
 	statusRunning  = "running"
@@ -206,56 +203,53 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 }
 
 func (d *Deployment) monitor(ctx context.Context, deploymentID, evaluationID string) error {
+	// ensure evaluation is complete before checking the deployment
 	if err := d.evaluation(ctx, deploymentID, evaluationID); err != nil {
 		return err
 	}
-	if err := d.allocations(ctx, deploymentID, evaluationID); err != nil {
+	if err := d.deploymentSuccess(ctx, deploymentID, evaluationID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) allocations(ctx context.Context, deploymentID, evaluationID string) error {
+func (d *Deployment) deploymentSuccess(ctx context.Context, deploymentID, evaluationID string) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Allocation)
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.InfoC(deploymentID, "bailing on deployment allocations", log.Data{"evaluation": evaluationID})
-			return &AllocationAbortedError{EvaluationID: evaluationID}
+			log.InfoC(deploymentID, "bailing on deployment status", log.Data{"evaluation": evaluationID})
+			return &AbortedError{EvaluationID: evaluationID, DeploymentID: deploymentID}
 		case <-timeout:
-			return &TimeoutError{Action: "allocation"}
+			return &TimeoutError{Action: "deployment"}
 		case <-ticker:
-			var allocations []api.Allocation
-			if err := d.get(fmt.Sprintf(allocURL, d.endpoint, evaluationID), &allocations); err != nil {
+			var deployment api.Deployment
+			if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, deploymentID), &deployment); err != nil {
 				return err
 			}
-			pending, running := sumAllocations(&allocations)
-			if pending > 0 {
-				log.TraceC(deploymentID, "allocations still pending", log.Data{"evaluation": evaluationID, "pending": pending, "total": len(allocations)})
-				continue
+			logData := log.Data{
+				"job":         deployment.JobID,
+				"evaluation":  evaluationID,
+				"status":      deployment.Status,
+				"status_desc": deployment.StatusDescription,
 			}
-			if running == len(allocations) {
-				log.TraceC(deploymentID, "all allocations running", log.Data{"evaluation": evaluationID, "running": running, "total": len(allocations)})
-				return nil
-			}
-			return &AllocationError{pending, running, len(allocations)}
-		default:
-		}
-	}
-}
 
-func sumAllocations(allocations *[]api.Allocation) (pending, running int) {
-	for _, allocation := range *allocations {
-		switch allocation.ClientStatus {
-		case statusRunning:
-			running++
-		case statusPending:
-			pending++
+			switch deployment.Status {
+			case structs.DeploymentStatusSuccessful:
+				log.TraceC(deploymentID, "deployment success", logData)
+				return nil
+			case structs.DeploymentStatusFailed,
+				structs.DeploymentStatusCancelled:
+
+				log.TraceC(deploymentID, "deployment failed", logData)
+				return &AbortedError{EvaluationID: evaluationID, DeploymentID: deploymentID}
+			}
+
+			log.TraceC(deploymentID, "deployment incomplete - will re-test", logData)
 		}
 	}
-	return
 }
 
 func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID string) error {

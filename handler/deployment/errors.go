@@ -1,25 +1,14 @@
 package deployment
 
-// AllocationError is an error implementation that includes pending, running and total
-// allocation counts.
-type AllocationError struct {
-	Pending int
-	Running int
-	Total   int
-}
-
-func (e *AllocationError) Error() string {
-	return "failed to start all allocations"
-}
-
-// AllocationAbortedError is an error implementation that includes the id of the aborted
-// allocation.
-type AllocationAbortedError struct {
+// AbortedError is an error implementation that includes the ids of the aborted
+// evaluation and deployment.
+type AbortedError struct {
 	EvaluationID string
+	DeploymentID string
 }
 
-func (e *AllocationAbortedError) Error() string {
-	return "aborted monitoring allocations for evaluation"
+func (e *AbortedError) Error() string {
+	return "aborted monitoring deployment"
 }
 
 // ClientResponseError is an error implementation that includes the body and status
