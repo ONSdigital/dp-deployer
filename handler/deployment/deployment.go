@@ -63,7 +63,7 @@ type Config struct {
 	NomadToken string
 	// NomadCACert is the path to the root nomad CA cert.
 	NomadCACert string
-	// NomadTlsSkipVerify disables TLS verification for nomad api calls.
+	// NomadTLSSkipVerify disables TLS verification for nomad api calls.
 	NomadTLSSkipVerify bool
 	// Region is the region in which the deployment artifacts bucket resides.
 	Region string

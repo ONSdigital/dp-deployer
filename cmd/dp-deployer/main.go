@@ -19,7 +19,7 @@ var (
 	consumerQueueURL   = flag.String("consumer-queue-url", "", "sqs queue url")
 	deploymentRoot     = flag.String("deployment-root", "", "root deployment directory")
 	nomadEndpoint      = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
-	nomadTlsSkipVerify = flag.Bool("nomad-tls-skip-verify", false, "skip tls verification of nomad cert")
+	nomadTLSSkipVerify = flag.Bool("nomad-tls-skip-verify", false, "skip tls verification of nomad cert")
 	nomadToken         = flag.String("nomad-token", "", "nomad acl token")
 	nomadCACert        = flag.String("nomad-ca-cert", "", "nomad CA cert file")
 	privateKey         = flag.String("private-key", "", "private key used to decrypt secrets")
@@ -74,7 +74,7 @@ func initHandlers() (map[string]engine.HandlerFunc, error) {
 	dc := &deployment.Config{
 		DeploymentRoot:     *deploymentRoot,
 		NomadEndpoint:      *nomadEndpoint,
-		NomadTlsSkipVerify: *nomadTlsSkipVerify,
+		NomadTLSSkipVerify: *nomadTLSSkipVerify,
 		NomadToken:         *nomadToken,
 		NomadCACert:        *nomadCACert,
 		Region:             *region,
