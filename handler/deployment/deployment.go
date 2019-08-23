@@ -29,7 +29,7 @@ const (
 	// DefaultDeploymentTimeout is the default time to wait for a deployment to complete
 	DefaultDeploymentTimeout = time.Second * 60 * 20
 
-	deploymentURL = "%s/v1/deployment/%s"
+	deploymentURL = "%s/v1/job/%s/deployments"
 	planURL       = "%s/v1/job/%s/plan"
 	runURL        = "%s/v1/jobs"
 
@@ -188,54 +188,68 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
 		return err
 	}
-	if err := d.monitor(ctx, msg.ID, res.EvalID); err != nil {
+	if err := d.monitor(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) monitor(ctx context.Context, deploymentID, evaluationID string) error {
-	if err := d.deploymentSuccess(ctx, deploymentID, evaluationID); err != nil {
+func (d *Deployment) monitor(ctx context.Context, correlationID, evaluationID, jobID string, jobModifyIndex uint64) error {
+	if err := d.deploymentSuccess(ctx, correlationID, evaluationID, jobID, jobModifyIndex); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) deploymentSuccess(ctx context.Context, deploymentID, evaluationID string) error {
+func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobModifyIndex uint64) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Deployment)
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobModifyIndex}
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.InfoC(deploymentID, "bailing on deployment status", log.Data{"evaluation": evaluationID})
-			return &AbortedError{EvaluationID: evaluationID, DeploymentID: deploymentID}
+			log.InfoC(correlationID, "bailing on deployment status", minLogData)
+			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout:
 			return &TimeoutError{Action: "deployment"}
 		case <-ticker:
-			var deployment api.Deployment
-			if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, deploymentID), &deployment); err != nil {
+			var deployments []api.Deployment
+			if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, jobID), &deployments); err != nil {
 				return err
 			}
-			logData := log.Data{
-				"job":         deployment.JobID,
-				"evaluation":  evaluationID,
-				"status":      deployment.Status,
-				"status_desc": deployment.StatusDescription,
+			foundJobByIndex := false
+			for _, deployment := range deployments {
+				if deployment.JobModifyIndex != jobModifyIndex {
+					continue
+				}
+
+				logData := log.Data{
+					"evaluation":       evaluationID,
+					"job":              deployment.JobID,
+					"job_modify_index": jobModifyIndex,
+					"status":           deployment.Status,
+					"status_desc":      deployment.StatusDescription,
+				}
+
+				switch deployment.Status {
+				case structs.DeploymentStatusSuccessful:
+					log.TraceC(correlationID, "deployment success", logData)
+					return nil
+				case structs.DeploymentStatusFailed,
+					structs.DeploymentStatusCancelled:
+
+					log.TraceC(correlationID, "deployment failed", logData)
+					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+				}
+				foundJobByIndex = true
+				break
 			}
-
-			switch deployment.Status {
-			case structs.DeploymentStatusSuccessful:
-				log.TraceC(deploymentID, "deployment success", logData)
-				return nil
-			case structs.DeploymentStatusFailed,
-				structs.DeploymentStatusCancelled:
-
-				log.TraceC(deploymentID, "deployment failed", logData)
-				return &AbortedError{EvaluationID: evaluationID, DeploymentID: deploymentID}
+			if foundJobByIndex {
+				log.TraceC(correlationID, "deployment incomplete - will re-test", minLogData)
+			} else {
+				log.TraceC(correlationID, "deployment not found - will re-test", minLogData)
 			}
-
-			log.TraceC(deploymentID, "deployment incomplete - will re-test", logData)
 		}
 	}
 }

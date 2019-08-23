@@ -1,10 +1,10 @@
 package deployment
 
 // AbortedError is an error implementation that includes the ids of the aborted
-// evaluation and deployment.
+// evaluation and message correlation.
 type AbortedError struct {
-	EvaluationID string
-	DeploymentID string
+	EvaluationID  string
+	CorrelationID string
 }
 
 func (e *AbortedError) Error() string {

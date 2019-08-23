@@ -14,10 +14,14 @@ import (
 )
 
 var (
-	deploymentSuccess = `{"Status": "successful", "StatusDescription": "Deployment completed successfully"}`
-	deploymentError   = `{"ID": "54321", "Status": "failed"}`
-	deploymentRunning = `{"ID": "54321", "Status": "running"}`
-	jobSuccess        = `{"EvalID": "12345", "ID": "54321"}`
+	jobSuccess = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
+
+	otherDeployment      = `{"JobModifyIndex": 1, "ID": "54321", "Status": "failed"}`
+	yetAnotherDeployment = `{"JobModifyIndex": 2, "ID": "54321", "Status": "failed"}`
+
+	deploymentSuccess = `[` + otherDeployment + `,{"JobModifyIndex": 99, "Status": "successful", "StatusDescription": "Deployment completed successfully"},` + yetAnotherDeployment + `]`
+	deploymentError   = `[` + otherDeployment + `,{"JobModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
+	deploymentRunning = `[` + otherDeployment + `,{"JobModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
 
 	planErrors   = `{"FailedTGAllocs": { "test": {} } }`
 	planSuccess  = `{}`
@@ -126,7 +130,7 @@ func TestRun(t *testing.T) {
 
 			Convey("deployment api errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/deployment/54321", httpmock.NewStringResponder(500, "server error"))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/job/test/deployments", httpmock.NewStringResponder(500, "server error"))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &normalTimeout, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldNotBeNil)
@@ -136,7 +140,7 @@ func TestRun(t *testing.T) {
 
 			Convey("deployment failures handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/deployment/54321", httpmock.NewStringResponder(200, deploymentError))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentError))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &normalTimeout, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldNotBeNil)
@@ -146,7 +150,7 @@ func TestRun(t *testing.T) {
 
 			Convey("deployment timeouts handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/deployment/54321", httpmock.NewStringResponder(200, deploymentRunning))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentRunning))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &shortTimeout, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldNotBeNil)
@@ -156,7 +160,7 @@ func TestRun(t *testing.T) {
 
 			Convey("deployment cancellation handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/deployment/54321", httpmock.NewStringResponder(200, deploymentRunning))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentRunning))
 				time.AfterFunc(time.Second*2, cancel)
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &normalTimeout, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
@@ -166,7 +170,7 @@ func TestRun(t *testing.T) {
 
 			Convey("successful deployments handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/deployment/54321", httpmock.NewStringResponder(200, deploymentSuccess))
+				httpmock.RegisterResponder("GET", "http://localhost:4646/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentSuccess))
 				dep := &Deployment{endpoint: "http://localhost:4646", timeout: &normalTimeout, nomadClient: &http.Client{Timeout: time.Second * 10}}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldBeNil)
