@@ -896,13 +896,6 @@
 			"revisionTime": "2019-07-17T20:02:58Z"
 		},
 		{
-			"checksumSHA1": "3xyuaSNmClqG4YWC7g0isQIbUTc=",
-			"origin": "github.com/hashicorp/nomad/vendor/golang.org/x/net/lex/httplex",
-			"path": "golang.org/x/net/lex/httplex",
-			"revision": "87d716ed0b363d0e32dfa71eae1d8d2714a4455d",
-			"revisionTime": "2019-07-17T20:02:58Z"
-		},
-		{
 			"checksumSHA1": "u/r66lwYfgg682u5hZG7/E7+VCY=",
 			"origin": "github.com/hashicorp/nomad/vendor/golang.org/x/net/trace",
 			"path": "golang.org/x/net/trace",
