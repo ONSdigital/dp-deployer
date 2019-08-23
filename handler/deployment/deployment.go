@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	// DefaultAllocationTimeout is the default time to wait for an allocation to complete.
-	DefaultAllocationTimeout = time.Second * 300
+	// DefaultDeploymentTimeout is the default time to wait for a deployment to complete
+	DefaultDeploymentTimeout = time.Second * 60 * 20
 	// DefaultEvaluationTimeout is the default time to wait for an evaluation to complete.
-	DefaultEvaluationTimeout = time.Second * 120
+	DefaultEvaluationTimeout = time.Second * 60 * 3
 
 	evalURL       = "%s/v1/evaluation/%s"
 	deploymentURL = "%s/v1/deployment/%s"
@@ -70,8 +70,8 @@ type Config struct {
 
 // TimeoutConfig represents the configuration for deployment timeouts.
 type TimeoutConfig struct {
-	// Allocation is the max time to wait for all allocations to complete.
-	Allocation time.Duration
+	// Deployment is the max time to wait for a deployment to complete
+	Deployment time.Duration
 	// Evaluation is the max time to wait for an Evaluation to complete.
 	Evaluation time.Duration
 }
@@ -92,14 +92,14 @@ func New(c *Config) (*Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.Timeout != nil && c.Timeout.Allocation < 1 {
-		c.Timeout.Allocation = DefaultAllocationTimeout
+	if c.Timeout != nil && c.Timeout.Deployment < 1 {
+		c.Timeout.Deployment = DefaultDeploymentTimeout
 	}
 	if c.Timeout != nil && c.Timeout.Evaluation < 1 {
 		c.Timeout.Evaluation = DefaultEvaluationTimeout
 	}
 	if c.Timeout == nil {
-		c.Timeout = &TimeoutConfig{DefaultAllocationTimeout, DefaultEvaluationTimeout}
+		c.Timeout = &TimeoutConfig{DefaultDeploymentTimeout, DefaultEvaluationTimeout}
 	}
 
 	NomadClient := HTTPClient
@@ -215,7 +215,7 @@ func (d *Deployment) monitor(ctx context.Context, deploymentID, evaluationID str
 
 func (d *Deployment) deploymentSuccess(ctx context.Context, deploymentID, evaluationID string) error {
 	ticker := time.Tick(time.Second * 1)
-	timeout := time.After(d.timeout.Allocation)
+	timeout := time.After(d.timeout.Deployment)
 
 	for {
 		select {
