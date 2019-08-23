@@ -281,7 +281,7 @@ func unmarshalAPIResponse(r *http.Response, v interface{}) error {
 		return err
 	}
 	if r.StatusCode != http.StatusOK {
-		return &ClientResponseError{Body: string(b), StatusCode: r.StatusCode}
+		return &ClientResponseError{Body: string(b), StatusCode: r.StatusCode, URL: r.Request.URL.String()}
 	}
 	if err := json.Unmarshal(b, v); err != nil {
 		return err

@@ -16,6 +16,7 @@ func (e *AbortedError) Error() string {
 type ClientResponseError struct {
 	Body       string
 	StatusCode int
+	URL        string
 }
 
 func (e *ClientResponseError) Error() string {
