@@ -291,14 +291,7 @@ func (d *Deployment) get(url string, v interface{}) error {
 		return err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Nomad-Token", d.token)
-
-	res, err := d.nomadClient.Do(req)
-	if err != nil {
-		return err
-	}
-	return unmarshalAPIResponse(res, v)
+	return d.doNomadReq(req, v)
 }
 
 func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error {
@@ -311,7 +304,10 @@ func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error 
 	if err != nil {
 		return err
 	}
+	return d.doNomadReq(req, v)
+}
 
+func (d *Deployment) doNomadReq(req *http.Request, v interface{}) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Nomad-Token", d.token)
 
