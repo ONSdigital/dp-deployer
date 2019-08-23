@@ -28,10 +28,7 @@ import (
 const (
 	// DefaultDeploymentTimeout is the default time to wait for a deployment to complete
 	DefaultDeploymentTimeout = time.Second * 60 * 20
-	// DefaultEvaluationTimeout is the default time to wait for an evaluation to complete.
-	DefaultEvaluationTimeout = time.Second * 60 * 3
 
-	evalURL       = "%s/v1/evaluation/%s"
 	deploymentURL = "%s/v1/deployment/%s"
 	planURL       = "%s/v1/job/%s/plan"
 	runURL        = "%s/v1/jobs"
@@ -72,8 +69,6 @@ type Config struct {
 type TimeoutConfig struct {
 	// Deployment is the max time to wait for a deployment to complete
 	Deployment time.Duration
-	// Evaluation is the max time to wait for an Evaluation to complete.
-	Evaluation time.Duration
 }
 
 // Deployment represents a deployment.
@@ -95,11 +90,8 @@ func New(c *Config) (*Deployment, error) {
 	if c.Timeout != nil && c.Timeout.Deployment < 1 {
 		c.Timeout.Deployment = DefaultDeploymentTimeout
 	}
-	if c.Timeout != nil && c.Timeout.Evaluation < 1 {
-		c.Timeout.Evaluation = DefaultEvaluationTimeout
-	}
 	if c.Timeout == nil {
-		c.Timeout = &TimeoutConfig{DefaultDeploymentTimeout, DefaultEvaluationTimeout}
+		c.Timeout = &TimeoutConfig{DefaultDeploymentTimeout}
 	}
 
 	NomadClient := HTTPClient
@@ -203,10 +195,6 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 }
 
 func (d *Deployment) monitor(ctx context.Context, deploymentID, evaluationID string) error {
-	// ensure evaluation is complete before checking the deployment
-	if err := d.evaluation(ctx, deploymentID, evaluationID); err != nil {
-		return err
-	}
 	if err := d.deploymentSuccess(ctx, deploymentID, evaluationID); err != nil {
 		return err
 	}
@@ -248,39 +236,6 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, deploymentID, evalua
 			}
 
 			log.TraceC(deploymentID, "deployment incomplete - will re-test", logData)
-		}
-	}
-}
-
-func (d *Deployment) evaluation(ctx context.Context, deploymentID, evaluationID string) error {
-	ticker := time.Tick(time.Second * 1)
-	timeout := time.After(d.timeout.Evaluation)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.InfoC(deploymentID, "bailing on deployment evaluation", log.Data{"evaluation": evaluationID})
-			return &EvaluationAbortedError{ID: evaluationID}
-		case <-timeout:
-			return &TimeoutError{Action: "evaluation"}
-		case <-ticker:
-			var evaluation api.Evaluation
-			if err := d.get(fmt.Sprintf(evalURL, d.endpoint, evaluationID), &evaluation); err != nil {
-				return err
-			}
-			if evaluation.Status == statusPending {
-				log.TraceC(deploymentID, "waiting for evaluation to be scheduled", log.Data{"id": evaluation.ID})
-				continue
-			}
-			if evaluation.Status != statusComplete {
-				return &EvaluationError{ID: evaluation.ID}
-			}
-			log.TraceC(deploymentID, "evaluation complete", log.Data{"id": evaluation.ID})
-			if len(evaluation.NextEval) == 0 {
-				return nil
-			}
-			log.InfoC(deploymentID, "waiting for next evaluation", log.Data{"id": evaluation.ID, "next evaluation": evaluation.NextEval})
-			return d.monitor(ctx, deploymentID, evaluation.NextEval)
 		}
 	}
 }
