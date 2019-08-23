@@ -6,16 +6,20 @@ Event handler for Digital Publishing CI
 Configuration
 -------------
 
-| Environment variable | Default               | Description
-| -------------------- | --------------------- | ---------------------------------------------
-| CONSUMER_QUEUE       |                       | The name of the SQS queue to consume from
-| CONSUMER_QUEUE_URL   |                       | The url of the SQS queue to consume from
-| DEPLOYMENT_ROOT      |                       | The path to download deployment bundles
-| NOMAD_ENDPOINT       | http://localhost:4646 | The endpoint of the Nomad API
-| NOMAD_TOKEN          |                       | The ACL token used to authorise HTTP requests
-| PRIVATE_KEY_PATH     |                       | The path on the filesystem to the private key
-| PRODUCER_QUEUE       |                       | The name of the SQS queue to produce to
-| AWS_DEFAULT_REGION   |                       | The AWS region the SQS queues reside in
+| Environment variable  | Default                | Description
+| --------------------- | ---------------------- | ---------------------------------------------
+| CONSUMER_QUEUE        |                        | The name of the SQS queue to consume from
+| CONSUMER_QUEUE_URL    |                        | The url of the SQS queue to consume from
+| DEPLOYMENT_ROOT       |                        | The path to download deployment bundles
+| NOMAD_CA_CERT         |                        | The path to the CA cert file
+| NOMAD_ENDPOINT        | http://localhost:4646  | The endpoint of the Nomad API
+| NOMAD_TLS_SKIP_VERIFY | false                  | When using TLS to nomad, skip checking certs (bool)
+| NOMAD_TOKEN           |                        | The ACL token used to authorise HTTP requests
+| PRIVATE_KEY           |                        | Private key for decrypting secrets
+| PRODUCER_QUEUE        |                        | The name of the SQS queue to produce to
+| VERIFICATION_KEY      |                        | Public key for verifying SQS messages
+| AWS_DEFAULT_REGION    |                        | The AWS region the SQS queues reside in
+| VAULT_ADDR            | https://127.0.0.1:8200 | Vault endpoint URL
 
 The application also expects your AWS credentials to be configured.
 
