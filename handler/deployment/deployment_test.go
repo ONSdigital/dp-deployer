@@ -16,12 +16,12 @@ import (
 var (
 	jobSuccess = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
 
-	otherDeployment      = `{"JobModifyIndex": 1, "ID": "54321", "Status": "failed"}`
-	yetAnotherDeployment = `{"JobModifyIndex": 2, "ID": "54321", "Status": "failed"}`
+	otherDeployment      = `{"JobSpecModifyIndex": 1, "ID": "54321", "Status": "failed"}`
+	yetAnotherDeployment = `{"JobSpecModifyIndex": 2, "ID": "54321", "Status": "failed"}`
 
-	deploymentSuccess = `[` + otherDeployment + `,{"JobModifyIndex": 99, "Status": "successful", "StatusDescription": "Deployment completed successfully"},` + yetAnotherDeployment + `]`
-	deploymentError   = `[` + otherDeployment + `,{"JobModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
-	deploymentRunning = `[` + otherDeployment + `,{"JobModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
+	deploymentSuccess = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "Status": "successful", "StatusDescription": "Deployment completed successfully"},` + yetAnotherDeployment + `]`
+	deploymentError   = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
+	deploymentRunning = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
 
 	planErrors   = `{"FailedTGAllocs": { "test": {} } }`
 	planSuccess  = `{}`

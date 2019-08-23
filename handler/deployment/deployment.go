@@ -194,17 +194,17 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-func (d *Deployment) monitor(ctx context.Context, correlationID, evaluationID, jobID string, jobModifyIndex uint64) error {
-	if err := d.deploymentSuccess(ctx, correlationID, evaluationID, jobID, jobModifyIndex); err != nil {
+func (d *Deployment) monitor(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+	if err := d.deploymentSuccess(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobModifyIndex uint64) error {
+func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout.Deployment)
-	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobModifyIndex}
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
 
 	for {
 		select {
@@ -220,16 +220,16 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 			}
 			foundJobByIndex := false
 			for _, deployment := range deployments {
-				if deployment.JobModifyIndex != jobModifyIndex {
+				if deployment.JobSpecModifyIndex != jobSpecModifyIndex {
 					continue
 				}
 
 				logData := log.Data{
-					"evaluation":       evaluationID,
-					"job":              deployment.JobID,
-					"job_modify_index": jobModifyIndex,
-					"status":           deployment.Status,
-					"status_desc":      deployment.StatusDescription,
+					"evaluation":          evaluationID,
+					"job":                 deployment.JobID,
+					"job_spec_modify_idx": jobSpecModifyIndex,
+					"status":              deployment.Status,
+					"status_desc":         deployment.StatusDescription,
 				}
 
 				switch deployment.Status {
