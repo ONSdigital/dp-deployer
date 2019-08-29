@@ -188,14 +188,7 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
 		return err
 	}
-	if err := d.monitor(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (d *Deployment) monitor(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
-	if err := d.deploymentSuccess(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
+	if err := d.deploymentSuccess(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
 		return err
 	}
 	return nil
