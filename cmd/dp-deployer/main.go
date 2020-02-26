@@ -4,14 +4,18 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/go-ns/server"
+	"github.com/gorilla/mux"
 	"github.com/namsral/flag"
 )
 
@@ -33,7 +37,7 @@ var (
 
 var (
 	// BuildTime represents the time in which the service was built
-	BuiltTime string
+	BuildTime string
 	// GitCommit represents the commit (SHA-1) hash of the service that is running
 	GitCommit string
 	// Version represents the version of the service that is running
@@ -42,7 +46,15 @@ var (
 
 var wg sync.WaitGroup
 
+type healthcheckConfig struct {
+	IntervalStr string
+	CriticalTimeoutStr string
+	HealthcheckInterval time.Duration 
+	HealthcheckCriticalTimeout time.Duration
+}
+
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
 	log.Namespace = "dp-deployer"
 	flag.Parse()
 
@@ -65,19 +77,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	hcc := &healthcheck.Config{
-		HealthcheckInterval: *healthcheckInterval,
-		HealthcheckCriticalTimeout: *healthcheckCriticalTimeout,
+	//TODO: remove this when config is not driven by flags
+	healthInterval, err := strconv.Atoi(*healthcheckInterval)
+	if err != nil {
+		log.Error(err, nil)
+	}
+	var intervalDuration time.Duration = time.Duration(healthInterval) * time.Second
+
+	healthTimeout, err := strconv.Atoi(*healthcheckCriticalTimeout)
+	if err != nil {
+		log.Error(err, nil)
+	}
+	var timeoutDuration time.Duration = time.Duration(healthTimeout) * time.Second
+
+	hcc := &healthcheckConfig{
+		HealthcheckInterval: intervalDuration,
+		HealthcheckCriticalTimeout: timeoutDuration,
 	}
 
-	hc, err := service.List.GetHealthCheck(cfg, BuildTime, GitCommit, Version)
-	if err != nill {
-		log.Event(ctx, "failed tp create service version information", log.FATAL, log.Error(err))
+	// Create healthcheck object with versionInfo
+	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
+	if err != nil {
+		log.Error(err, nil)
 		os.Exit(1)
 	}
+	hc := healthcheck.New(versionInfo, hcc.HealthcheckCriticalTimeout, hcc.HealthcheckInterval)
 
 	r := mux.NewRouter()
-	r.HandlerFunc("/health", hc.Handler)
+	r.HandleFunc("/health", hc.Handler)
 
 	// Start healthcheck
 	hc.Start(ctx)
@@ -93,8 +120,6 @@ func main() {
 
 	sigC := make(chan os.Signal)
 	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	wg.Add(1)
 	go func() {
