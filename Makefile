@@ -7,6 +7,10 @@ BIN_DIR?=.
 export GOOS?=$(shell go env GOOS)
 export GOARCH?=$(shell go env GOARCH)
 
+BUILD_TIME=$(shell date +%s)
+GIT_COMMIT=$(shell git rev-parse HEAD)
+VERSION ?= $(shell git tag --points-at HEAD | grep ^v | head -n 1)
+
 build:
 	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)
 	go build -o $(BUILD_ARCH)/$(BIN_DIR)/dp-deployer cmd/dp-deployer/main.go
