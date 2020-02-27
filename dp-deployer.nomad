@@ -36,6 +36,12 @@ job "dp-deployer" {
       service {
         name = "dp-deployer"
         tags = ["management"]
+        check {
+          type     = "http"
+          path     = "/health"
+          interval = "10s"
+          timeout  = "2s"
+        }
       }
 
       resources {

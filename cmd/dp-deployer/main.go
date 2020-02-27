@@ -20,19 +20,20 @@ import (
 )
 
 var (
-	consumerQueue      = flag.String("consumer-queue", "", "sqs consumer queue name")
-	consumerQueueURL   = flag.String("consumer-queue-url", "", "sqs queue url")
-	deploymentRoot     = flag.String("deployment-root", "", "root deployment directory")
-	nomadEndpoint      = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
-	nomadTLSSkipVerify = flag.Bool("nomad-tls-skip-verify", false, "skip tls verification of nomad cert")
-	nomadToken         = flag.String("nomad-token", "", "nomad acl token")
-	nomadCACert        = flag.String("nomad-ca-cert", "", "nomad CA cert file")
-	privateKey         = flag.String("private-key", "", "private key used to decrypt secrets")
-	producerQueue      = flag.String("producer-queue", "", "sqs producer queue name")
-	region             = flag.String("aws-default-region", "", "sqs queue region")
-	verificationKey    = flag.String("verification-key", "", "public key for verifying queue messages")
-	healthcheckInterval = flag.String("healthcheck-interval", "10s", "time between calling healthcheck endpoints for check subsystems")
+	consumerQueue              = flag.String("consumer-queue", "", "sqs consumer queue name")
+	consumerQueueURL           = flag.String("consumer-queue-url", "", "sqs queue url")
+	deploymentRoot             = flag.String("deployment-root", "", "root deployment directory")
+	nomadEndpoint              = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
+	nomadTLSSkipVerify         = flag.Bool("nomad-tls-skip-verify", false, "skip tls verification of nomad cert")
+	nomadToken                 = flag.String("nomad-token", "", "nomad acl token")
+	nomadCACert                = flag.String("nomad-ca-cert", "", "nomad CA cert file")
+	privateKey                 = flag.String("private-key", "", "private key used to decrypt secrets")
+	producerQueue              = flag.String("producer-queue", "", "sqs producer queue name")
+	region                     = flag.String("aws-default-region", "", "sqs queue region")
+	verificationKey            = flag.String("verification-key", "", "public key for verifying queue messages")
+	healthcheckInterval        = flag.String("healthcheck-interval", "10s", "time between calling healthcheck endpoints for check subsystems")
 	healthcheckCriticalTimeout = flag.String("healthcheck-critical-timeout", "60s", "time taken for the health changes from warning state to critical due to subsystem check failures")
+	healthcheckPort = flag.String("healthcheck-port", "8888" , "port for the healthcheck")
 )
 
 var (
@@ -49,6 +50,7 @@ var wg sync.WaitGroup
 type healthcheckConfig struct {
 	IntervalStr string
 	CriticalTimeoutStr string
+	BindAdd string
 	HealthcheckInterval time.Duration 
 	HealthcheckCriticalTimeout time.Duration
 }
@@ -109,15 +111,6 @@ func main() {
 	// Start healthcheck
 	hc.Start(ctx)
 
-	// Create and start http server for healthcheck
-	httpServer := server.New(cfg.BindAddr, r)
-	go func() {
-		if err := httpServer.ListenAndServe(); err != nil {
-			log.Event(ctx, "failed to start healthcheck HTTP server", log.FATAL, log.Data{"config": hcc}, log.Error(err))
-			os.Exit(2)
-		}
-	}()
-
 	sigC := make(chan os.Signal)
 	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 
@@ -125,6 +118,15 @@ func main() {
 	go func() {
 		defer wg.Done()
 		e.Start(ctx)
+	}()
+
+	// Create and start http server for healthcheck
+	httpServer := server.New(hcc.BindAdd, r)
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil {
+			log.ErrorCtx(ctx, err, log.Data{"config": hcc})
+			os.Exit(2)
+		}
 	}()
 
 	sig := <-sigC
