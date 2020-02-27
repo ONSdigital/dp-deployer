@@ -4,15 +4,14 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
-	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/gorilla/mux"
@@ -33,7 +32,7 @@ var (
 	verificationKey            = flag.String("verification-key", "", "public key for verifying queue messages")
 	healthcheckInterval        = flag.String("healthcheck-interval", "10s", "time between calling healthcheck endpoints for check subsystems")
 	healthcheckCriticalTimeout = flag.String("healthcheck-critical-timeout", "60s", "time taken for the health changes from warning state to critical due to subsystem check failures")
-	healthcheckPort = flag.String("healthcheck-port", "8888" , "port for the healthcheck")
+	healthcheckPort            = flag.String("healthcheck-port", ":24200", "port for the healthcheck")
 )
 
 var (
@@ -48,10 +47,10 @@ var (
 var wg sync.WaitGroup
 
 type healthcheckConfig struct {
-	IntervalStr string
-	CriticalTimeoutStr string
-	BindAdd string
-	HealthcheckInterval time.Duration 
+	IntervalStr                string
+	CriticalTimeoutStr         string
+	BindAdd                    string
+	HealthcheckInterval        time.Duration
 	HealthcheckCriticalTimeout time.Duration
 }
 
@@ -80,21 +79,20 @@ func main() {
 	}
 
 	//TODO: remove this when config is not driven by flags
-	healthInterval, err := strconv.Atoi(*healthcheckInterval)
+	healthInterval, err := time.ParseDuration(*healthcheckInterval)
 	if err != nil {
 		log.Error(err, nil)
 	}
-	var intervalDuration time.Duration = time.Duration(healthInterval) * time.Second
 
-	healthTimeout, err := strconv.Atoi(*healthcheckCriticalTimeout)
+	healthTimeout, err := time.ParseDuration(*healthcheckCriticalTimeout)
 	if err != nil {
 		log.Error(err, nil)
 	}
-	var timeoutDuration time.Duration = time.Duration(healthTimeout) * time.Second
 
 	hcc := &healthcheckConfig{
-		HealthcheckInterval: intervalDuration,
-		HealthcheckCriticalTimeout: timeoutDuration,
+		HealthcheckInterval:        healthInterval,
+		HealthcheckCriticalTimeout: healthTimeout,
+		BindAdd:                    *healthcheckPort,
 	}
 
 	// Create healthcheck object with versionInfo
