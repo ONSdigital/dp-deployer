@@ -22,7 +22,7 @@ Configuration
 | VAULT_ADDR                   | https://127.0.0.1:8200 | Vault endpoint URL
 | HEALTHCHECK_INTERVAL         | 10s                    | The time between calling healthcheck endpoints for check subsystems
 | HEALTHCHECK_CRITICAL_TIMEOUT | 60s                    | The time taken for the health changes from warning state to critical due to subsystem check failures
-| HEALTHCHECK_PORT             | :24200                 | The port for the healthcheck
+| BIND_ADDR                    | :24200                 | The listen address to bind to
 
 The application also expects your AWS credentials to be configured.
 

@@ -32,7 +32,7 @@ var (
 	verificationKey            = flag.String("verification-key", "", "public key for verifying queue messages")
 	healthcheckInterval        = flag.String("healthcheck-interval", "10s", "time between calling healthcheck endpoints for check subsystems")
 	healthcheckCriticalTimeout = flag.String("healthcheck-critical-timeout", "60s", "time taken for the health changes from warning state to critical due to subsystem check failures")
-	healthcheckPort            = flag.String("healthcheck-port", ":24200", "port for the healthcheck")
+	bindAddr                   = flag.String("bind-addr", ":24200", "The listen address to bind to")
 )
 
 var (
@@ -49,7 +49,7 @@ var wg sync.WaitGroup
 type healthcheckConfig struct {
 	IntervalStr                string
 	CriticalTimeoutStr         string
-	BindAdd                    string
+	BindAddr                   string
 	HealthcheckInterval        time.Duration
 	HealthcheckCriticalTimeout time.Duration
 }
@@ -82,17 +82,19 @@ func main() {
 	healthInterval, err := time.ParseDuration(*healthcheckInterval)
 	if err != nil {
 		log.Error(err, nil)
+		os.Exit(1)
 	}
 
 	healthTimeout, err := time.ParseDuration(*healthcheckCriticalTimeout)
 	if err != nil {
 		log.Error(err, nil)
+		os.Exit(1)
 	}
 
 	hcc := &healthcheckConfig{
 		HealthcheckInterval:        healthInterval,
 		HealthcheckCriticalTimeout: healthTimeout,
-		BindAdd:                    *healthcheckPort,
+		BindAddr:                   *bindAddr,
 	}
 
 	// Create healthcheck object with versionInfo
@@ -119,17 +121,21 @@ func main() {
 	}()
 
 	// Create and start http server for healthcheck
-	httpServer := server.New(hcc.BindAdd, r)
+	httpServer := server.New(hcc.BindAddr, r)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
 			log.ErrorCtx(ctx, err, log.Data{"config": hcc})
-			os.Exit(2)
+			cancel()
 		}
 	}()
 
-	sig := <-sigC
-	log.Info("received exit signal", log.Data{"signal": sig})
-	cancel()
+	select {
+	case sig := <-sigC:
+		log.Info("received exit signal", log.Data{"signal": sig})
+		cancel()
+	case <-ctx.Done():
+		log.Info("context done", nil)
+	}
 	wg.Wait()
 }
 
