@@ -32,7 +32,7 @@ var (
 	verificationKey            = flag.String("verification-key", "", "public key for verifying queue messages")
 	healthcheckInterval        = flag.String("healthcheck-interval", "10s", "time between calling healthcheck endpoints for check subsystems")
 	healthcheckCriticalTimeout = flag.String("healthcheck-critical-timeout", "60s", "time taken for the health changes from warning state to critical due to subsystem check failures")
-	bindAddr                   = flag.String("bind-addr", ":24200", "The listen address to bind to")
+	bindAddr                   = flag.String("bind-addr", ":24300", "The listen address to bind to")
 )
 
 var (
