@@ -35,6 +35,7 @@ job "dp-deployer" {
 
       service {
         name = "dp-deployer"
+        port = "http"
         tags = ["management"]
         check {
           type     = "http"
