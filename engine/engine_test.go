@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ONSdigital/go-ns/common"
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/LloydGriffiths/ssqs"
@@ -258,9 +259,9 @@ func TestStart(t *testing.T) {
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
-					ErrHandler = func(messageID string, err error) {
+					ErrHandler = func(ctx context.Context, event string, err error) {
 						cancel()
-						c.So(messageID, ShouldEqual, producedMsgID)
+						c.So(common.GetRequestId(ctx), ShouldEqual, producedMsgID)
 						c.So(err.Error(), ShouldEqual, engineErr)
 					}
 

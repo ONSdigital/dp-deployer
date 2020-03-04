@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/engine"
-	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
 	"github.com/hashicorp/nomad/api"
@@ -82,7 +82,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(c *Config) (*Deployment, error) {
+func New(ctx context.Context, c *Config) (*Deployment, error) {
 	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func New(c *Config) (*Deployment, error) {
 	if strings.HasPrefix(c.NomadEndpoint, "https://") {
 		var tlsConfig *tls.Config
 		if c.NomadCACert != "" {
-			log.Trace("loading custom ca cert", log.Data{"ca_cert_path": c.NomadCACert})
+			log.Event(ctx, "loading custom ca cert", log.INFO, log.Data{"ca_cert_path": c.NomadCACert})
 
 			caCertPool, _ := x509.SystemCertPool()
 			if caCertPool == nil {
@@ -119,7 +119,7 @@ func New(c *Config) (*Deployment, error) {
 		} else if c.NomadTLSSkipVerify {
 
 			// no CA file => do not check cert  XXX DANGER DANGER XXX
-			log.Trace("using TLS without verification", nil)
+			log.Event(ctx, "using TLS without verification", log.INFO)
 			tlsConfig = &tls.Config{
 				InsecureSkipVerify: true,
 			}
@@ -152,7 +152,7 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	if err := untargz.Extract(bytes.NewReader(b), fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
 		return err
 	}
-	if err := d.plan(msg); err != nil {
+	if err := d.plan(ctx, msg); err != nil {
 		return err
 	}
 	if err := d.run(ctx, msg); err != nil {
@@ -161,8 +161,8 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-func (d *Deployment) plan(msg *engine.Message) error {
-	log.TraceC(msg.ID, "planning job", log.Data{"msg": msg, "service": msg.Service})
+func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
+	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobPlanResponse
 	if err := d.post(fmt.Sprintf(planURL, d.endpoint, msg.Service), msg, &res); err != nil {
@@ -182,7 +182,7 @@ func (d *Deployment) plan(msg *engine.Message) error {
 }
 
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
-	log.TraceC(msg.ID, "running job", log.Data{"msg": msg, "service": msg.Service})
+	log.Event(ctx, "running job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
@@ -202,7 +202,7 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 	for {
 		select {
 		case <-ctx.Done():
-			log.InfoC(correlationID, "bailing on deployment status", minLogData)
+			log.Event(ctx, "bailing on deployment status", log.INFO, minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout:
 			return &TimeoutError{Action: "deployment"}
@@ -227,21 +227,21 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 
 				switch deployment.Status {
 				case structs.DeploymentStatusSuccessful:
-					log.TraceC(correlationID, "deployment success", logData)
+					log.Event(ctx, "deployment success", log.INFO, logData)
 					return nil
 				case structs.DeploymentStatusFailed,
 					structs.DeploymentStatusCancelled:
 
-					log.TraceC(correlationID, "deployment failed", logData)
+					log.Event(ctx, "deployment failed", log.INFO, logData)
 					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 				}
 				foundJobByIndex = true
 				break
 			}
 			if foundJobByIndex {
-				log.TraceC(correlationID, "deployment incomplete - will re-test", minLogData)
+				log.Event(ctx, "deployment incomplete - will re-test", log.INFO, minLogData)
 			} else {
-				log.TraceC(correlationID, "deployment not found - will re-test", minLogData)
+				log.Event(ctx, "deployment not found - will re-test", log.INFO, minLogData)
 			}
 		}
 	}
