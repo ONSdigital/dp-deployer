@@ -10,10 +10,10 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/LloydGriffiths/ssqs"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/service/sqs/sqsiface"
 )
 
 type handlerError struct {
@@ -343,7 +343,7 @@ func withEnv(f func()) {
 
 type mockConsumer struct {
 	exhausted bool
-	sqsiface.SQSAPI
+	sqsiface.ClientAPI
 	errorable bool
 	message   *sqs.Message
 	mu        sync.Mutex
@@ -367,7 +367,7 @@ func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.Receive
 	if m.errorable {
 		return nil, errors.New("consumer error")
 	}
-	return &sqs.ReceiveMessageOutput{Messages: []*sqs.Message{m.message}}, nil
+	return &sqs.ReceiveMessageOutput{Messages: []sqs.Message{*m.message}}, nil
 }
 
 func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
@@ -388,7 +388,7 @@ func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
 		ssqs.DefaultClient = defaultClient
 	}()
 
-	ssqs.DefaultClient = func(q *ssqs.Queue) sqsiface.SQSAPI {
+	ssqs.DefaultClient = func(c aws.Config) sqsiface.ClientAPI {
 		return &mockConsumer{errorable: errorable, message: msg}
 	}
 

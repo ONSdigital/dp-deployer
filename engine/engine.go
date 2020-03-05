@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
-	"github.com/LloydGriffiths/ssqs"
+	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/cenkalti/backoff"
 	"github.com/goamz/goamz/aws"
@@ -112,18 +112,18 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, err
 	}
 
+	consumer, err := ssqs.New(&ssqs.Queue{
+		URL:               c.ConsumerQueueURL,
+		VisibilityTimeout: int64((time.Minute * 30).Seconds()),
+	})
+
 	e := &Engine{
 		config:    c,
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
 		producer:  sqs.New(a, aws.Regions[c.Region]),
-		consumer: ssqs.New(&ssqs.Queue{
-			Name:              c.ConsumerQueue,
-			Region:            c.Region,
-			URL:               c.ConsumerQueueURL,
-			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
-		}),
+		consumer:  consumer,
 	}
 
 	if sendMessage == nil {
