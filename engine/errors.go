@@ -5,8 +5,6 @@ import (
 )
 
 var (
-	// ErrMissingConsumerQueue is returned when the consumer queue name is missing.
-	ErrMissingConsumerQueue = errors.New("missing consumer queue name")
 	// ErrMissingConsumerQueueURL is returned when the consumer queue url is missing.
 	ErrMissingConsumerQueueURL = errors.New("missing consumer queue url")
 	// ErrMissingProducerQueue is returned when the producer queue name is missing.

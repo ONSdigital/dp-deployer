@@ -19,7 +19,6 @@ import (
 )
 
 var (
-	consumerQueue              = flag.String("consumer-queue", "", "sqs consumer queue name")
 	consumerQueueURL           = flag.String("consumer-queue-url", "", "sqs queue url")
 	deploymentRoot             = flag.String("deployment-root", "", "root deployment directory")
 	nomadEndpoint              = flag.String("nomad-endpoint", "http://localhost:4646", "nomad client endpoint")
@@ -66,7 +65,6 @@ func main() {
 	}
 
 	ec := &engine.Config{
-		ConsumerQueue:    *consumerQueue,
 		ConsumerQueueURL: *consumerQueueURL,
 		ProducerQueue:    *producerQueue,
 		Region:           *region,

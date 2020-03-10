@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -41,8 +42,6 @@ var ErrHandler = func(messageID string, err error) { log.ErrorC(messageID, err, 
 
 // Config represents the configuration for an engine.
 type Config struct {
-	// ConsumerQueue is the name of the queue to consume messages from.
-	ConsumerQueue string
 	// ConsumerQueueURL is the URL of the queue to consume messages from.
 	ConsumerQueueURL string
 	// ProducerQueue is the name of the queue to produce messages to.
@@ -89,9 +88,6 @@ type responseError struct {
 
 // New returns a new engine.
 func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
-	if len(c.ConsumerQueue) < 1 {
-		return nil, ErrMissingConsumerQueue
-	}
 	if len(c.ConsumerQueueURL) < 1 {
 		return nil, ErrMissingConsumerQueueURL
 	}
@@ -112,10 +108,14 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 		return nil, err
 	}
 
+	fmt.Println("hello world")
 	consumer, err := ssqs.New(&ssqs.Queue{
 		URL:               c.ConsumerQueueURL,
 		VisibilityTimeout: int64((time.Minute * 30).Seconds()),
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	e := &Engine{
 		config:    c,

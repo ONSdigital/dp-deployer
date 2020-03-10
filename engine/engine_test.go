@@ -151,18 +151,6 @@ func TestNew(t *testing.T) {
 	}{
 		{
 			&Config{
-				ConsumerQueue:    "",
-				ConsumerQueueURL: "foo",
-				ProducerQueue:    "bar",
-				Region:           "baz",
-				VerificationKey:  publicKey,
-			},
-			"missing consumer queue name",
-			false,
-		},
-		{
-			&Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
 				ProducerQueue:    "bar",
 				Region:           "baz",
@@ -173,7 +161,6 @@ func TestNew(t *testing.T) {
 		},
 		{
 			&Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "",
 				Region:           "baz",
@@ -184,7 +171,6 @@ func TestNew(t *testing.T) {
 		},
 		{
 			&Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
 				Region:           "",
@@ -195,7 +181,6 @@ func TestNew(t *testing.T) {
 		},
 		{
 			&Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
 				Region:           "qux",
@@ -206,7 +191,6 @@ func TestNew(t *testing.T) {
 		},
 		{
 			&Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
 				Region:           "qux",
@@ -233,7 +217,6 @@ func TestNew(t *testing.T) {
 	withEnv(func() {
 		Convey("an engine is returned with valid configuration", t, func() {
 			config := &Config{
-				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
 				Region:           "qux",
@@ -254,7 +237,7 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					e, err := New(&Config{"foo", "bar", "baz", "qux", publicKey}, handlers)
+					e, err := New(&Config{"bar", "baz", "qux", publicKey}, handlers)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
@@ -316,7 +299,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					e, err := New(&Config{"foo", "bar", "baz", "qux", publicKey}, nil)
+					e, err := New(&Config{"bar", "baz", "qux", publicKey}, nil)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
@@ -341,7 +324,7 @@ func withEnv(f func()) {
 	f()
 }
 
-type mockConsumer struct {
+type mockClient struct {
 	exhausted bool
 	sqsiface.ClientAPI
 	errorable bool
@@ -349,11 +332,15 @@ type mockConsumer struct {
 	mu        sync.Mutex
 }
 
+type mockConsumer struct {
+	client sqsiface.ClientAPI
+}
+
 type mockProducer struct {
 	message string
 }
 
-func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+func (m *mockClient) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	m.mu.Lock()
 
 	defer func() {
@@ -370,7 +357,7 @@ func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.Receive
 	return &sqs.ReceiveMessageOutput{Messages: []sqs.Message{*m.message}}, nil
 }
 
-func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+func (m *mockClient) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
 	return nil, nil
 }
 
@@ -389,7 +376,7 @@ func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
 	}()
 
 	ssqs.DefaultClient = func(c aws.Config) sqsiface.ClientAPI {
-		return &mockConsumer{errorable: errorable, message: msg}
+		return &mockClient{errorable: errorable, message: msg}
 	}
 
 	mockProducer := &mockProducer{}
