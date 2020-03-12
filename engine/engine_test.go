@@ -10,7 +10,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/LloydGriffiths/ssqs"
+	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
