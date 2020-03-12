@@ -2,8 +2,9 @@ package engine
 
 import (
 	"context"
-	"errors"
+	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -236,6 +237,8 @@ func TestStart(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
+				// 				doErrTest(handlers, false, validMessage, expectedMsgID, expectedMsgBody, expectedError)
+
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
 					e, err := New(&Config{"bar", "baz", "qux", publicKey}, handlers)
 					So(e, ShouldNotBeNil)
@@ -328,7 +331,7 @@ type mockClient struct {
 	exhausted bool
 	sqsiface.ClientAPI
 	errorable bool
-	message   *sqs.Message
+	message   sqs.ReceiveMessageOutput
 	mu        sync.Mutex
 }
 
@@ -340,8 +343,20 @@ type mockProducer struct {
 	message string
 }
 
-func (m *mockClient) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+func (m *mockClient) ReceiveMessageRequest(in *sqs.ReceiveMessageInput) sqs.ReceiveMessageRequest {
 	m.mu.Lock()
+
+	req, err := http.NewRequest("GET", "localhost:8080", strings.NewReader(m.message.String()))
+	if err != nil {
+		return sqs.ReceiveMessageRequest{}
+	}
+	// req.WithContext()
+
+	r := aws.Request{
+		Data:        &m.message,
+		HTTPRequest: req,
+	}
+	rmr := sqs.ReceiveMessageRequest{Request: &r}
 
 	defer func() {
 		m.exhausted = true
@@ -349,12 +364,15 @@ func (m *mockClient) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMe
 	}()
 
 	if m.exhausted {
-		return &sqs.ReceiveMessageOutput{Messages: nil}, nil
+		rmr.Input = nil
+		return rmr
 	}
 	if m.errorable {
-		return nil, errors.New("consumer error")
+		// return sqs.ReceiveMessageRequest{}
+		return rmr
 	}
-	return &sqs.ReceiveMessageOutput{Messages: []sqs.Message{*m.message}}, nil
+	rmr.Input = &sqs.ReceiveMessageInput{}
+	return rmr
 }
 
 func (m *mockClient) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
@@ -375,8 +393,10 @@ func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
 		ssqs.DefaultClient = defaultClient
 	}()
 
+	out := sqs.ReceiveMessageOutput{Messages: []sqs.Message{*msg}}
+
 	ssqs.DefaultClient = func(c aws.Config) sqsiface.ClientAPI {
-		return &mockClient{errorable: errorable, message: msg}
+		return &mockClient{errorable: errorable, message: out}
 	}
 
 	mockProducer := &mockProducer{}
