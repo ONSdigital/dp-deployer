@@ -156,9 +156,7 @@ func (e *Engine) run(ctx context.Context) {
 		case err := <-e.consumer.Errors:
 			ErrHandler(ctx, "received consumer error", err)
 		case msg := <-e.consumer.Messages:
-			reqCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
-			reqCtx = common.WithRequestId(reqCtx, msg.ID)
+			reqCtx := common.WithRequestId(ctx, msg.ID)
 			e.handle(reqCtx, msg)
 		case <-ctx.Done():
 			log.Event(ctx, "halting consumer", log.INFO)
