@@ -12,7 +12,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
-	"github.com/LloydGriffiths/ssqs"
+	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/cenkalti/backoff"
 	"github.com/goamz/goamz/aws"
