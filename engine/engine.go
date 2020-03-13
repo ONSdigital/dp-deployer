@@ -12,8 +12,8 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
-	"github.com/LloydGriffiths/ssqs"
-	"github.com/ONSdigital/go-ns/log"
+	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/log.go/log"
 	"github.com/cenkalti/backoff"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/sqs"
@@ -37,7 +37,9 @@ var BackoffStrategy = func() backoff.BackOff {
 }
 
 // ErrHandler is the handler function applied to an error.
-var ErrHandler = func(messageID string, err error) { log.ErrorC(messageID, err, nil) }
+var ErrHandler = func(ctx context.Context, messageID string, err error) {
+	log.Event(ctx, messageID, log.ERROR, log.Data{"err": err.Error()})
+}
 
 // Config represents the configuration for an engine.
 type Config struct {
@@ -151,13 +153,13 @@ func (e *Engine) run(ctx context.Context) {
 	for {
 		select {
 		case err := <-e.consumer.Errors:
-			ErrHandler("", err)
+			ErrHandler(ctx, "", err)
 		case msg := <-e.consumer.Messages:
 			e.handle(ctx, msg)
 		case <-ctx.Done():
-			log.Info("halting consumer", nil)
+			log.Event(ctx, "halting consumer", log.INFO)
 			e.consumer.Close()
-			log.Info("waiting for handlers", nil)
+			log.Event(ctx, "waiting for handlers", log.INFO)
 			e.wg.Wait()
 			return
 		default:
@@ -205,7 +207,7 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 
 func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 	if err != nil {
-		ErrHandler(msg.ID, err)
+		ErrHandler(ctx, msg.ID, err)
 	}
 
 	result := &response{ID: msg.ID, Success: err == nil}
@@ -216,12 +218,12 @@ func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 	backoff.RetryNotify(
 		e.reply(result),
 		backoff.WithContext(BackoffStrategy(), ctx),
-		func(err error, t time.Duration) { ErrHandler(msg.ID, err) },
+		func(err error, t time.Duration) { ErrHandler(ctx, msg.ID, err) },
 	)
 	backoff.RetryNotify(
 		e.delete(msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
-		func(err error, t time.Duration) { ErrHandler(msg.ID, err) },
+		func(err error, t time.Duration) { ErrHandler(ctx, msg.ID, err) },
 	)
 }
 

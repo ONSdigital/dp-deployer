@@ -35,9 +35,9 @@ func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
-
+	ctx := context.Background()
 	Convey("an error is returned with invalid configuration", t, func() {
-		d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", nil})
+		d, err := New(ctx, &Config{"foo", "bar", "baz", "", false, "qux", nil})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
@@ -45,7 +45,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an error is returned with invalid tls configuration", t, func() {
-			d, err := New(&Config{"foo", "https://", "baz", "", false, "qux", nil})
+			d, err := New(ctx, &Config{"foo", "https://", "baz", "", false, "qux", nil})
 			So(d, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldStartWith, "invalid configuration with https")
@@ -54,7 +54,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is not configured", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", nil})
+			d, err := New(ctx, &Config{"foo", "bar", "baz", "", false, "qux", nil})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Deployment, ShouldEqual, DefaultDeploymentTimeout)
@@ -63,7 +63,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("default timeout configuration is used when timeout is unreasonable", t, func() {
-			d, err := New(&Config{"foo", "bar", "baz", "", false, "qux", &TimeoutConfig{0}})
+			d, err := New(ctx, &Config{"foo", "bar", "baz", "", false, "qux", &TimeoutConfig{0}})
 			So(err, ShouldBeNil)
 			So(d, ShouldNotBeNil)
 			So(d.timeout.Deployment, ShouldEqual, DefaultDeploymentTimeout)
@@ -76,11 +76,12 @@ func TestPlan(t *testing.T) {
 		Convey("plan functions as expected", t, func() {
 			httpmock.DeactivateAndReset()
 			httpmock.Activate()
+			ctx := context.Background()
 
 			Convey("api errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(500, "server error"))
 				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
-				err := dep.plan(&engine.Message{Service: "test"})
+				err := dep.plan(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
 			})
@@ -88,7 +89,7 @@ func TestPlan(t *testing.T) {
 			Convey("plan warnings handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planWarnings))
 				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
-				err := dep.plan(&engine.Message{Service: "test"})
+				err := dep.plan(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
 			})
@@ -96,7 +97,7 @@ func TestPlan(t *testing.T) {
 			Convey("plan allocation errors handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planErrors))
 				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
-				err := dep.plan(&engine.Message{Service: "test"})
+				err := dep.plan(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "plan for tasks generated errors or warnings")
 			})
@@ -104,7 +105,7 @@ func TestPlan(t *testing.T) {
 			Convey("valid plans handled correctly", func() {
 				httpmock.RegisterResponder("POST", "http://localhost:4646/v1/job/test/plan", httpmock.NewStringResponder(200, planSuccess))
 				dep := &Deployment{endpoint: "http://localhost:4646", nomadClient: &http.Client{Timeout: time.Second * 10}}
-				err := dep.plan(&engine.Message{Service: "test"})
+				err := dep.plan(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldBeNil)
 			})
 		})

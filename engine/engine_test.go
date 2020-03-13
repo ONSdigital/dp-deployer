@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 )
 
+const consumerErrorText = "consumer error"
+
 type handlerError struct {
 	Field1, Field2 string
 }
@@ -258,7 +260,7 @@ func TestStart(t *testing.T) {
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
-					ErrHandler = func(messageID string, err error) {
+					ErrHandler = func(ctx context.Context, messageID string, err error) {
 						cancel()
 						c.So(messageID, ShouldEqual, producedMsgID)
 						c.So(err.Error(), ShouldEqual, engineErr)
@@ -270,7 +272,7 @@ func TestStart(t *testing.T) {
 			}
 
 			Convey("queue errors are propogated as expected", func() {
-				expectedError := "consumer error"
+				expectedError := consumerErrorText
 				expectedMsgID := ""
 				expectedMsgBody := ""
 				doErrTest(nil, true, invalidMessage, expectedMsgID, expectedMsgBody, expectedError)
@@ -355,7 +357,6 @@ type mockProducer struct {
 
 func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	m.mu.Lock()
-
 	defer func() {
 		m.exhausted = true
 		m.mu.Unlock()
@@ -365,7 +366,7 @@ func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.Receive
 		return &sqs.ReceiveMessageOutput{Messages: nil}, nil
 	}
 	if m.errorable {
-		return nil, errors.New("consumer error")
+		return nil, errors.New(consumerErrorText)
 	}
 	return &sqs.ReceiveMessageOutput{Messages: []*sqs.Message{m.message}}, nil
 }
