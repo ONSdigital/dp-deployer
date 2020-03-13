@@ -12,10 +12,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -26,13 +24,14 @@ import (
 	"time"
 
 	"github.com/gorhill/cronexpr"
-	"github.com/hashicorp/consul/api"
 	hcodec "github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/nomad/acl"
+	"github.com/hashicorp/nomad/command/agent/pprof"
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/helper/args"
+	"github.com/hashicorp/nomad/helper/constraints/semver"
 	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/lib/kheap"
 	psstructs "github.com/hashicorp/nomad/plugins/shared/structs"
@@ -84,6 +83,9 @@ const (
 	BatchNodeUpdateDrainRequestType
 	SchedulerConfigRequestType
 	NodeBatchDeregisterRequestType
+	ClusterMetadataRequestType
+	ServiceIdentityAccessorRegisterRequestType
+	ServiceIdentityAccessorDeregisterRequestType
 )
 
 const (
@@ -210,6 +212,13 @@ type QueryOptions struct {
 	Region string
 
 	// Namespace is the target namespace for the query.
+	//
+	// Since handlers do not have a default value set they should access
+	// the Namespace via the RequestNamespace method.
+	//
+	// Requests accessing specific namespaced objects must check ACLs
+	// against the namespace of the object, not the namespace in the
+	// request.
 	Namespace string
 
 	// If set, wait until query exceeds given index. Must be provided
@@ -236,6 +245,11 @@ func (q QueryOptions) RequestRegion() string {
 	return q.Region
 }
 
+// RequestNamespace returns the request's namespace or the default namespace if
+// no explicit namespace was sent.
+//
+// Requests accessing specific namespaced objects must check ACLs against the
+// namespace of the object, not the namespace in the request.
 func (q QueryOptions) RequestNamespace() string {
 	if q.Namespace == "" {
 		return DefaultNamespace
@@ -252,11 +266,58 @@ func (q QueryOptions) AllowStaleRead() bool {
 	return q.AllowStale
 }
 
+// AgentPprofRequest is used to request a pprof report for a given node.
+type AgentPprofRequest struct {
+	// ReqType specifies the profile to use
+	ReqType pprof.ReqType
+
+	// Profile specifies the runtime/pprof profile to lookup and generate.
+	Profile string
+
+	// Seconds is the number of seconds to capture a profile
+	Seconds int
+
+	// Debug specifies if pprof profile should inclue debug output
+	Debug int
+
+	// GC specifies if the profile should call runtime.GC() before
+	// running its profile. This is only used for "heap" profiles
+	GC int
+
+	// NodeID is the node we want to track the logs of
+	NodeID string
+
+	// ServerID is the server we want to track the logs of
+	ServerID string
+
+	QueryOptions
+}
+
+// AgentPprofResponse is used to return a generated pprof profile
+type AgentPprofResponse struct {
+	// ID of the agent that fulfilled the request
+	AgentID string
+
+	// Payload is the generated pprof profile
+	Payload []byte
+
+	// HTTPHeaders are a set of key value pairs to be applied as
+	// HTTP headers for a specific runtime profile
+	HTTPHeaders map[string]string
+}
+
 type WriteRequest struct {
 	// The target region for this write
 	Region string
 
 	// Namespace is the target namespace for the write.
+	//
+	// Since RPC handlers do not have a default value set they should
+	// access the Namespace via the RequestNamespace method.
+	//
+	// Requests accessing specific namespaced objects must check ACLs
+	// against the namespace of the object, not the namespace in the
+	// request.
 	Namespace string
 
 	// AuthToken is secret portion of the ACL token used for the request
@@ -270,6 +331,11 @@ func (w WriteRequest) RequestRegion() string {
 	return w.Region
 }
 
+// RequestNamespace returns the request's namespace or the default namespace if
+// no explicit namespace was sent.
+//
+// Requests accessing specific namespaced objects must check ACLs against the
+// namespace of the object, not the namespace in the request.
 func (w WriteRequest) RequestNamespace() string {
 	if w.Namespace == "" {
 		return DefaultNamespace
@@ -578,6 +644,12 @@ type JobRevertRequest struct {
 	// version before reverting.
 	EnforcePriorVersion *uint64
 
+	// ConsulToken is the Consul token that proves the submitter of the job revert
+	// has access to the Service Identity policies associated with the job's
+	// Consul Connect enabled services. This field is only used to transfer the
+	// token and is not stored after the Job revert.
+	ConsulToken string
+
 	// VaultToken is the Vault token that proves the submitter of the job revert
 	// has access to any Vault policies specified in the targeted job version. This
 	// field is only used to transfer the token and is not stored after the Job
@@ -810,6 +882,12 @@ type ServerMember struct {
 	DelegateCur uint8
 }
 
+// ClusterMetadata is used to store per-cluster metadata.
+type ClusterMetadata struct {
+	ClusterID  string
+	CreateTime int64
+}
+
 // DeriveVaultTokenRequest is used to request wrapped Vault tokens for the
 // following tasks in the given allocation
 type DeriveVaultTokenRequest struct {
@@ -844,7 +922,7 @@ type DeriveVaultTokenResponse struct {
 	Tasks map[string]string
 
 	// Error stores any error that occurred. Errors are stored here so we can
-	// communicate whether it is retriable
+	// communicate whether it is retryable
 	Error *RecoverableError
 
 	QueryMeta
@@ -1424,6 +1502,9 @@ type DrainStrategy struct {
 	// ForceDeadline is the deadline time for the drain after which drains will
 	// be forced
 	ForceDeadline time.Time
+
+	// StartedAt is the time the drain process started
+	StartedAt time.Time
 }
 
 func (d *DrainStrategy) Copy() *DrainStrategy {
@@ -1578,6 +1659,9 @@ type Node struct {
 	// Drivers is a map of driver names to current driver information
 	Drivers map[string]*DriverInfo
 
+	// HostVolumes is a map of host volume names to their configuration
+	HostVolumes map[string]*ClientHostVolumeConfig
+
 	// Raft Indexes
 	CreateIndex uint64
 	ModifyIndex uint64
@@ -1622,6 +1706,7 @@ func (n *Node) Copy() *Node {
 	nn.Events = copyNodeEvents(n.Events)
 	nn.DrainStrategy = nn.DrainStrategy.Copy()
 	nn.Drivers = copyNodeDrivers(n.Drivers)
+	nn.HostVolumes = copyNodeHostVolumes(n.HostVolumes)
 	return nn
 }
 
@@ -1650,6 +1735,21 @@ func copyNodeDrivers(drivers map[string]*DriverInfo) map[string]*DriverInfo {
 	for driver, info := range drivers {
 		c[driver] = info.Copy()
 	}
+	return c
+}
+
+// copyNodeHostVolumes is a helper to copy a map of string to Volume
+func copyNodeHostVolumes(volumes map[string]*ClientHostVolumeConfig) map[string]*ClientHostVolumeConfig {
+	l := len(volumes)
+	if l == 0 {
+		return nil
+	}
+
+	c := make(map[string]*ClientHostVolumeConfig, l)
+	for volume, v := range volumes {
+		c[volume] = v.Copy()
+	}
+
 	return c
 }
 
@@ -1937,13 +2037,7 @@ func (r *Resources) Copy() *Resources {
 	*newR = *r
 
 	// Copy the network objects
-	if r.Networks != nil {
-		n := len(r.Networks)
-		newR.Networks = make([]*NetworkResource, n)
-		for i := 0; i < n; i++ {
-			newR.Networks[i] = r.Networks[i].Copy()
-		}
-	}
+	newR.Networks = r.Networks.Copy()
 
 	// Copy the devices
 	if r.Devices != nil {
@@ -2011,11 +2105,13 @@ func (r *Resources) GoString() string {
 type Port struct {
 	Label string
 	Value int
+	To    int
 }
 
 // NetworkResource is used to represent available network
 // resources
 type NetworkResource struct {
+	Mode          string // Mode of the network
 	Device        string // Name of the device
 	CIDR          string // CIDR block of addresses
 	IP            string // Host IP address
@@ -2025,6 +2121,10 @@ type NetworkResource struct {
 }
 
 func (nr *NetworkResource) Equals(other *NetworkResource) bool {
+	if nr.Mode != other.Mode {
+		return false
+	}
+
 	if nr.Device != other.Device {
 		return false
 	}
@@ -2065,6 +2165,7 @@ func (nr *NetworkResource) Equals(other *NetworkResource) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -2134,8 +2235,38 @@ func (n *NetworkResource) PortLabels() map[string]int {
 	return labelValues
 }
 
+// ConnectPort returns the Connect port for the given service. Returns false if
+// no port was found for a service with that name.
+func (n *NetworkResource) PortForService(serviceName string) (Port, bool) {
+	label := fmt.Sprintf("%s-%s", ConnectProxyPrefix, serviceName)
+	for _, port := range n.ReservedPorts {
+		if port.Label == label {
+			return port, true
+		}
+	}
+	for _, port := range n.DynamicPorts {
+		if port.Label == label {
+			return port, true
+		}
+	}
+
+	return Port{}, false
+}
+
 // Networks defined for a task on the Resources struct.
 type Networks []*NetworkResource
+
+func (ns Networks) Copy() Networks {
+	if len(ns) == 0 {
+		return nil
+	}
+
+	out := make([]*NetworkResource, len(ns))
+	for i := range ns {
+		out[i] = ns[i].Copy()
+	}
+	return out
+}
 
 // Port assignment and IP for the given label or empty values.
 func (ns Networks) Port(label string) (string, int) {
@@ -2289,13 +2420,7 @@ func (n *NodeResources) Copy() *NodeResources {
 	*newN = *n
 
 	// Copy the networks
-	if n.Networks != nil {
-		networks := len(n.Networks)
-		newN.Networks = make([]*NetworkResource, networks)
-		for i := 0; i < networks; i++ {
-			newN.Networks[i] = n.Networks[i].Copy()
-		}
-	}
+	newN.Networks = n.Networks.Copy()
 
 	// Copy the devices
 	if n.Devices != nil {
@@ -2822,18 +2947,19 @@ func (a *AllocatedResources) Copy() *AllocatedResources {
 	if a == nil {
 		return nil
 	}
-	newA := new(AllocatedResources)
-	*newA = *a
 
-	if a.Tasks != nil {
-		tr := make(map[string]*AllocatedTaskResources, len(newA.Tasks))
-		for task, resource := range newA.Tasks {
-			tr[task] = resource.Copy()
-		}
-		newA.Tasks = tr
+	out := AllocatedResources{
+		Shared: a.Shared.Copy(),
 	}
 
-	return newA
+	if a.Tasks != nil {
+		out.Tasks = make(map[string]*AllocatedTaskResources, len(out.Tasks))
+		for task, resource := range a.Tasks {
+			out.Tasks[task] = resource.Copy()
+		}
+	}
+
+	return &out
 }
 
 // Comparable returns a comparable version of the allocations allocated
@@ -2849,6 +2975,13 @@ func (a *AllocatedResources) Comparable() *ComparableResources {
 	for _, r := range a.Tasks {
 		c.Flattened.Add(r)
 	}
+	// Add network resources that are at the task group level
+	for _, network := range a.Shared.Networks {
+		c.Flattened.Add(&AllocatedTaskResources{
+			Networks: []*NetworkResource{network},
+		})
+	}
+
 	return c
 }
 
@@ -2882,13 +3015,7 @@ func (a *AllocatedTaskResources) Copy() *AllocatedTaskResources {
 	*newA = *a
 
 	// Copy the networks
-	if a.Networks != nil {
-		n := len(a.Networks)
-		newA.Networks = make([]*NetworkResource, n)
-		for i := 0; i < n; i++ {
-			newA.Networks[i] = a.Networks[i].Copy()
-		}
-	}
+	newA.Networks = a.Networks.Copy()
 
 	// Copy the devices
 	if newA.Devices != nil {
@@ -2970,15 +3097,24 @@ func (a *AllocatedTaskResources) Subtract(delta *AllocatedTaskResources) {
 
 // AllocatedSharedResources are the set of resources allocated to a task group.
 type AllocatedSharedResources struct {
-	DiskMB int64
+	Networks Networks
+	DiskMB   int64
+}
+
+func (a AllocatedSharedResources) Copy() AllocatedSharedResources {
+	return AllocatedSharedResources{
+		Networks: a.Networks.Copy(),
+		DiskMB:   a.DiskMB,
+	}
 }
 
 func (a *AllocatedSharedResources) Add(delta *AllocatedSharedResources) {
 	if delta == nil {
 		return
 	}
-
+	a.Networks = append(a.Networks, delta.Networks...)
 	a.DiskMB += delta.DiskMB
+
 }
 
 func (a *AllocatedSharedResources) Subtract(delta *AllocatedSharedResources) {
@@ -2986,6 +3122,17 @@ func (a *AllocatedSharedResources) Subtract(delta *AllocatedSharedResources) {
 		return
 	}
 
+	diff := map[*NetworkResource]bool{}
+	for _, n := range delta.Networks {
+		diff[n] = true
+	}
+	var nets Networks
+	for _, n := range a.Networks {
+		if _, ok := diff[n]; !ok {
+			nets = append(nets, n)
+		}
+	}
+	a.Networks = nets
 	a.DiskMB -= delta.DiskMB
 }
 
@@ -3271,6 +3418,12 @@ type Job struct {
 	// job. This is opaque to Nomad.
 	Meta map[string]string
 
+	// ConsulToken is the Consul token that proves the submitter of the job has
+	// access to the Service Identity policies associated with the job's
+	// Consul Connect enabled services. This field is only used to transfer the
+	// token and is not stored after Job submission.
+	ConsulToken string
+
 	// VaultToken is the Vault token that proves the submitter of the job has
 	// access to the specified Vault policies. This field is only used to
 	// transfer the token and is not stored after Job submission.
@@ -3284,7 +3437,10 @@ type Job struct {
 
 	// Stable marks a job as stable. Stability is only defined on "service" and
 	// "system" jobs. The stability of a job will be set automatically as part
-	// of a deployment and can be manually set via APIs.
+	// of a deployment and can be manually set via APIs. This field is updated
+	// when the status of a corresponding deployment transitions to Failed
+	// or Successful. This field is not meaningful for jobs that don't have an
+	// update stanza.
 	Stable bool
 
 	// Version is a monotonically increasing version number that is incremented
@@ -3453,6 +3609,10 @@ func (j *Job) Validate() error {
 			taskGroups[tg.Name] = idx
 		}
 
+		if tg.ShutdownDelay != nil && *tg.ShutdownDelay < 0 {
+			mErr.Errors = append(mErr.Errors, errors.New("ShutdownDelay must be a positive value"))
+		}
+
 		if j.Type == "system" && tg.Count > 1 {
 			mErr.Errors = append(mErr.Errors,
 				fmt.Errorf("Job task group %s has count %d. Count cannot exceed 1 with system scheduler",
@@ -3536,15 +3696,16 @@ func (j *Job) LookupTaskGroup(name string) *TaskGroup {
 func (j *Job) CombinedTaskMeta(groupName, taskName string) map[string]string {
 	group := j.LookupTaskGroup(groupName)
 	if group == nil {
-		return nil
+		return j.Meta
 	}
+
+	var meta map[string]string
 
 	task := group.LookupTask(taskName)
-	if task == nil {
-		return nil
+	if task != nil {
+		meta = helper.CopyMapStringString(task.Meta)
 	}
 
-	meta := helper.CopyMapStringString(task.Meta)
 	if meta == nil {
 		meta = make(map[string]string, len(group.Meta)+len(j.Meta))
 	}
@@ -3574,7 +3735,7 @@ func (j *Job) Stopped() bool {
 // HasUpdateStrategy returns if any task group in the job has an update strategy
 func (j *Job) HasUpdateStrategy() bool {
 	for _, tg := range j.TaskGroups {
-		if tg.Update != nil {
+		if !tg.Update.IsEmpty() {
 			return true
 		}
 	}
@@ -3641,6 +3802,27 @@ func (j *Job) VaultPolicies() map[string]map[string]*Vault {
 	}
 
 	return policies
+}
+
+// Connect tasks returns the set of Consul Connect enabled tasks that will
+// require a Service Identity token, if Consul ACLs are enabled.
+//
+// This method is meaningful only after the Job has passed through the job
+// submission Mutator functions.
+//
+// task group -> []task
+func (j *Job) ConnectTasks() map[string][]string {
+	m := make(map[string][]string)
+	for _, tg := range j.TaskGroups {
+		for _, task := range tg.Tasks {
+			if task.Kind.IsConnectProxy() {
+				// todo(shoenig): when we support native, probably need to check
+				//  an additional TBD TaskKind as well.
+				m[tg.Name] = append(m[tg.Name], task.Name)
+			}
+		}
+	}
+	return m
 }
 
 // RequiredSignals returns a mapping of task groups to tasks to their required
@@ -3903,8 +4085,8 @@ func (u *UpdateStrategy) Validate() error {
 		multierror.Append(&mErr, fmt.Errorf("Invalid health check given: %q", u.HealthCheck))
 	}
 
-	if u.MaxParallel < 1 {
-		multierror.Append(&mErr, fmt.Errorf("Max parallel can not be less than one: %d < 1", u.MaxParallel))
+	if u.MaxParallel < 0 {
+		multierror.Append(&mErr, fmt.Errorf("Max parallel can not be less than zero: %d < 0", u.MaxParallel))
 	}
 	if u.Canary < 0 {
 		multierror.Append(&mErr, fmt.Errorf("Canary count can not be less than zero: %d < 0", u.Canary))
@@ -3932,6 +4114,14 @@ func (u *UpdateStrategy) Validate() error {
 	}
 
 	return mErr.ErrorOrNil()
+}
+
+func (u *UpdateStrategy) IsEmpty() bool {
+	if u == nil {
+		return true
+	}
+
+	return u.MaxParallel == 0
 }
 
 // TODO(alexdadgar): Remove once no longer used by the scheduler.
@@ -4623,6 +4813,20 @@ type TaskGroup struct {
 	// Spread can be specified at the task group level to express spreading
 	// allocations across a desired attribute, such as datacenter
 	Spreads []*Spread
+
+	// Networks are the network configuration for the task group. This can be
+	// overridden in the task.
+	Networks Networks
+
+	// Services this group provides
+	Services []*Service
+
+	// Volumes is a map of volumes that have been requested by the task group.
+	Volumes map[string]*VolumeRequest
+
+	// ShutdownDelay is the amount of time to wait between deregistering
+	// group services in consul and stopping tasks.
+	ShutdownDelay *time.Duration
 }
 
 func (tg *TaskGroup) Copy() *TaskGroup {
@@ -4637,6 +4841,16 @@ func (tg *TaskGroup) Copy() *TaskGroup {
 	ntg.ReschedulePolicy = ntg.ReschedulePolicy.Copy()
 	ntg.Affinities = CopySliceAffinities(ntg.Affinities)
 	ntg.Spreads = CopySliceSpreads(ntg.Spreads)
+	ntg.Volumes = CopyMapVolumeRequest(ntg.Volumes)
+
+	// Copy the network objects
+	if tg.Networks != nil {
+		n := len(tg.Networks)
+		ntg.Networks = make([]*NetworkResource, n)
+		for i := 0; i < n; i++ {
+			ntg.Networks[i] = tg.Networks[i].Copy()
+		}
+	}
 
 	if tg.Tasks != nil {
 		tasks := make([]*Task, len(ntg.Tasks))
@@ -4651,6 +4865,18 @@ func (tg *TaskGroup) Copy() *TaskGroup {
 	if tg.EphemeralDisk != nil {
 		ntg.EphemeralDisk = tg.EphemeralDisk.Copy()
 	}
+
+	if tg.Services != nil {
+		ntg.Services = make([]*Service, len(tg.Services))
+		for i, s := range tg.Services {
+			ntg.Services[i] = s.Copy()
+		}
+	}
+
+	if tg.ShutdownDelay != nil {
+		ntg.ShutdownDelay = tg.ShutdownDelay
+	}
+
 	return ntg
 }
 
@@ -4679,6 +4905,14 @@ func (tg *TaskGroup) Canonicalize(job *Job) {
 	// Set a default ephemeral disk object if the user has not requested for one
 	if tg.EphemeralDisk == nil {
 		tg.EphemeralDisk = DefaultEphemeralDisk()
+	}
+
+	for _, service := range tg.Services {
+		service.Canonicalize(job.Name, tg.Name, "group")
+	}
+
+	for _, network := range tg.Networks {
+		network.Canonicalize()
 	}
 
 	for _, task := range tg.Tasks {
@@ -4786,10 +5020,8 @@ func (tg *TaskGroup) Validate(j *Job) error {
 		}
 	}
 
-	// Check for duplicate tasks, that there is only leader task if any,
-	// and no duplicated static ports
+	// Check that there is only one leader task if any
 	tasks := make(map[string]int)
-	staticPorts := make(map[int]string)
 	leaderTasks := 0
 	for idx, task := range tg.Tasks {
 		if task.Name == "" {
@@ -4803,32 +5035,183 @@ func (tg *TaskGroup) Validate(j *Job) error {
 		if task.Leader {
 			leaderTasks++
 		}
-
-		if task.Resources == nil {
-			continue
-		}
-
-		for _, net := range task.Resources.Networks {
-			for _, port := range net.ReservedPorts {
-				if other, ok := staticPorts[port.Value]; ok {
-					err := fmt.Errorf("Static port %d already reserved by %s", port.Value, other)
-					mErr.Errors = append(mErr.Errors, err)
-				} else {
-					staticPorts[port.Value] = fmt.Sprintf("%s:%s", task.Name, port.Label)
-				}
-			}
-		}
 	}
 
 	if leaderTasks > 1 {
 		mErr.Errors = append(mErr.Errors, fmt.Errorf("Only one task may be marked as leader"))
 	}
 
+	// Validate the Host Volumes
+	for name, decl := range tg.Volumes {
+		if decl.Type != VolumeTypeHost {
+			// TODO: Remove this error when adding new volume types
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Volume %s has unrecognised type %s", name, decl.Type))
+			continue
+		}
+
+		if decl.Source == "" {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Volume %s has an empty source", name))
+		}
+	}
+
+	// Validate task group and task network resources
+	if err := tg.validateNetworks(); err != nil {
+		outer := fmt.Errorf("Task group network validation failed: %v", err)
+		mErr.Errors = append(mErr.Errors, outer)
+	}
+
+	// Validate task group and task services
+	if err := tg.validateServices(); err != nil {
+		outer := fmt.Errorf("Task group service validation failed: %v", err)
+		mErr.Errors = append(mErr.Errors, outer)
+	}
+
 	// Validate the tasks
 	for _, task := range tg.Tasks {
-		if err := task.Validate(tg.EphemeralDisk, j.Type); err != nil {
+		// Validate the task does not reference undefined volume mounts
+		for i, mnt := range task.VolumeMounts {
+			if mnt.Volume == "" {
+				mErr.Errors = append(mErr.Errors, fmt.Errorf("Task %s has a volume mount (%d) referencing an empty volume", task.Name, i))
+				continue
+			}
+
+			if _, ok := tg.Volumes[mnt.Volume]; !ok {
+				mErr.Errors = append(mErr.Errors, fmt.Errorf("Task %s has a volume mount (%d) referencing undefined volume %s", task.Name, i, mnt.Volume))
+				continue
+			}
+		}
+
+		if err := task.Validate(tg.EphemeralDisk, j.Type, tg.Services); err != nil {
 			outer := fmt.Errorf("Task %s validation failed: %v", task.Name, err)
 			mErr.Errors = append(mErr.Errors, outer)
+		}
+	}
+	return mErr.ErrorOrNil()
+}
+
+func (tg *TaskGroup) validateNetworks() error {
+	var mErr multierror.Error
+	portLabels := make(map[string]string)
+	staticPorts := make(map[int]string)
+	mappedPorts := make(map[int]string)
+
+	for _, net := range tg.Networks {
+		for _, port := range append(net.ReservedPorts, net.DynamicPorts...) {
+			if other, ok := portLabels[port.Label]; ok {
+				mErr.Errors = append(mErr.Errors, fmt.Errorf("Port label %s already in use by %s", port.Label, other))
+			} else {
+				portLabels[port.Label] = "taskgroup network"
+			}
+
+			if port.Value != 0 {
+				// static port
+				if other, ok := staticPorts[port.Value]; ok {
+					err := fmt.Errorf("Static port %d already reserved by %s", port.Value, other)
+					mErr.Errors = append(mErr.Errors, err)
+				} else {
+					staticPorts[port.Value] = fmt.Sprintf("taskgroup network:%s", port.Label)
+				}
+			}
+
+			if port.To > 0 {
+				if other, ok := mappedPorts[port.To]; ok {
+					err := fmt.Errorf("Port mapped to %d already in use by %s", port.To, other)
+					mErr.Errors = append(mErr.Errors, err)
+				} else {
+					mappedPorts[port.To] = fmt.Sprintf("taskgroup network:%s", port.Label)
+				}
+			} else if port.To < -1 {
+				err := fmt.Errorf("Port %q cannot be mapped to negative value %d", port.Label, port.To)
+				mErr.Errors = append(mErr.Errors, err)
+			}
+		}
+	}
+	// Check for duplicate tasks or port labels, and no duplicated static or mapped ports
+	for _, task := range tg.Tasks {
+		if task.Resources == nil {
+			continue
+		}
+
+		for _, net := range task.Resources.Networks {
+			for _, port := range append(net.ReservedPorts, net.DynamicPorts...) {
+				if other, ok := portLabels[port.Label]; ok {
+					mErr.Errors = append(mErr.Errors, fmt.Errorf("Port label %s already in use by %s", port.Label, other))
+				}
+
+				if port.Value != 0 {
+					if other, ok := staticPorts[port.Value]; ok {
+						err := fmt.Errorf("Static port %d already reserved by %s", port.Value, other)
+						mErr.Errors = append(mErr.Errors, err)
+					} else {
+						staticPorts[port.Value] = fmt.Sprintf("%s:%s", task.Name, port.Label)
+					}
+				}
+
+				if port.To != 0 {
+					if other, ok := mappedPorts[port.To]; ok {
+						err := fmt.Errorf("Port mapped to %d already in use by %s", port.To, other)
+						mErr.Errors = append(mErr.Errors, err)
+					} else {
+						mappedPorts[port.To] = fmt.Sprintf("taskgroup network:%s", port.Label)
+					}
+				}
+			}
+		}
+	}
+	return mErr.ErrorOrNil()
+}
+
+// validateServices runs Service.Validate() on group-level services,
+// checks that group services do not conflict with task services and that
+// group service checks that refer to tasks only refer to tasks that exist.
+func (tg *TaskGroup) validateServices() error {
+	var mErr multierror.Error
+	knownTasks := make(map[string]struct{})
+	knownServices := make(map[string]struct{})
+
+	// Create a map of known tasks and their services so we can compare
+	// vs the group-level services and checks
+	for _, task := range tg.Tasks {
+		knownTasks[task.Name] = struct{}{}
+		if task.Services == nil {
+			continue
+		}
+		for _, service := range task.Services {
+			if _, ok := knownServices[service.Name+service.PortLabel]; ok {
+				mErr.Errors = append(mErr.Errors, fmt.Errorf("Service %s is duplicate", service.Name))
+			}
+			for _, check := range service.Checks {
+				if check.TaskName != "" {
+					mErr.Errors = append(mErr.Errors, fmt.Errorf("Check %s is invalid: only task group service checks can be assigned tasks", check.Name))
+				}
+			}
+			knownServices[service.Name+service.PortLabel] = struct{}{}
+		}
+	}
+	for i, service := range tg.Services {
+		if err := service.Validate(); err != nil {
+			outer := fmt.Errorf("Service[%d] %s validation failed: %s", i, service.Name, err)
+			mErr.Errors = append(mErr.Errors, outer)
+			// we break here to avoid the risk of crashing on null-pointer
+			// access in a later step, accepting that we might miss out on
+			// error messages to provide the user.
+			continue
+		}
+		if _, ok := knownServices[service.Name+service.PortLabel]; ok {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Service %s is duplicate", service.Name))
+		}
+		knownServices[service.Name+service.PortLabel] = struct{}{}
+		for _, check := range service.Checks {
+			if check.TaskName != "" {
+				if check.Type != ServiceCheckScript && check.Type != ServiceCheckGRPC {
+					mErr.Errors = append(mErr.Errors,
+						fmt.Errorf("Check %s invalid: only script and gRPC checks should have tasks", check.Name))
+				}
+				if _, ok := knownTasks[check.TaskName]; !ok {
+					mErr.Errors = append(mErr.Errors,
+						fmt.Errorf("Check %s invalid: refers to non-existent task %s", check.Name, check.TaskName))
+				}
+			}
 		}
 	}
 	return mErr.ErrorOrNil()
@@ -4869,6 +5252,17 @@ func (tg *TaskGroup) LookupTask(name string) *Task {
 	return nil
 }
 
+func (tg *TaskGroup) UsesConnect() bool {
+	for _, service := range tg.Services {
+		if service.Connect != nil {
+			if service.Connect.Native || service.Connect.SidecarService != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (tg *TaskGroup) GoString() string {
 	return fmt.Sprintf("*%#v", *tg)
 }
@@ -4891,6 +5285,26 @@ func (c *CheckRestart) Copy() *CheckRestart {
 	return nc
 }
 
+func (c *CheckRestart) Equals(o *CheckRestart) bool {
+	if c == nil || o == nil {
+		return c == o
+	}
+
+	if c.Limit != o.Limit {
+		return false
+	}
+
+	if c.Grace != o.Grace {
+		return false
+	}
+
+	if c.IgnoreWarnings != o.IgnoreWarnings {
+		return false
+	}
+
+	return true
+}
+
 func (c *CheckRestart) Validate() error {
 	if c == nil {
 		return nil
@@ -4909,358 +5323,6 @@ func (c *CheckRestart) Validate() error {
 }
 
 const (
-	ServiceCheckHTTP   = "http"
-	ServiceCheckTCP    = "tcp"
-	ServiceCheckScript = "script"
-	ServiceCheckGRPC   = "grpc"
-
-	// minCheckInterval is the minimum check interval permitted.  Consul
-	// currently has its MinInterval set to 1s.  Mirror that here for
-	// consistency.
-	minCheckInterval = 1 * time.Second
-
-	// minCheckTimeout is the minimum check timeout permitted for Consul
-	// script TTL checks.
-	minCheckTimeout = 1 * time.Second
-)
-
-// The ServiceCheck data model represents the consul health check that
-// Nomad registers for a Task
-type ServiceCheck struct {
-	Name          string              // Name of the check, defaults to id
-	Type          string              // Type of the check - tcp, http, docker and script
-	Command       string              // Command is the command to run for script checks
-	Args          []string            // Args is a list of arguments for script checks
-	Path          string              // path of the health check url for http type check
-	Protocol      string              // Protocol to use if check is http, defaults to http
-	PortLabel     string              // The port to use for tcp/http checks
-	AddressMode   string              // 'host' to use host ip:port or 'driver' to use driver's
-	Interval      time.Duration       // Interval of the check
-	Timeout       time.Duration       // Timeout of the response from the check before consul fails the check
-	InitialStatus string              // Initial status of the check
-	TLSSkipVerify bool                // Skip TLS verification when Protocol=https
-	Method        string              // HTTP Method to use (GET by default)
-	Header        map[string][]string // HTTP Headers for Consul to set when making HTTP checks
-	CheckRestart  *CheckRestart       // If and when a task should be restarted based on checks
-	GRPCService   string              // Service for GRPC checks
-	GRPCUseTLS    bool                // Whether or not to use TLS for GRPC checks
-}
-
-func (sc *ServiceCheck) Copy() *ServiceCheck {
-	if sc == nil {
-		return nil
-	}
-	nsc := new(ServiceCheck)
-	*nsc = *sc
-	nsc.Args = helper.CopySliceString(sc.Args)
-	nsc.Header = helper.CopyMapStringSliceString(sc.Header)
-	nsc.CheckRestart = sc.CheckRestart.Copy()
-	return nsc
-}
-
-func (sc *ServiceCheck) Canonicalize(serviceName string) {
-	// Ensure empty maps/slices are treated as null to avoid scheduling
-	// issues when using DeepEquals.
-	if len(sc.Args) == 0 {
-		sc.Args = nil
-	}
-
-	if len(sc.Header) == 0 {
-		sc.Header = nil
-	} else {
-		for k, v := range sc.Header {
-			if len(v) == 0 {
-				sc.Header[k] = nil
-			}
-		}
-	}
-
-	if sc.Name == "" {
-		sc.Name = fmt.Sprintf("service: %q check", serviceName)
-	}
-}
-
-// validate a Service's ServiceCheck
-func (sc *ServiceCheck) validate() error {
-	// Validate Type
-	switch strings.ToLower(sc.Type) {
-	case ServiceCheckGRPC:
-	case ServiceCheckTCP:
-	case ServiceCheckHTTP:
-		if sc.Path == "" {
-			return fmt.Errorf("http type must have a valid http path")
-		}
-		url, err := url.Parse(sc.Path)
-		if err != nil {
-			return fmt.Errorf("http type must have a valid http path")
-		}
-		if url.IsAbs() {
-			return fmt.Errorf("http type must have a relative http path")
-		}
-
-	case ServiceCheckScript:
-		if sc.Command == "" {
-			return fmt.Errorf("script type must have a valid script path")
-		}
-
-	default:
-		return fmt.Errorf(`invalid type (%+q), must be one of "http", "tcp", or "script" type`, sc.Type)
-	}
-
-	// Validate interval and timeout
-	if sc.Interval == 0 {
-		return fmt.Errorf("missing required value interval. Interval cannot be less than %v", minCheckInterval)
-	} else if sc.Interval < minCheckInterval {
-		return fmt.Errorf("interval (%v) cannot be lower than %v", sc.Interval, minCheckInterval)
-	}
-
-	if sc.Timeout == 0 {
-		return fmt.Errorf("missing required value timeout. Timeout cannot be less than %v", minCheckInterval)
-	} else if sc.Timeout < minCheckTimeout {
-		return fmt.Errorf("timeout (%v) is lower than required minimum timeout %v", sc.Timeout, minCheckInterval)
-	}
-
-	// Validate InitialStatus
-	switch sc.InitialStatus {
-	case "":
-	case api.HealthPassing:
-	case api.HealthWarning:
-	case api.HealthCritical:
-	default:
-		return fmt.Errorf(`invalid initial check state (%s), must be one of %q, %q, %q or empty`, sc.InitialStatus, api.HealthPassing, api.HealthWarning, api.HealthCritical)
-
-	}
-
-	// Validate AddressMode
-	switch sc.AddressMode {
-	case "", AddressModeHost, AddressModeDriver:
-		// Ok
-	case AddressModeAuto:
-		return fmt.Errorf("invalid address_mode %q - %s only valid for services", sc.AddressMode, AddressModeAuto)
-	default:
-		return fmt.Errorf("invalid address_mode %q", sc.AddressMode)
-	}
-
-	return sc.CheckRestart.Validate()
-}
-
-// RequiresPort returns whether the service check requires the task has a port.
-func (sc *ServiceCheck) RequiresPort() bool {
-	switch sc.Type {
-	case ServiceCheckGRPC, ServiceCheckHTTP, ServiceCheckTCP:
-		return true
-	default:
-		return false
-	}
-}
-
-// TriggersRestarts returns true if this check should be watched and trigger a restart
-// on failure.
-func (sc *ServiceCheck) TriggersRestarts() bool {
-	return sc.CheckRestart != nil && sc.CheckRestart.Limit > 0
-}
-
-// Hash all ServiceCheck fields and the check's corresponding service ID to
-// create an identifier. The identifier is not guaranteed to be unique as if
-// the PortLabel is blank, the Service's PortLabel will be used after Hash is
-// called.
-func (sc *ServiceCheck) Hash(serviceID string) string {
-	h := sha1.New()
-	io.WriteString(h, serviceID)
-	io.WriteString(h, sc.Name)
-	io.WriteString(h, sc.Type)
-	io.WriteString(h, sc.Command)
-	io.WriteString(h, strings.Join(sc.Args, ""))
-	io.WriteString(h, sc.Path)
-	io.WriteString(h, sc.Protocol)
-	io.WriteString(h, sc.PortLabel)
-	io.WriteString(h, sc.Interval.String())
-	io.WriteString(h, sc.Timeout.String())
-	io.WriteString(h, sc.Method)
-	// Only include TLSSkipVerify if set to maintain ID stability with Nomad <0.6
-	if sc.TLSSkipVerify {
-		io.WriteString(h, "true")
-	}
-
-	// Since map iteration order isn't stable we need to write k/v pairs to
-	// a slice and sort it before hashing.
-	if len(sc.Header) > 0 {
-		headers := make([]string, 0, len(sc.Header))
-		for k, v := range sc.Header {
-			headers = append(headers, k+strings.Join(v, ""))
-		}
-		sort.Strings(headers)
-		io.WriteString(h, strings.Join(headers, ""))
-	}
-
-	// Only include AddressMode if set to maintain ID stability with Nomad <0.7.1
-	if len(sc.AddressMode) > 0 {
-		io.WriteString(h, sc.AddressMode)
-	}
-
-	// Only include GRPC if set to maintain ID stability with Nomad <0.8.4
-	if sc.GRPCService != "" {
-		io.WriteString(h, sc.GRPCService)
-	}
-	if sc.GRPCUseTLS {
-		io.WriteString(h, "true")
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-const (
-	AddressModeAuto   = "auto"
-	AddressModeHost   = "host"
-	AddressModeDriver = "driver"
-)
-
-// Service represents a Consul service definition in Nomad
-type Service struct {
-	// Name of the service registered with Consul. Consul defaults the
-	// Name to ServiceID if not specified.  The Name if specified is used
-	// as one of the seed values when generating a Consul ServiceID.
-	Name string
-
-	// PortLabel is either the numeric port number or the `host:port`.
-	// To specify the port number using the host's Consul Advertise
-	// address, specify an empty host in the PortLabel (e.g. `:port`).
-	PortLabel string
-
-	// AddressMode specifies whether or not to use the host ip:port for
-	// this service.
-	AddressMode string
-
-	Tags       []string        // List of tags for the service
-	CanaryTags []string        // List of tags for the service when it is a canary
-	Checks     []*ServiceCheck // List of checks associated with the service
-}
-
-func (s *Service) Copy() *Service {
-	if s == nil {
-		return nil
-	}
-	ns := new(Service)
-	*ns = *s
-	ns.Tags = helper.CopySliceString(ns.Tags)
-	ns.CanaryTags = helper.CopySliceString(ns.CanaryTags)
-
-	if s.Checks != nil {
-		checks := make([]*ServiceCheck, len(ns.Checks))
-		for i, c := range ns.Checks {
-			checks[i] = c.Copy()
-		}
-		ns.Checks = checks
-	}
-
-	return ns
-}
-
-// Canonicalize interpolates values of Job, Task Group and Task in the Service
-// Name. This also generates check names, service id and check ids.
-func (s *Service) Canonicalize(job string, taskGroup string, task string) {
-	// Ensure empty lists are treated as null to avoid scheduler issues when
-	// using DeepEquals
-	if len(s.Tags) == 0 {
-		s.Tags = nil
-	}
-	if len(s.CanaryTags) == 0 {
-		s.CanaryTags = nil
-	}
-	if len(s.Checks) == 0 {
-		s.Checks = nil
-	}
-
-	s.Name = args.ReplaceEnv(s.Name, map[string]string{
-		"JOB":       job,
-		"TASKGROUP": taskGroup,
-		"TASK":      task,
-		"BASE":      fmt.Sprintf("%s-%s-%s", job, taskGroup, task),
-	},
-	)
-
-	for _, check := range s.Checks {
-		check.Canonicalize(s.Name)
-	}
-}
-
-// Validate checks if the Check definition is valid
-func (s *Service) Validate() error {
-	var mErr multierror.Error
-
-	// Ensure the service name is valid per the below RFCs but make an exception
-	// for our interpolation syntax by first stripping any environment variables from the name
-
-	serviceNameStripped := args.ReplaceEnvWithPlaceHolder(s.Name, "ENV-VAR")
-
-	if err := s.ValidateName(serviceNameStripped); err != nil {
-		mErr.Errors = append(mErr.Errors, fmt.Errorf("service name must be valid per RFC 1123 and can contain only alphanumeric characters or dashes: %q", s.Name))
-	}
-
-	switch s.AddressMode {
-	case "", AddressModeAuto, AddressModeHost, AddressModeDriver:
-		// OK
-	default:
-		mErr.Errors = append(mErr.Errors, fmt.Errorf("service address_mode must be %q, %q, or %q; not %q", AddressModeAuto, AddressModeHost, AddressModeDriver, s.AddressMode))
-	}
-
-	for _, c := range s.Checks {
-		if s.PortLabel == "" && c.PortLabel == "" && c.RequiresPort() {
-			mErr.Errors = append(mErr.Errors, fmt.Errorf("check %s invalid: check requires a port but neither check nor service %+q have a port", c.Name, s.Name))
-			continue
-		}
-
-		if err := c.validate(); err != nil {
-			mErr.Errors = append(mErr.Errors, fmt.Errorf("check %s invalid: %v", c.Name, err))
-		}
-	}
-
-	return mErr.ErrorOrNil()
-}
-
-// ValidateName checks if the services Name is valid and should be called after
-// the name has been interpolated
-func (s *Service) ValidateName(name string) error {
-	// Ensure the service name is valid per RFC-952 §1
-	// (https://tools.ietf.org/html/rfc952), RFC-1123 §2.1
-	// (https://tools.ietf.org/html/rfc1123), and RFC-2782
-	// (https://tools.ietf.org/html/rfc2782).
-	re := regexp.MustCompile(`^(?i:[a-z0-9]|[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])$`)
-	if !re.MatchString(name) {
-		return fmt.Errorf("service name must be valid per RFC 1123 and can contain only alphanumeric characters or dashes and must be no longer than 63 characters: %q", name)
-	}
-	return nil
-}
-
-// Hash returns a base32 encoded hash of a Service's contents excluding checks
-// as they're hashed independently.
-func (s *Service) Hash(allocID, taskName string, canary bool) string {
-	h := sha1.New()
-	io.WriteString(h, allocID)
-	io.WriteString(h, taskName)
-	io.WriteString(h, s.Name)
-	io.WriteString(h, s.PortLabel)
-	io.WriteString(h, s.AddressMode)
-	for _, tag := range s.Tags {
-		io.WriteString(h, tag)
-	}
-	for _, tag := range s.CanaryTags {
-		io.WriteString(h, tag)
-	}
-
-	// Vary ID on whether or not CanaryTags will be used
-	if canary {
-		h.Write([]byte("Canary"))
-	}
-
-	// Base32 is used for encoding the hash as sha1 hashes can always be
-	// encoded without padding, only 4 bytes larger than base64, and saves
-	// 8 bytes vs hex. Since these hashes are used in Consul URLs it's nice
-	// to have a reasonably compact URL-safe representation.
-	return b32.EncodeToString(h.Sum(nil))
-}
-
-const (
 	// DefaultKillTimeout is the default timeout between signaling a task it
 	// will be killed and killing it.
 	DefaultKillTimeout = 5 * time.Second
@@ -5270,6 +5332,16 @@ const (
 type LogConfig struct {
 	MaxFiles      int
 	MaxFileSizeMB int
+}
+
+func (l *LogConfig) Copy() *LogConfig {
+	if l == nil {
+		return nil
+	}
+	return &LogConfig{
+		MaxFiles:      l.MaxFiles,
+		MaxFileSizeMB: l.MaxFileSizeMB,
+	}
 }
 
 // DefaultLogConfig returns the default LogConfig values.
@@ -5358,11 +5430,35 @@ type Task struct {
 	// task from Consul and sending it a signal to shutdown. See #2441
 	ShutdownDelay time.Duration
 
+	// VolumeMounts is a list of Volume name <-> mount configurations that will be
+	// attached to this task.
+	VolumeMounts []*VolumeMount
+
 	// The kill signal to use for the task. This is an optional specification,
 
 	// KillSignal is the kill signal to use for the task. This is an optional
 	// specification and defaults to SIGINT
 	KillSignal string
+
+	// Used internally to manage tasks according to their TaskKind. Initial use case
+	// is for Consul Connect
+	Kind TaskKind
+}
+
+// UsesConnect is for conveniently detecting if the Task is able to make use
+// of Consul Connect features. This will be indicated in the TaskKind of the
+// Task, which exports known types of Tasks.
+//
+// Currently only Consul Connect Proxy tasks are known.
+// (Consul Connect Native tasks will be supported soon).
+func (t *Task) UsesConnect() bool {
+	// todo(shoenig): native tasks
+	switch {
+	case t.Kind.IsConnectProxy():
+		return true
+	default:
+		return false
+	}
 }
 
 func (t *Task) Copy() *Task {
@@ -5383,9 +5479,11 @@ func (t *Task) Copy() *Task {
 
 	nt.Constraints = CopySliceConstraints(nt.Constraints)
 	nt.Affinities = CopySliceAffinities(nt.Affinities)
+	nt.VolumeMounts = CopySliceVolumeMount(nt.VolumeMounts)
 
 	nt.Vault = nt.Vault.Copy()
 	nt.Resources = nt.Resources.Copy()
+	nt.LogConfig = nt.LogConfig.Copy()
 	nt.Meta = helper.CopyMapStringString(nt.Meta)
 	nt.DispatchPayload = nt.DispatchPayload.Copy()
 
@@ -5458,7 +5556,7 @@ func (t *Task) GoString() string {
 }
 
 // Validate is used to sanity check a task
-func (t *Task) Validate(ephemeralDisk *EphemeralDisk, jobType string) error {
+func (t *Task) Validate(ephemeralDisk *EphemeralDisk, jobType string, tgServices []*Service) error {
 	var mErr multierror.Error
 	if t.Name == "" {
 		mErr.Errors = append(mErr.Errors, errors.New("Missing task name"))
@@ -5564,6 +5662,30 @@ func (t *Task) Validate(ephemeralDisk *EphemeralDisk, jobType string) error {
 	if t.DispatchPayload != nil {
 		if err := t.DispatchPayload.Validate(); err != nil {
 			mErr.Errors = append(mErr.Errors, fmt.Errorf("Dispatch Payload validation failed: %v", err))
+		}
+	}
+
+	// Validation for TaskKind field which is used for Consul Connect integration
+	if t.Kind.IsConnectProxy() {
+		// This task is a Connect proxy so it should not have service stanzas
+		if len(t.Services) > 0 {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Connect proxy task must not have a service stanza"))
+		}
+		if t.Leader {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Connect proxy task must not have leader set"))
+		}
+
+		// Ensure the proxy task has a corresponding service entry
+		serviceErr := ValidateConnectProxyService(t.Kind.Value(), tgServices)
+		if serviceErr != nil {
+			mErr.Errors = append(mErr.Errors, serviceErr)
+		}
+	}
+
+	// Validation for volumes
+	for idx, vm := range t.VolumeMounts {
+		if !MountPropagationModeIsValid(vm.PropagationMode) {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Volume Mount (%d) has an invalid propagation mode: \"%s\"", idx, vm.PropagationMode))
 		}
 	}
 
@@ -5707,7 +5829,79 @@ func (t *Task) Warnings() error {
 		mErr.Errors = append(mErr.Errors, fmt.Errorf("IOPS has been deprecated as of Nomad 0.9.0. Please remove IOPS from resource stanza."))
 	}
 
+	for idx, tmpl := range t.Templates {
+		if err := tmpl.Warnings(); err != nil {
+			err = multierror.Prefix(err, fmt.Sprintf("Template[%d]", idx))
+			mErr.Errors = append(mErr.Errors, err)
+		}
+	}
+
 	return mErr.ErrorOrNil()
+}
+
+// TaskKind identifies the special kinds of tasks using the following format:
+// '<kind_name>(:<identifier>)`. The TaskKind can optionally include an identifier that
+// is opaque to the Task. This identifier can be used to relate the task to some
+// other entity based on the kind.
+//
+// For example, a task may have the TaskKind of `connect-proxy:service` where
+// 'connect-proxy' is the kind name and 'service' is the identifier that relates the
+// task to the service name of which it is a connect proxy for.
+type TaskKind string
+
+// Name returns the kind name portion of the TaskKind
+func (k TaskKind) Name() string {
+	return strings.Split(string(k), ":")[0]
+}
+
+// Value returns the identifier of the TaskKind or an empty string if it doesn't
+// include one.
+func (k TaskKind) Value() string {
+	if s := strings.SplitN(string(k), ":", 2); len(s) > 1 {
+		return s[1]
+	}
+	return ""
+}
+
+// IsConnectProxy returns true if the TaskKind is connect-proxy
+func (k TaskKind) IsConnectProxy() bool {
+	return strings.HasPrefix(string(k), ConnectProxyPrefix+":") && len(k) > len(ConnectProxyPrefix)+1
+}
+
+// ConnectProxyPrefix is the prefix used for fields referencing a Consul Connect
+// Proxy
+const ConnectProxyPrefix = "connect-proxy"
+
+// ValidateConnectProxyService checks that the service that is being
+// proxied by this task exists in the task group and contains
+// valid Connect config.
+func ValidateConnectProxyService(serviceName string, tgServices []*Service) error {
+	found := false
+	names := make([]string, 0, len(tgServices))
+	for _, svc := range tgServices {
+		if svc.Connect == nil || svc.Connect.SidecarService == nil {
+			continue
+		}
+
+		if svc.Name == serviceName {
+			found = true
+			break
+		}
+
+		// Build up list of mismatched Connect service names for error
+		// reporting.
+		names = append(names, svc.Name)
+	}
+
+	if !found {
+		if len(names) == 0 {
+			return fmt.Errorf("No Connect services in task group with Connect proxy (%q)", serviceName)
+		} else {
+			return fmt.Errorf("Connect proxy service name (%q) not found in Connect services from task group: %s", serviceName, names)
+		}
+	}
+
+	return nil
 }
 
 const (
@@ -5777,6 +5971,7 @@ type Template struct {
 	// VaultGrace is the grace duration between lease renewal and reacquiring a
 	// secret. If the lease of a secret is less than the grace, a new secret is
 	// acquired.
+	// COMPAT(0.12) VaultGrace has been ignored by Vault since Vault v0.5.
 	VaultGrace time.Duration
 }
 
@@ -5851,8 +6046,15 @@ func (t *Template) Validate() error {
 		}
 	}
 
-	if t.VaultGrace.Nanoseconds() < 0 {
-		multierror.Append(&mErr, fmt.Errorf("Vault grace must be greater than zero: %v < 0", t.VaultGrace))
+	return mErr.ErrorOrNil()
+}
+
+func (t *Template) Warnings() error {
+	var mErr multierror.Error
+
+	// Deprecation notice for vault_grace
+	if t.VaultGrace != 0 {
+		mErr.Errors = append(mErr.Errors, fmt.Errorf("VaultGrace has been deprecated as of Nomad 0.11 and ignored since Vault 0.5. Please remove VaultGrace / vault_grace from template stanza."))
 	}
 
 	return mErr.ErrorOrNil()
@@ -5937,15 +6139,15 @@ const (
 	TaskSetupFailure = "Setup Failure"
 
 	// TaskDriveFailure indicates that the task could not be started due to a
-	// failure in the driver.
+	// failure in the driver. TaskDriverFailure is considered Recoverable.
 	TaskDriverFailure = "Driver Failure"
 
 	// TaskReceived signals that the task has been pulled by the client at the
 	// given timestamp.
 	TaskReceived = "Received"
 
-	// TaskFailedValidation indicates the task was invalid and as such was not
-	// run.
+	// TaskFailedValidation indicates the task was invalid and as such was not run.
+	// TaskFailedValidation is not considered Recoverable.
 	TaskFailedValidation = "Failed Validation"
 
 	// TaskStarted signals that the task was started and its timestamp can be
@@ -6570,6 +6772,7 @@ const (
 	ConstraintDistinctHosts     = "distinct_hosts"
 	ConstraintRegex             = "regexp"
 	ConstraintVersion           = "version"
+	ConstraintSemver            = "semver"
 	ConstraintSetContains       = "set_contains"
 	ConstraintSetContainsAll    = "set_contains_all"
 	ConstraintSetContainsAny    = "set_contains_any"
@@ -6639,6 +6842,10 @@ func (c *Constraint) Validate() error {
 	case ConstraintVersion:
 		if _, err := version.NewConstraint(c.RTarget); err != nil {
 			mErr.Errors = append(mErr.Errors, fmt.Errorf("Version constraint is invalid: %v", err))
+		}
+	case ConstraintSemver:
+		if _, err := semver.NewConstraint(c.RTarget); err != nil {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Semver constraint is invalid: %v", err))
 		}
 	case ConstraintDistinctProperty:
 		// If a count is set, make sure it is convertible to a uint64
@@ -6753,6 +6960,10 @@ func (a *Affinity) Validate() error {
 	case ConstraintVersion:
 		if _, err := version.NewConstraint(a.RTarget); err != nil {
 			mErr.Errors = append(mErr.Errors, fmt.Errorf("Version affinity is invalid: %v", err))
+		}
+	case ConstraintSemver:
+		if _, err := semver.NewConstraint(a.RTarget); err != nil {
+			mErr.Errors = append(mErr.Errors, fmt.Errorf("Semver affinity is invalid: %v", err))
 		}
 	case "=", "==", "is", "!=", "not", "<", "<=", ">", ">=":
 		if a.RTarget == "" {
@@ -7441,15 +7652,17 @@ type Allocation struct {
 	// the scheduler.
 	Resources *Resources
 
-	// COMPAT(0.11): Remove in 0.11
 	// SharedResources are the resources that are shared by all the tasks in an
 	// allocation
+	// Deprecated: use AllocatedResources.Shared instead.
+	// Keep field to allow us to handle upgrade paths from old versions
 	SharedResources *Resources
 
-	// COMPAT(0.11): Remove in 0.11
 	// TaskResources is the set of resources allocated to each
 	// task. These should sum to the total Resources. Dynamic ports will be
 	// set by the scheduler.
+	// Deprecated: use AllocatedResources.Tasks instead.
+	// Keep field to allow us to handle upgrade paths from old versions
 	TaskResources map[string]*Resources
 
 	// AllocatedResources is the total resources allocated for the task group.
@@ -7544,6 +7757,36 @@ func (a *Allocation) Copy() *Allocation {
 // CopySkipJob provides a copy of the allocation but doesn't deep copy the job
 func (a *Allocation) CopySkipJob() *Allocation {
 	return a.copyImpl(false)
+}
+
+// Canonicalize Allocation to ensure fields are initialized to the expectations
+// of this version of Nomad. Should be called when restoring persisted
+// Allocations or receiving Allocations from Nomad agents potentially on an
+// older version of Nomad.
+func (a *Allocation) Canonicalize() {
+	if a.AllocatedResources == nil && a.TaskResources != nil {
+		ar := AllocatedResources{}
+
+		tasks := make(map[string]*AllocatedTaskResources, len(a.TaskResources))
+		for name, tr := range a.TaskResources {
+			atr := AllocatedTaskResources{}
+			atr.Cpu.CpuShares = int64(tr.CPU)
+			atr.Memory.MemoryMB = int64(tr.MemoryMB)
+			atr.Networks = tr.Networks.Copy()
+
+			tasks[name] = &atr
+		}
+		ar.Tasks = tasks
+
+		if a.SharedResources != nil {
+			ar.Shared.DiskMB = int64(a.SharedResources.DiskMB)
+			ar.Shared.Networks = a.SharedResources.Networks.Copy()
+		}
+
+		a.AllocatedResources = &ar
+	}
+
+	a.Job.Canonicalize()
 }
 
 func (a *Allocation) copyImpl(job bool) *Allocation {
@@ -7828,7 +8071,7 @@ func (a *Allocation) SetEventDisplayMessages() {
 }
 
 // COMPAT(0.11): Remove in 0.11
-// ComparableResources returns the resouces on the allocation
+// ComparableResources returns the resources on the allocation
 // handling upgrade paths. After 0.11 calls to this should be replaced with:
 // alloc.AllocatedResources.Comparable()
 func (a *Allocation) ComparableResources() *ComparableResources {
@@ -8402,6 +8645,9 @@ type Evaluation struct {
 	// Raft Indexes
 	CreateIndex uint64
 	ModifyIndex uint64
+
+	CreateTime int64
+	ModifyTime int64
 }
 
 // TerminalStatus returns if the current status is terminal and
@@ -8501,6 +8747,7 @@ func (e *Evaluation) MakePlan(j *Job) *Plan {
 
 // NextRollingEval creates an evaluation to followup this eval for rolling updates
 func (e *Evaluation) NextRollingEval(wait time.Duration) *Evaluation {
+	now := time.Now().UTC().UnixNano()
 	return &Evaluation{
 		ID:             uuid.Generate(),
 		Namespace:      e.Namespace,
@@ -8512,6 +8759,8 @@ func (e *Evaluation) NextRollingEval(wait time.Duration) *Evaluation {
 		Status:         EvalStatusPending,
 		Wait:           wait,
 		PreviousEval:   e.ID,
+		CreateTime:     now,
+		ModifyTime:     now,
 	}
 }
 
@@ -8521,7 +8770,7 @@ func (e *Evaluation) NextRollingEval(wait time.Duration) *Evaluation {
 // quota limit was reached.
 func (e *Evaluation) CreateBlockedEval(classEligibility map[string]bool,
 	escaped bool, quotaReached string) *Evaluation {
-
+	now := time.Now().UTC().UnixNano()
 	return &Evaluation{
 		ID:                   uuid.Generate(),
 		Namespace:            e.Namespace,
@@ -8535,6 +8784,8 @@ func (e *Evaluation) CreateBlockedEval(classEligibility map[string]bool,
 		ClassEligibility:     classEligibility,
 		EscapedComputedClass: escaped,
 		QuotaLimitReached:    quotaReached,
+		CreateTime:           now,
+		ModifyTime:           now,
 	}
 }
 
@@ -8543,6 +8794,7 @@ func (e *Evaluation) CreateBlockedEval(classEligibility map[string]bool,
 // be retried by the eval_broker. Callers should copy the created eval's ID to
 // into the old eval's NextEval field.
 func (e *Evaluation) CreateFailedFollowUpEval(wait time.Duration) *Evaluation {
+	now := time.Now().UTC().UnixNano()
 	return &Evaluation{
 		ID:             uuid.Generate(),
 		Namespace:      e.Namespace,
@@ -8554,6 +8806,20 @@ func (e *Evaluation) CreateFailedFollowUpEval(wait time.Duration) *Evaluation {
 		Status:         EvalStatusPending,
 		Wait:           wait,
 		PreviousEval:   e.ID,
+		CreateTime:     now,
+		ModifyTime:     now,
+	}
+}
+
+// UpdateModifyTime takes into account that clocks on different servers may be
+// slightly out of sync. Even in case of a leader change, this method will
+// guarantee that ModifyTime will always be after CreateTime.
+func (e *Evaluation) UpdateModifyTime() {
+	now := time.Now().UTC().UnixNano()
+	if now <= e.CreateTime {
+		e.ModifyTime = e.CreateTime + 1
+	} else {
+		e.ModifyTime = now
 	}
 }
 
@@ -8813,12 +9079,17 @@ func (d *DesiredUpdates) GoString() string {
 
 // msgpackHandle is a shared handle for encoding/decoding of structs
 var MsgpackHandle = func() *codec.MsgpackHandle {
-	h := &codec.MsgpackHandle{RawToString: true}
+	h := &codec.MsgpackHandle{}
+	h.RawToString = true
+
+	// maintain binary format from time prior to upgrading latest ugorji
+	h.BasicHandle.TimeNotBuiltin = true
 
 	// Sets the default type for decoding a map into a nil interface{}.
 	// This is necessary in particular because we store the driver configs as a
 	// nil interface{}.
 	h.MapType = reflect.TypeOf(map[string]interface{}(nil))
+
 	return h
 }()
 
@@ -8838,7 +9109,11 @@ var (
 // behind. I feel like its original purpose was to pin at a stable version but
 // now we can accomplish this with vendoring.
 var HashiMsgpackHandle = func() *hcodec.MsgpackHandle {
-	h := &hcodec.MsgpackHandle{RawToString: true}
+	h := &hcodec.MsgpackHandle{}
+	h.RawToString = true
+
+	// maintain binary format from time prior to upgrading latest ugorji
+	h.BasicHandle.TimeNotBuiltin = true
 
 	// Sets the default type for decoding a map into a nil interface{}.
 	// This is necessary in particular because we store the driver configs as a
@@ -8971,9 +9246,10 @@ func IsServerSide(e error) bool {
 
 // ACLPolicy is used to represent an ACL policy
 type ACLPolicy struct {
-	Name        string // Unique name
-	Description string // Human readable
-	Rules       string // HCL or JSON format
+	Name        string      // Unique name
+	Description string      // Human readable
+	Rules       string      // HCL or JSON format
+	RulesJSON   *acl.Policy // Generated from Rules on read
 	Hash        []byte
 	CreateIndex uint64
 	ModifyIndex uint64

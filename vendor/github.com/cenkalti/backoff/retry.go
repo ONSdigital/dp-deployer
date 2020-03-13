@@ -1,9 +1,6 @@
 package backoff
 
-import (
-	"log"
-	"time"
-)
+import "time"
 
 // An Operation is executing by Retry() or RetryNotify().
 // The operation will be retried using a backoff policy if it returns an error.
@@ -18,22 +15,37 @@ type Notify func(error, time.Duration)
 
 // Retry the operation o until it does not return error or BackOff stops.
 // o is guaranteed to be run at least once.
-// It is the caller's responsibility to reset b after Retry returns.
 //
 // If o returns a *PermanentError, the operation is not retried, and the
 // wrapped error is returned.
 //
 // Retry sleeps the goroutine for the duration returned by BackOff after a
 // failed operation returns.
-func Retry(o Operation, b BackOff) error { return RetryNotify(o, b, nil) }
+func Retry(o Operation, b BackOff) error {
+	return RetryNotify(o, b, nil)
+}
 
 // RetryNotify calls notify function with the error and wait duration
 // for each failed attempt before sleep.
 func RetryNotify(operation Operation, b BackOff, notify Notify) error {
+	return RetryNotifyWithTimer(operation, b, notify, nil)
+}
+
+// RetryNotifyWithTimer calls notify function with the error and wait duration using the given Timer
+// for each failed attempt before sleep.
+// A default timer that uses system timer is used when nil is passed.
+func RetryNotifyWithTimer(operation Operation, b BackOff, notify Notify, t Timer) error {
 	var err error
 	var next time.Duration
+	if t == nil {
+		t = &defaultTimer{}
+	}
 
-	cb := ensureContext(b)
+	defer func() {
+		t.Stop()
+	}()
+
+	ctx := getContext(b)
 
 	b.Reset()
 	for {
@@ -53,14 +65,12 @@ func RetryNotify(operation Operation, b BackOff, notify Notify) error {
 			notify(err, next)
 		}
 
-		t := time.NewTimer(next)
+		t.Start(next)
 
 		select {
-		case <-cb.Context().Done():
-			t.Stop()
-			log.Println("YEEEEASSSSSSSSAHHHHH")
-			return err
-		case <-t.C:
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C():
 		}
 	}
 }
@@ -72,6 +82,10 @@ type PermanentError struct {
 
 func (e *PermanentError) Error() string {
 	return e.Err.Error()
+}
+
+func (e *PermanentError) Unwrap() error {
+	return e.Err
 }
 
 // Permanent wraps the given err in a *PermanentError.

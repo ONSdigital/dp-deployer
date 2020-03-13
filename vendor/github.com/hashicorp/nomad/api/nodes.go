@@ -126,7 +126,7 @@ func (m *MonitorMessage) String() string {
 
 // MonitorDrain emits drain related events on the returned string channel. The
 // channel will be closed when all allocations on the draining node have
-// stopped or the context is canceled.
+// stopped, when an error occurs, or if the context is canceled.
 func (n *Nodes) MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *MonitorMessage {
 	outCh := make(chan *MonitorMessage, 8)
 	nodeCh := make(chan *MonitorMessage, 1)
@@ -335,7 +335,7 @@ func (n *Nodes) monitorDrainAllocs(ctx context.Context, nodeID string, ignoreSys
 
 		// Exit if all allocs are terminal
 		if runningAllocs == 0 {
-			msg := Messagef(MonitorMsgLevelInfo, "All allocations on node %q have stopped.", nodeID)
+			msg := Messagef(MonitorMsgLevelInfo, "All allocations on node %q have stopped", nodeID)
 			select {
 			case allocCh <- msg:
 			case <-ctx.Done():
@@ -413,17 +413,15 @@ func (n *Nodes) Stats(nodeID string, q *QueryOptions) (*HostStats, error) {
 }
 
 func (n *Nodes) GC(nodeID string, q *QueryOptions) error {
-	var resp struct{}
 	path := fmt.Sprintf("/v1/client/gc?node_id=%s", nodeID)
-	_, err := n.client.query(path, &resp, q)
+	_, err := n.client.query(path, nil, q)
 	return err
 }
 
 // TODO Add tests
 func (n *Nodes) GcAlloc(allocID string, q *QueryOptions) error {
-	var resp struct{}
 	path := fmt.Sprintf("/v1/client/allocation/%s/gc", allocID)
-	_, err := n.client.query(path, &resp, q)
+	_, err := n.client.query(path, nil, q)
 	return err
 }
 
@@ -434,6 +432,12 @@ type DriverInfo struct {
 	Healthy           bool
 	HealthDescription string
 	UpdateTime        time.Time
+}
+
+// HostVolumeInfo is used to return metadata about a given HostVolume.
+type HostVolumeInfo struct {
+	Path     string
+	ReadOnly bool
 }
 
 // Node is used to deserialize a node entry.
@@ -459,6 +463,7 @@ type Node struct {
 	StatusUpdatedAt       int64
 	Events                []*NodeEvent
 	Drivers               map[string]*DriverInfo
+	HostVolumes           map[string]*HostVolumeInfo
 	CreateIndex           uint64
 	ModifyIndex           uint64
 }
@@ -514,6 +519,9 @@ type DrainStrategy struct {
 	// ForceDeadline is the deadline time for the drain after which drains will
 	// be forced
 	ForceDeadline time.Time
+
+	// StartedAt is the time the drain process started
+	StartedAt time.Time
 }
 
 // DrainSpec describes a Node's drain behavior.
@@ -666,6 +674,8 @@ type StatValue struct {
 
 func (v *StatValue) String() string {
 	switch {
+	case v == nil:
+		return "<none>"
 	case v.BoolVal != nil:
 		return strconv.FormatBool(*v.BoolVal)
 	case v.StringVal != nil:

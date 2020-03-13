@@ -25,6 +25,13 @@ const (
 
 	// DefaultNamespace is the default namespace.
 	DefaultNamespace = "default"
+
+	// For Job configuration, GlobalRegion is a sentinel region value
+	// that users may specify to indicate the job should be run on
+	// the region of the node that the job was submitted to.
+	// For Client configuration, if no region information is given,
+	// the client node will default to be part of the GlobalRegion.
+	GlobalRegion = "global"
 )
 
 const (
@@ -139,7 +146,7 @@ func (j *Jobs) PrefixList(prefix string) ([]*JobListStub, *QueryMeta, error) {
 // job given its unique ID.
 func (j *Jobs) Info(jobID string, q *QueryOptions) (*Job, *QueryMeta, error) {
 	var resp Job
-	qm, err := j.client.query("/v1/job/"+jobID, &resp, q)
+	qm, err := j.client.query("/v1/job/"+url.PathEscape(jobID), &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -150,7 +157,7 @@ func (j *Jobs) Info(jobID string, q *QueryOptions) (*Job, *QueryMeta, error) {
 // unique ID.
 func (j *Jobs) Versions(jobID string, diffs bool, q *QueryOptions) ([]*Job, []*JobDiff, *QueryMeta, error) {
 	var resp JobVersionsResponse
-	qm, err := j.client.query(fmt.Sprintf("/v1/job/%s/versions?diffs=%v", jobID, diffs), &resp, q)
+	qm, err := j.client.query(fmt.Sprintf("/v1/job/%s/versions?diffs=%v", url.PathEscape(jobID), diffs), &resp, q)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -160,7 +167,7 @@ func (j *Jobs) Versions(jobID string, diffs bool, q *QueryOptions) ([]*Job, []*J
 // Allocations is used to return the allocs for a given job ID.
 func (j *Jobs) Allocations(jobID string, allAllocs bool, q *QueryOptions) ([]*AllocationListStub, *QueryMeta, error) {
 	var resp []*AllocationListStub
-	u, err := url.Parse("/v1/job/" + jobID + "/allocations")
+	u, err := url.Parse("/v1/job/" + url.PathEscape(jobID) + "/allocations")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -181,7 +188,7 @@ func (j *Jobs) Allocations(jobID string, allAllocs bool, q *QueryOptions) ([]*Al
 // ID.
 func (j *Jobs) Deployments(jobID string, all bool, q *QueryOptions) ([]*Deployment, *QueryMeta, error) {
 	var resp []*Deployment
-	u, err := url.Parse("/v1/job/" + jobID + "/deployments")
+	u, err := url.Parse("/v1/job/" + url.PathEscape(jobID) + "/deployments")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -201,7 +208,7 @@ func (j *Jobs) Deployments(jobID string, all bool, q *QueryOptions) ([]*Deployme
 // the given job ID.
 func (j *Jobs) LatestDeployment(jobID string, q *QueryOptions) (*Deployment, *QueryMeta, error) {
 	var resp *Deployment
-	qm, err := j.client.query("/v1/job/"+jobID+"/deployment", &resp, q)
+	qm, err := j.client.query("/v1/job/"+url.PathEscape(jobID)+"/deployment", &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -212,7 +219,7 @@ func (j *Jobs) LatestDeployment(jobID string, q *QueryOptions) (*Deployment, *Qu
 // ID.
 func (j *Jobs) Evaluations(jobID string, q *QueryOptions) ([]*Evaluation, *QueryMeta, error) {
 	var resp []*Evaluation
-	qm, err := j.client.query("/v1/job/"+jobID+"/evaluations", &resp, q)
+	qm, err := j.client.query("/v1/job/"+url.PathEscape(jobID)+"/evaluations", &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,7 +232,7 @@ func (j *Jobs) Evaluations(jobID string, q *QueryOptions) ([]*Evaluation, *Query
 // eventually GC'ed from the system. Most callers should not specify purge.
 func (j *Jobs) Deregister(jobID string, purge bool, q *WriteOptions) (string, *WriteMeta, error) {
 	var resp JobDeregisterResponse
-	wm, err := j.client.delete(fmt.Sprintf("/v1/job/%v?purge=%t", jobID, purge), &resp, q)
+	wm, err := j.client.delete(fmt.Sprintf("/v1/job/%v?purge=%t", url.PathEscape(jobID), purge), &resp, q)
 	if err != nil {
 		return "", nil, err
 	}
@@ -235,7 +242,7 @@ func (j *Jobs) Deregister(jobID string, purge bool, q *WriteOptions) (string, *W
 // ForceEvaluate is used to force-evaluate an existing job.
 func (j *Jobs) ForceEvaluate(jobID string, q *WriteOptions) (string, *WriteMeta, error) {
 	var resp JobRegisterResponse
-	wm, err := j.client.write("/v1/job/"+jobID+"/evaluate", nil, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/evaluate", nil, &resp, q)
 	if err != nil {
 		return "", nil, err
 	}
@@ -251,7 +258,7 @@ func (j *Jobs) EvaluateWithOpts(jobID string, opts EvalOptions, q *WriteOptions)
 	}
 
 	var resp JobRegisterResponse
-	wm, err := j.client.write("/v1/job/"+jobID+"/evaluate", req, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/evaluate", req, &resp, q)
 	if err != nil {
 		return "", nil, err
 	}
@@ -261,7 +268,7 @@ func (j *Jobs) EvaluateWithOpts(jobID string, opts EvalOptions, q *WriteOptions)
 // PeriodicForce spawns a new instance of the periodic job and returns the eval ID
 func (j *Jobs) PeriodicForce(jobID string, q *WriteOptions) (string, *WriteMeta, error) {
 	var resp periodicForceResponse
-	wm, err := j.client.write("/v1/job/"+jobID+"/periodic/force", nil, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/periodic/force", nil, &resp, q)
 	if err != nil {
 		return "", nil, err
 	}
@@ -294,7 +301,7 @@ func (j *Jobs) PlanOpts(job *Job, opts *PlanOptions, q *WriteOptions) (*JobPlanR
 	}
 
 	var resp JobPlanResponse
-	wm, err := j.client.write("/v1/job/"+*job.ID+"/plan", req, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(*job.ID)+"/plan", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -303,7 +310,7 @@ func (j *Jobs) PlanOpts(job *Job, opts *PlanOptions, q *WriteOptions) (*JobPlanR
 
 func (j *Jobs) Summary(jobID string, q *QueryOptions) (*JobSummary, *QueryMeta, error) {
 	var resp JobSummary
-	qm, err := j.client.query("/v1/job/"+jobID+"/summary", &resp, q)
+	qm, err := j.client.query("/v1/job/"+url.PathEscape(jobID)+"/summary", &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -318,7 +325,7 @@ func (j *Jobs) Dispatch(jobID string, meta map[string]string,
 		Meta:    meta,
 		Payload: payload,
 	}
-	wm, err := j.client.write("/v1/job/"+jobID+"/dispatch", req, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/dispatch", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -329,16 +336,17 @@ func (j *Jobs) Dispatch(jobID string, meta map[string]string,
 // enforceVersion is set, the job is only reverted if the current version is at
 // the passed version.
 func (j *Jobs) Revert(jobID string, version uint64, enforcePriorVersion *uint64,
-	q *WriteOptions, vaultToken string) (*JobRegisterResponse, *WriteMeta, error) {
+	q *WriteOptions, consulToken, vaultToken string) (*JobRegisterResponse, *WriteMeta, error) {
 
 	var resp JobRegisterResponse
 	req := &JobRevertRequest{
 		JobID:               jobID,
 		JobVersion:          version,
 		EnforcePriorVersion: enforcePriorVersion,
-		VaultToken:          vaultToken,
+		// ConsulToken:         consulToken, // TODO(shoenig) enable!
+		VaultToken: vaultToken,
 	}
-	wm, err := j.client.write("/v1/job/"+jobID+"/revert", req, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/revert", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -355,7 +363,7 @@ func (j *Jobs) Stable(jobID string, version uint64, stable bool,
 		JobVersion: version,
 		Stable:     stable,
 	}
-	wm, err := j.client.write("/v1/job/"+jobID+"/stable", req, &resp, q)
+	wm, err := j.client.write("/v1/job/"+url.PathEscape(jobID)+"/stable", req, &resp, q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -383,7 +391,6 @@ type UpdateStrategy struct {
 // DefaultUpdateStrategy provides a baseline that can be used to upgrade
 // jobs with the old policy or for populating field defaults.
 func DefaultUpdateStrategy() *UpdateStrategy {
-	// boolPtr fields are omitted to avoid masking an unconfigured nil
 	return &UpdateStrategy{
 		Stagger:          timeToPtr(30 * time.Second),
 		MaxParallel:      intToPtr(1),
@@ -393,6 +400,7 @@ func DefaultUpdateStrategy() *UpdateStrategy {
 		ProgressDeadline: timeToPtr(10 * time.Minute),
 		AutoRevert:       boolToPtr(false),
 		Canary:           intToPtr(0),
+		AutoPromote:      boolToPtr(false),
 	}
 }
 
@@ -487,8 +495,6 @@ func (u *UpdateStrategy) Merge(o *UpdateStrategy) {
 func (u *UpdateStrategy) Canonicalize() {
 	d := DefaultUpdateStrategy()
 
-	// boolPtr fields are omitted to avoid masking an unconfigured nil
-
 	if u.MaxParallel == nil {
 		u.MaxParallel = d.MaxParallel
 	}
@@ -519,6 +525,10 @@ func (u *UpdateStrategy) Canonicalize() {
 
 	if u.Canary == nil {
 		u.Canary = d.Canary
+	}
+
+	if u.AutoPromote == nil {
+		u.AutoPromote = d.AutoPromote
 	}
 }
 
@@ -553,6 +563,10 @@ func (u *UpdateStrategy) Empty() bool {
 	}
 
 	if u.AutoRevert != nil && *u.AutoRevert {
+		return false
+	}
+
+	if u.AutoPromote != nil && *u.AutoPromote {
 		return false
 	}
 
@@ -657,6 +671,7 @@ type Job struct {
 	Reschedule        *ReschedulePolicy
 	Migrate           *MigrateStrategy
 	Meta              map[string]string
+	ConsulToken       *string `mapstructure:"consul_token"`
 	VaultToken        *string `mapstructure:"vault_token"`
 	Status            *string
 	StatusDescription *string
@@ -698,7 +713,7 @@ func (j *Job) Canonicalize() {
 		j.Stop = boolToPtr(false)
 	}
 	if j.Region == nil {
-		j.Region = stringToPtr("global")
+		j.Region = stringToPtr(GlobalRegion)
 	}
 	if j.Namespace == nil {
 		j.Namespace = stringToPtr("default")
@@ -708,6 +723,9 @@ func (j *Job) Canonicalize() {
 	}
 	if j.AllAtOnce == nil {
 		j.AllAtOnce = boolToPtr(false)
+	}
+	if j.ConsulToken == nil {
+		j.ConsulToken = stringToPtr("")
 	}
 	if j.VaultToken == nil {
 		j.VaultToken = stringToPtr("")
@@ -738,6 +756,8 @@ func (j *Job) Canonicalize() {
 	}
 	if j.Update != nil {
 		j.Update.Canonicalize()
+	} else if *j.Type == JobTypeService {
+		j.Update = DefaultUpdateStrategy()
 	}
 
 	for _, tg := range j.TaskGroups {
@@ -950,6 +970,12 @@ type JobRevertRequest struct {
 	// EnforcePriorVersion if set will enforce that the job is at the given
 	// version before reverting.
 	EnforcePriorVersion *uint64
+
+	// ConsulToken is the Consul token that proves the submitter of the job revert
+	// has access to the Service Identity policies associated with the job's
+	// Consul Connect enabled services. This field is only used to transfer the
+	// token and is not stored after the Job revert.
+	ConsulToken string `json:",omitempty"`
 
 	// VaultToken is the Vault token that proves the submitter of the job revert
 	// has access to any Vault policies specified in the targeted job version. This
