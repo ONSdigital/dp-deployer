@@ -202,7 +202,7 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 	for {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "bailing on deployment status", log.INFO, minLogData)
+			log.Event(ctx, "bailing on deployment status", log.ERROR, minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout:
 			return &TimeoutError{Action: "deployment"}
@@ -232,7 +232,7 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 				case structs.DeploymentStatusFailed,
 					structs.DeploymentStatusCancelled:
 
-					log.Event(ctx, "deployment failed", log.INFO, logData)
+					log.Event(ctx, "deployment failed", log.ERROR, logData)
 					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 				}
 				foundJobByIndex = true
