@@ -12,8 +12,8 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/server"
+	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
 	"github.com/namsral/flag"
 )
@@ -59,9 +59,9 @@ func main() {
 	log.Namespace = "dp-deployer"
 	flag.Parse()
 
-	h, err := initHandlers()
+	h, err := initHandlers(ctx)
 	if err != nil {
-		log.Error(err, nil)
+		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
@@ -74,20 +74,20 @@ func main() {
 	}
 	e, err := engine.New(ec, h)
 	if err != nil {
-		log.Error(err, nil)
+		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
 	//TODO: remove this when config is not driven by flags
 	healthInterval, err := time.ParseDuration(*healthcheckInterval)
 	if err != nil {
-		log.Error(err, nil)
+		log.Event(ctx, "healthInterval parse failed", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
 	healthTimeout, err := time.ParseDuration(*healthcheckCriticalTimeout)
 	if err != nil {
-		log.Error(err, nil)
+		log.Event(ctx, "healthTimeout parse failed", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
@@ -100,7 +100,7 @@ func main() {
 	// Create healthcheck object with versionInfo
 	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
 	if err != nil {
-		log.Error(err, nil)
+		log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 	hc := healthcheck.New(versionInfo, hcc.HealthcheckCriticalTimeout, hcc.HealthcheckInterval)
@@ -124,22 +124,22 @@ func main() {
 	httpServer := server.New(hcc.BindAddr, r)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.ErrorCtx(ctx, err, log.Data{"config": hcc})
+			log.Event(ctx, "error starting http server", log.Error(err), log.Data{"config": hcc})
 			cancel()
 		}
 	}()
 
 	select {
 	case sig := <-sigC:
-		log.Info("received exit signal", log.Data{"signal": sig})
+		log.Event(ctx, "received exit signal", log.ERROR, log.Data{"signal": sig})
 		cancel()
 	case <-ctx.Done():
-		log.Info("context done", nil)
+		log.Event(ctx, "context done", log.INFO)
 	}
 	wg.Wait()
 }
 
-func initHandlers() (map[string]engine.HandlerFunc, error) {
+func initHandlers(ctx context.Context) (map[string]engine.HandlerFunc, error) {
 	dc := &deployment.Config{
 		DeploymentRoot:     *deploymentRoot,
 		NomadEndpoint:      *nomadEndpoint,
@@ -148,7 +148,7 @@ func initHandlers() (map[string]engine.HandlerFunc, error) {
 		NomadCACert:        *nomadCACert,
 		Region:             *region,
 	}
-	d, err := deployment.New(dc)
+	d, err := deployment.New(ctx, dc)
 	if err != nil {
 		return nil, err
 	}

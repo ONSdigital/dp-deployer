@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/openpgp/packet"
 
 	"github.com/ONSdigital/dp-deployer/engine"
-	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
 	"github.com/hashicorp/vault/api"
@@ -80,7 +80,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	for _, artifact := range msg.Artifacts {
 		select {
 		case <-ctx.Done():
-			log.InfoC(msg.ID, "bailing on updating secrets", nil)
+			log.Event(ctx, "bailing on updating secrets", log.ERROR)
 			return &AbortedError{ID: msg.ID}
 		default:
 			a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)
@@ -91,7 +91,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			if err != nil {
 				return err
 			}
-			log.TraceC(msg.ID, "writing secret", log.Data{"artifact": artifact})
+			log.Event(ctx, "writing secret", log.INFO, log.Data{"artifact": artifact})
 			if err := s.write(pathFor(artifact), d); err != nil {
 				return err
 			}
