@@ -131,7 +131,7 @@ func main() {
 
 	select {
 	case sig := <-sigC:
-		log.Event(ctx, "received exit signal", log.INFO, log.Data{"signal": sig})
+		log.Event(ctx, "received exit signal", log.ERROR, log.Data{"signal": sig})
 		cancel()
 	case <-ctx.Done():
 		log.Event(ctx, "context done", log.INFO)

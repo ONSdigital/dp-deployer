@@ -80,7 +80,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	for _, artifact := range msg.Artifacts {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "bailing on updating secrets", log.INFO)
+			log.Event(ctx, "bailing on updating secrets", log.ERROR)
 			return &AbortedError{ID: msg.ID}
 		default:
 			a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)

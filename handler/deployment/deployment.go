@@ -119,7 +119,7 @@ func New(ctx context.Context, c *Config) (*Deployment, error) {
 		} else if c.NomadTLSSkipVerify {
 
 			// no CA file => do not check cert  XXX DANGER DANGER XXX
-			log.Event(ctx, "using TLS without verification", log.INFO)
+			log.Event(ctx, "using TLS without verification", log.WARN)
 			tlsConfig = &tls.Config{
 				InsecureSkipVerify: true,
 			}
@@ -239,9 +239,9 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 				break
 			}
 			if foundJobByIndex {
-				log.Event(ctx, "deployment incomplete - will re-test", log.INFO, minLogData)
+				log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
 			} else {
-				log.Event(ctx, "deployment not found - will re-test", log.INFO, minLogData)
+				log.Event(ctx, "deployment not found - will re-test", log.WARN, minLogData)
 			}
 		}
 	}
