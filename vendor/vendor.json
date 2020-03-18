@@ -15,10 +15,10 @@
 			"revisionTime": "2017-07-20T06:23:23Z"
 		},
 		{
-			"checksumSHA1": "EKyi1XnDHY92J3MomOqsSp/erRw=",
+			"checksumSHA1": "IV6CmyPxZnOlkVCcXXYVuBwUz+I=",
 			"path": "github.com/ONSdigital/go-ns/common",
-			"revision": "9dedeaa7b91f2187ebae8cf6b63a268016fa50b3",
-			"revisionTime": "2019-07-19T07:31:34Z"
+			"revision": "a11716f93bad0ed9c770a9905aa00efee41b1e45",
+			"revisionTime": "2020-02-04T21:19:52Z"
 		},
 		{
 			"checksumSHA1": "Vjyl/gfY0qx2lW9te3Ieb5HV3/s=",
@@ -1001,11 +1001,11 @@
 			"revisionTime": "2019-07-17T20:02:58Z"
 		},
 		{
-			"checksumSHA1": "su2QDjUzrUO0JnOH9m0cNg0QqsM=",
+			"checksumSHA1": "WMdEuWDsHDpqcnYBf72fV2B+SDM=",
 			"origin": "github.com/hashicorp/nomad/vendor/golang.org/x/sys/unix",
 			"path": "golang.org/x/sys/unix",
-			"revision": "87d716ed0b363d0e32dfa71eae1d8d2714a4455d",
-			"revisionTime": "2019-07-17T20:02:58Z"
+			"revision": "0ecda992317d3300e1c1da05170f8bba18410357",
+			"revisionTime": "2020-03-17T15:38:22Z"
 		},
 		{
 			"checksumSHA1": "CbpjEkkOeh0fdM/V8xKDdI0AA88=",
