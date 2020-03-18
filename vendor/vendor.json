@@ -671,6 +671,12 @@
 			"revisionTime": "2018-11-10T20:28:10Z"
 		},
 		{
+			"checksumSHA1": "asbFENDIRDuAIZNbYGdax09ioTI=",
+			"path": "github.com/justinas/alice",
+			"revision": "698d694619453f429d388422116af97d11f37f41",
+			"revisionTime": "2019-11-05T13:55:52Z"
+		},
+		{
 			"checksumSHA1": "XCrIQIhBqX1Ierm/Uz9lLjizT8c=",
 			"origin": "github.com/fatih/color/vendor/github.com/mattn/go-colorable",
 			"path": "github.com/mattn/go-colorable",
