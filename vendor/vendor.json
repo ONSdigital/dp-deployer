@@ -739,12 +739,6 @@
 			"revisionTime": "2019-07-17T20:02:58Z"
 		},
 		{
-			"checksumSHA1": "zkIW+4U6XkSb5xq6E8WnFeNN0DI=",
-			"path": "github.com/namsral/flag",
-			"revision": "f522f7fa700925bcdf4ee0daf0952167618242ef",
-			"revisionTime": "2017-06-17T22:12:08Z"
-		},
-		{
 			"checksumSHA1": "nf3UoPNBIut7BL9nWE8Fw2X2j+Q=",
 			"origin": "github.com/hashicorp/nomad/vendor/github.com/oklog/run",
 			"path": "github.com/oklog/run",
