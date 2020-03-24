@@ -40,20 +40,20 @@ func Get() (*Configuration, error) {
 		ConsumerQueue:              "",
 		ConsumerQueueURL:           "",
 		ProducerQueue:              "",
-		QueueRegion:                "",
+		QueueRegion:                "eu-west-1",
 		VerificationKey:            "",
 		DeploymentRoot:             "",
 		NomadEndpoint:              "http://localhost:4646",
 		NomadToken:                 "",
 		NomadCACert:                "",
 		NomadTLSSkipVerify:         false,
-		S3DeploymentRegion:         "",
+		S3DeploymentRegion:         "eu-west-1",
 		DeploymentTimeout:          time.Second * 60 * 20,
 		BindAddr:                   ":24300",
 		HealthcheckInterval:        time.Second * 30,
 		HealthcheckCriticalTimeout: time.Second * 10,
 		PrivateKey:                 "",
-		S3SecretsRegion:            "",
+		S3SecretsRegion:            "eu-west-1",
 	}
 	return cfg, envconfig.Process("", cfg)
 }
