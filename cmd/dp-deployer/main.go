@@ -47,6 +47,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg})
+
 	h, err := initHandlers(ctx, cfg)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
