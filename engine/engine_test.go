@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/go-ns/common"
 	. "github.com/smartystreets/goconvey/convey"
 
@@ -146,71 +147,71 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
-		config   *Config
+		config   *config.Configuration
 		errMsg   string
 		isPrefix bool
 	}{
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "",
 				ConsumerQueueURL: "foo",
 				ProducerQueue:    "bar",
-				Region:           "baz",
+				QueueRegion:      "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue name",
 			false,
 		},
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
 				ProducerQueue:    "bar",
-				Region:           "baz",
+				QueueRegion:      "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue url",
 			false,
 		},
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "",
-				Region:           "baz",
+				QueueRegion:      "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing producer queue name",
 			false,
 		},
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				Region:           "",
+				QueueRegion:      "",
 				VerificationKey:  publicKey,
 			},
 			"missing queue region",
 			false,
 		},
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				Region:           "qux",
+				QueueRegion:      "qux",
 				VerificationKey:  publicKey,
 			},
 			"No valid AWS authentication found",
 			true,
 		},
 		{
-			&Config{
+			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				Region:           "qux",
+				QueueRegion:      "qux",
 				VerificationKey:  "",
 			},
 			"openpgp: invalid argument: no armored data found",
@@ -233,11 +234,11 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an engine is returned with valid configuration", t, func() {
-			config := &Config{
+			config := &config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				Region:           "qux",
+				QueueRegion:      "qux",
 				VerificationKey:  publicKey,
 			}
 
@@ -255,9 +256,10 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					e, err := New(&Config{"foo", "bar", "baz", "qux", publicKey}, handlers)
-					So(e, ShouldNotBeNil)
+					e, err := New(&config.Configuration{ ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", QueueRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
+					So(e, ShouldNotBeNil)
+					
 
 					ErrHandler = func(ctx context.Context, event string, err error) {
 						cancel()
@@ -317,7 +319,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					e, err := New(&Config{"foo", "bar", "baz", "qux", publicKey}, nil)
+					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", QueueRegion: "qux", VerificationKey: publicKey}, nil)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 

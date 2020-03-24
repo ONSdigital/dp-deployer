@@ -23,6 +23,10 @@ Configuration
 | HEALTHCHECK_INTERVAL         | 10s                    | The time between calling healthcheck endpoints for check subsystems
 | HEALTHCHECK_CRITICAL_TIMEOUT | 60s                    | The time taken for the health changes from warning state to critical due to subsystem check failures
 | BIND_ADDR                    | :24300                 | The listen address to bind to
+| QUEUE_REGION                 |                        | The region in which the queue resides
+| S3_DEPLOYMENT_REGION         |                        | The region in which the deployment artifacts bucket resides
+| DEPLOYMENT_TIMEOUT           | 20m                    | The max time to wait for a deployment to complete
+| S3_SECRETS_REGION            |                        | The region in which the secret artifacts bucket resides
 
 The application also expects your AWS credentials to be configured.
 

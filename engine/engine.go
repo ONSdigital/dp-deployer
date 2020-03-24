@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
 	"github.com/ONSdigital/log.go/log"
@@ -42,23 +43,9 @@ var ErrHandler = func(ctx context.Context, event string, err error) {
 	log.Event(ctx, event, log.ERROR, log.Error(err))
 }
 
-// Config represents the configuration for an engine.
-type Config struct {
-	// ConsumerQueue is the name of the queue to consume messages from.
-	ConsumerQueue string
-	// ConsumerQueueURL is the URL of the queue to consume messages from.
-	ConsumerQueueURL string
-	// ProducerQueue is the name of the queue to produce messages to.
-	ProducerQueue string
-	// Region is the region of the queues.
-	Region string
-	// VerificationKey is used to verify the authenticity of a message.
-	VerificationKey string
-}
-
 // Engine represents an engine.
 type Engine struct {
-	config    *Config
+	config    *config.Configuration
 	consumer  *ssqs.Consumer
 	keyring   openpgp.EntityList
 	handlers  map[string]HandlerFunc
@@ -91,21 +78,21 @@ type responseError struct {
 }
 
 // New returns a new engine.
-func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
-	if len(c.ConsumerQueue) < 1 {
+func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
+	if len(cfg.ConsumerQueue) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
-	if len(c.ConsumerQueueURL) < 1 {
+	if len(cfg.ConsumerQueueURL) < 1 {
 		return nil, ErrMissingConsumerQueueURL
 	}
-	if len(c.ProducerQueue) < 1 {
+	if len(cfg.ProducerQueue) < 1 {
 		return nil, ErrMissingProducerQueue
 	}
-	if len(c.Region) < 1 {
+	if len(cfg.QueueRegion) < 1 {
 		return nil, ErrMissingRegion
 	}
 
-	k, err := openpgp.ReadArmoredKeyRing(strings.NewReader(c.VerificationKey))
+	k, err := openpgp.ReadArmoredKeyRing(strings.NewReader(cfg.VerificationKey))
 	if err != nil {
 		return nil, err
 	}
@@ -116,15 +103,14 @@ func New(c *Config, hs map[string]HandlerFunc) (*Engine, error) {
 	}
 
 	e := &Engine{
-		config:    c,
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
-		producer:  sqs.New(a, aws.Regions[c.Region]),
+		producer:  sqs.New(a, aws.Regions[cfg.QueueRegion]),
 		consumer: ssqs.New(&ssqs.Queue{
-			Name:              c.ConsumerQueue,
-			Region:            c.Region,
-			URL:               c.ConsumerQueueURL,
+			Name:              cfg.ConsumerQueue,
+			Region:            cfg.QueueRegion,
+			URL:               cfg.ConsumerQueueURL,
 			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
 		}),
 	}

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/openpgp/armor"
 	"golang.org/x/crypto/openpgp/packet"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
@@ -34,14 +35,6 @@ func (e *AbortedError) Error() string {
 // HTTPClient is the default http client.
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
-// Config represents the configuration for a secret.
-type Config struct {
-	// PrivateKey is the private key used to decrypt secrets.
-	PrivateKey string
-	// Region is the region in which the secret artifacts bucket resides.
-	Region string
-}
-
 // Secret represents a secret.
 type Secret struct {
 	entities        openpgp.EntityList
@@ -51,8 +44,8 @@ type Secret struct {
 }
 
 // New returns a new secret.
-func New(c *Config) (*Secret, error) {
-	e, err := entityList(c.PrivateKey)
+func New(cfg *config.Configuration) (*Secret, error) {
+	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +62,7 @@ func New(c *Config) (*Secret, error) {
 
 	return &Secret{
 		entities:        e,
-		s3Client:        s3.New(a, aws.Regions[c.Region], HTTPClient),
+		s3Client:        s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
 		vault:           v.Logical(),
 		vaultHTTPClient: vaultc.HttpClient,
 	}, nil

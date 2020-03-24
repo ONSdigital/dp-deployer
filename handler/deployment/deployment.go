@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
@@ -26,9 +27,6 @@ import (
 )
 
 const (
-	// DefaultDeploymentTimeout is the default time to wait for a deployment to complete
-	DefaultDeploymentTimeout = time.Second * 60 * 20
-
 	deploymentURL = "%s/v1/job/%s/deployments"
 	planURL       = "%s/v1/job/%s/plan"
 	runURL        = "%s/v1/jobs"
@@ -47,30 +45,6 @@ type payload struct {
 // HTTPClient is the default http client - used for s3
 var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
-// Config represents the configuration for a deployment.
-type Config struct {
-	// DeploymentRoot is the path to root of deployments.
-	DeploymentRoot string
-	// NomadEndpoint is the Nomad client endpoint.
-	NomadEndpoint string
-	// NomadToken is the ACL token used to authorise HTTP requests.
-	NomadToken string
-	// NomadCACert is the path to the root nomad CA cert.
-	NomadCACert string
-	// NomadTLSSkipVerify disables TLS verification for nomad api calls.
-	NomadTLSSkipVerify bool
-	// Region is the region in which the deployment artifacts bucket resides.
-	Region string
-	// Timeout is the timeout configuration for the deployments.
-	Timeout *TimeoutConfig
-}
-
-// TimeoutConfig represents the configuration for deployment timeouts.
-type TimeoutConfig struct {
-	// Deployment is the max time to wait for a deployment to complete
-	Deployment time.Duration
-}
-
 // Deployment represents a deployment.
 type Deployment struct {
 	s3Client    *s3.S3
@@ -78,34 +52,28 @@ type Deployment struct {
 	root        string
 	endpoint    string
 	token       string
-	timeout     *TimeoutConfig
+	timeout     time.Duration
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, c *Config) (*Deployment, error) {
+func New(ctx context.Context, cfg *config.Configuration) (*Deployment, error) {
 	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err
 	}
-	if c.Timeout != nil && c.Timeout.Deployment < 1 {
-		c.Timeout.Deployment = DefaultDeploymentTimeout
-	}
-	if c.Timeout == nil {
-		c.Timeout = &TimeoutConfig{DefaultDeploymentTimeout}
-	}
 
 	NomadClient := HTTPClient
-	if strings.HasPrefix(c.NomadEndpoint, "https://") {
+	if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
 		var tlsConfig *tls.Config
-		if c.NomadCACert != "" {
-			log.Event(ctx, "loading custom ca cert", log.INFO, log.Data{"ca_cert_path": c.NomadCACert})
+		if cfg.NomadCACert != "" {
+			log.Event(ctx, "loading custom ca cert", log.INFO, log.Data{"ca_cert_path": cfg.NomadCACert})
 
 			caCertPool, _ := x509.SystemCertPool()
 			if caCertPool == nil {
 				caCertPool = x509.NewCertPool()
 			}
 
-			caCert, err := ioutil.ReadFile(c.NomadCACert)
+			caCert, err := ioutil.ReadFile(cfg.NomadCACert)
 			if err != nil {
 				return nil, err
 			}
@@ -116,7 +84,7 @@ func New(ctx context.Context, c *Config) (*Deployment, error) {
 			tlsConfig = &tls.Config{
 				RootCAs: caCertPool,
 			}
-		} else if c.NomadTLSSkipVerify {
+		} else if cfg.NomadTLSSkipVerify {
 
 			// no CA file => do not check cert  XXX DANGER DANGER XXX
 			log.Event(ctx, "using TLS without verification", log.WARN)
@@ -134,12 +102,12 @@ func New(ctx context.Context, c *Config) (*Deployment, error) {
 	}
 
 	return &Deployment{
-		s3Client:    s3.New(a, aws.Regions[c.Region], HTTPClient),
+		s3Client:    s3.New(a, aws.Regions[cfg.S3DeploymentRegion], HTTPClient),
 		nomadClient: NomadClient,
-		root:        c.DeploymentRoot,
-		endpoint:    c.NomadEndpoint,
-		token:       c.NomadToken,
-		timeout:     c.Timeout,
+		root:        cfg.DeploymentRoot,
+		endpoint:    cfg.NomadEndpoint,
+		token:       cfg.NomadToken,
+		timeout:     cfg.DeploymentTimeout,
 	}, nil
 }
 
@@ -196,7 +164,7 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 
 func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
 	ticker := time.Tick(time.Second * 1)
-	timeout := time.After(d.timeout.Deployment)
+	timeout := time.After(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
 
 	for {
