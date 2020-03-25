@@ -103,6 +103,7 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 	}
 
 	e := &Engine{
+		config:    cfg,
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
