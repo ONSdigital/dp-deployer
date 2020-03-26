@@ -20,6 +20,6 @@ debug: build
 	HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/dp-deployer/main.go 
 
 test:
-	go test -cover $(shell go list ./... | grep -v /vendor/)
+	go test -cover ./...
 
 .PHONY: build debug test
