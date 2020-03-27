@@ -10,10 +10,12 @@ image_resource:
 
 inputs:
   - name: dp-deployer
-    path: go/src/github.com/ONSdigital/dp-deployer
 
 outputs:
   - name: build
 
+caches:
+  - path: go/
+
 run:
-  path: go/src/github.com/ONSdigital/dp-deployer/ci/scripts/build.sh
+  path: dp-deployer/ci/scripts/build.sh

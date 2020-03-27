@@ -10,7 +10,9 @@ image_resource:
 
 inputs:
   - name: dp-deployer
-    path: go/src/github.com/ONSdigital/dp-deployer
+
+caches:
+  - path: go/
 
 run:
-  path: go/src/github.com/ONSdigital/dp-deployer/ci/scripts/unit.sh
+  path: dp-deployer/ci/scripts/unit.sh
