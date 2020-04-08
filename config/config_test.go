@@ -34,6 +34,8 @@ func TestSpec(t *testing.T) {
 				So(cfg.HealthcheckCriticalTimeout, ShouldEqual, time.Second*10)
 				So(cfg.PrivateKey, ShouldEqual, "")
 				So(cfg.S3SecretsRegion, ShouldEqual, "eu-west-1")
+				So(cfg.VaultAddr, ShouldEqual, "http://localhost:8200")
+				So(cfg.VaultToken, ShouldEqual, "")
 			})
 		})
 	})

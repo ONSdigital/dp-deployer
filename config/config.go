@@ -26,6 +26,8 @@ type Configuration struct {
 	HealthcheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRTICAL_TIMEOUT"`
 	PrivateKey                 string        `envconfig:"PRIVATE_KEY" json:"-"`
 	S3SecretsRegion            string        `envconfig:"S3_SECRETS_REGION"`
+	VaultAddr                  string        `envconfig:"VAULT_ADDR"`
+	VaultToken                 string        `envconfig:"VAULT_TOKEN"`
 }
 
 var cfg *Configuration
@@ -54,6 +56,8 @@ func Get() (*Configuration, error) {
 		HealthcheckCriticalTimeout: time.Second * 10,
 		PrivateKey:                 "",
 		S3SecretsRegion:            "eu-west-1",
+		VaultAddr:                  "http://localhost:8200",
+		VaultToken:                 "",
 	}
 	return cfg, envconfig.Process("", cfg)
 }

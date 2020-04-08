@@ -17,10 +17,11 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
-	"github.com/hashicorp/vault/api"
+	//"github.com/hashicorp/vault/api"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.
@@ -37,14 +38,14 @@ var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Secret represents a secret.
 type Secret struct {
-	entities        openpgp.EntityList
-	s3Client        *s3.S3
-	vault           *api.Logical
-	vaultHTTPClient *http.Client
+	entities openpgp.EntityList
+	s3Client *s3.S3
+	vault    *vault.Client
+	// vaultHTTPClient *http.Client
 }
 
 // New returns a new secret.
-func New(cfg *config.Configuration) (*Secret, error) {
+func New(cfg *config.Configuration, vc *vault.Client) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -54,17 +55,18 @@ func New(cfg *config.Configuration) (*Secret, error) {
 		return nil, err
 	}
 
-	vaultc := api.DefaultConfig()
-	v, err := api.NewClient(vaultc)
-	if err != nil {
-		return nil, err
-	}
+	// v, err := vault.CreateClient(cfg.VaultToken, cfg.VaultAddr, 3)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// vaultcfg := api.DefaultConfig()
 
 	return &Secret{
-		entities:        e,
-		s3Client:        s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
-		vault:           v.Logical(),
-		vaultHTTPClient: vaultc.HttpClient,
+		entities: e,
+		s3Client: s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
+		vault:    vc,
+		// vaultHTTPClient: vaultcfg.HttpClient,
 	}, nil
 }
 
@@ -114,7 +116,7 @@ func (s *Secret) write(path string, secret []byte) error {
 	if err := json.Unmarshal(secret, &j); err != nil {
 		return err
 	}
-	if _, err := s.vault.Write(fmt.Sprintf("secret/%s", path), j); err != nil {
+	if err := s.vault.Write(fmt.Sprintf("secret/%s", path), j); err != nil {
 		return err
 	}
 	return nil
