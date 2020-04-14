@@ -24,6 +24,8 @@ import (
 	//"github.com/hashicorp/vault/api"
 )
 
+// go:generate moq -out ./mock/vault.go -pkg mock . VaultClient
+
 // AbortedError is an error implementation that includes the id of the aborted message.
 type AbortedError struct {
 	ID string
