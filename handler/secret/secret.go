@@ -20,7 +20,6 @@ import (
 	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
-	//"github.com/hashicorp/vault/api"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.

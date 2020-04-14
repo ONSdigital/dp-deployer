@@ -70,25 +70,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// // Create healthcheck object with versionInfo
-	// versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
-	// if err != nil {
-	// 	log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
-	// 	os.Exit(1)
-	// }
-	// hc := healthcheck.New(versionInfo, cfg.HealthcheckCriticalTimeout, cfg.HealthcheckInterval)
-
-	// if err := hc.AddCheck("Vault", vc.Checker); err != nil {
-	// 	hasErrors = true
-	// 	log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
-	// }
-
-	// Get healthcheck and register checkers
-	// hc, err := healthcheck.GetHealthCheck(cfg, BuildTime, GitCommit, Version)
-
-	// // Start healthcheck
-	// hc.Start(ctx)
-
 	hc := startHealthChecks(ctx, cfg, vc)
 
 	r := mux.NewRouter()
