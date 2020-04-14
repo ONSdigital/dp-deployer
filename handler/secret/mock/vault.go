@@ -4,12 +4,12 @@
 package mock
 
 import (
-	"github.com/ONSdigital/dp-deployer/handler/secret/mock"
+	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"sync"
 )
 
 var (
-	lockVaultClientMockReadKey sync.RWMutex
+	lockVaultClientMockWrite sync.RWMutex
 )
 
 // Ensure, that VaultClientMock does implement secret.VaultClient.
@@ -22,8 +22,8 @@ var _ secret.VaultClient = &VaultClientMock{}
 //
 //         // make and configure a mocked secret.VaultClient
 //         mockedVaultClient := &VaultClientMock{
-//             ReadKeyFunc: func(path string, key string) (string, error) {
-// 	               panic("mock out the ReadKey method")
+//             WriteFunc: func(path string, key string) (string, error) {
+// 	               panic("mock out the Write method")
 //             },
 //         }
 //
@@ -32,13 +32,13 @@ var _ secret.VaultClient = &VaultClientMock{}
 //
 //     }
 type VaultClientMock struct {
-	// ReadKeyFunc mocks the ReadKey method.
-	ReadKeyFunc func(path string, key string) (string, error)
+	// WriteFunc mocks the Write method.
+	WriteFunc func(path string, key string) (string, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// ReadKey holds details about calls to the ReadKey method.
-		ReadKey []struct {
+		// Write holds details about calls to the Write method.
+		Write []struct {
 			// Path is the path argument value.
 			Path string
 			// Key is the key argument value.
@@ -47,10 +47,10 @@ type VaultClientMock struct {
 	}
 }
 
-// ReadKey calls ReadKeyFunc.
-func (mock *VaultClientMock) ReadKey(path string, key string) (string, error) {
-	if mock.ReadKeyFunc == nil {
-		panic("VaultClientMock.ReadKeyFunc: method is nil but VaultClient.ReadKey was just called")
+// Write calls WriteFunc.
+func (mock *VaultClientMock) Write(path string, key string) (string, error) {
+	if mock.WriteFunc == nil {
+		panic("VaultClientMock.WriteFunc: method is nil but VaultClient.Write was just called")
 	}
 	callInfo := struct {
 		Path string
@@ -59,16 +59,16 @@ func (mock *VaultClientMock) ReadKey(path string, key string) (string, error) {
 		Path: path,
 		Key:  key,
 	}
-	lockVaultClientMockReadKey.Lock()
-	mock.calls.ReadKey = append(mock.calls.ReadKey, callInfo)
-	lockVaultClientMockReadKey.Unlock()
-	return mock.ReadKeyFunc(path, key)
+	lockVaultClientMockWrite.Lock()
+	mock.calls.Write = append(mock.calls.Write, callInfo)
+	lockVaultClientMockWrite.Unlock()
+	return mock.WriteFunc(path, key)
 }
 
-// ReadKeyCalls gets all the calls that were made to ReadKey.
+// WriteCalls gets all the calls that were made to Write.
 // Check the length with:
-//     len(mockedVaultClient.ReadKeyCalls())
-func (mock *VaultClientMock) ReadKeyCalls() []struct {
+//     len(mockedVaultClient.WriteCalls())
+func (mock *VaultClientMock) WriteCalls() []struct {
 	Path string
 	Key  string
 } {
@@ -76,8 +76,8 @@ func (mock *VaultClientMock) ReadKeyCalls() []struct {
 		Path string
 		Key  string
 	}
-	lockVaultClientMockReadKey.RLock()
-	calls = mock.calls.ReadKey
-	lockVaultClientMockReadKey.RUnlock()
+	lockVaultClientMockWrite.RLock()
+	calls = mock.calls.Write
+	lockVaultClientMockWrite.RUnlock()
 	return calls
 }

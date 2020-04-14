@@ -17,14 +17,11 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
-	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/s3"
 	//"github.com/hashicorp/vault/api"
 )
-
-// go:generate moq -out ./mock/vault.go -pkg mock . VaultClient
 
 // AbortedError is an error implementation that includes the id of the aborted message.
 type AbortedError struct {
@@ -42,12 +39,12 @@ var HTTPClient = &http.Client{Timeout: time.Second * 10}
 type Secret struct {
 	entities openpgp.EntityList
 	s3Client *s3.S3
-	vault    *vault.Client
+	vault    VaultClient
 	// vaultHTTPClient *http.Client
 }
 
 // New returns a new secret.
-func New(cfg *config.Configuration, vc *vault.Client) (*Secret, error) {
+func New(cfg *config.Configuration, vc VaultClient) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
