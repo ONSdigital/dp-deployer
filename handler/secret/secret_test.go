@@ -163,7 +163,7 @@ func TestDecrypt(t *testing.T) {
 
 func TestWriteFails(t *testing.T) {
 	withEnv(func() {
-		Convey("write functions as expected", t, func() {
+		Convey("given a failure writing to vault", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"},
 				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return errors.New("Error making API request") }})
 			So(err, ShouldBeNil)

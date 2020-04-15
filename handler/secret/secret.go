@@ -39,7 +39,6 @@ type Secret struct {
 	entities openpgp.EntityList
 	s3Client *s3.S3
 	vault    VaultClient
-	// vaultHTTPClient *http.Client
 }
 
 // New returns a new secret.
@@ -53,18 +52,10 @@ func New(cfg *config.Configuration, vc VaultClient) (*Secret, error) {
 		return nil, err
 	}
 
-	// v, err := vault.CreateClient(cfg.VaultToken, cfg.VaultAddr, 3)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// vaultcfg := api.DefaultConfig()
-
 	return &Secret{
 		entities: e,
 		s3Client: s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
 		vault:    vc,
-		// vaultHTTPClient: vaultcfg.HttpClient,
 	}, nil
 }
 

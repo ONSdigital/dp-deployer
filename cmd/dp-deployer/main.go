@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -29,14 +28,6 @@ var (
 )
 
 var wg sync.WaitGroup
-
-type healthcheckConfig struct {
-	IntervalStr                string
-	CriticalTimeoutStr         string
-	BindAddr                   string
-	HealthcheckInterval        time.Duration
-	HealthcheckCriticalTimeout time.Duration
-}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
