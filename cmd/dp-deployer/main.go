@@ -6,13 +6,13 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
@@ -29,14 +29,6 @@ var (
 
 var wg sync.WaitGroup
 
-type healthcheckConfig struct {
-	IntervalStr                string
-	CriticalTimeoutStr         string
-	BindAddr                   string
-	HealthcheckInterval        time.Duration
-	HealthcheckCriticalTimeout time.Duration
-}
-
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	log.Namespace = "dp-deployer"
@@ -49,7 +41,15 @@ func main() {
 
 	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg})
 
-	h, err := initHandlers(ctx, cfg)
+	// Create vault client
+	var vc *vault.Client
+	vc, err = vault.CreateClient(cfg.VaultToken, cfg.VaultAddr, 3)
+	if err != nil {
+		log.Event(ctx, "error creating vault client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	h, err := initHandlers(ctx, cfg, vc)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -61,19 +61,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create healthcheck object with versionInfo
-	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
-	if err != nil {
-		log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
-		os.Exit(1)
-	}
-	hc := healthcheck.New(versionInfo, cfg.HealthcheckCriticalTimeout, cfg.HealthcheckInterval)
+	hc := startHealthChecks(ctx, cfg, vc)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", hc.Handler)
-
-	// Start healthcheck
-	hc.Start(ctx)
 
 	sigC := make(chan os.Signal)
 	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
@@ -103,13 +94,13 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration) (map[string]engine.HandlerFunc, error) {
+func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client) (map[string]engine.HandlerFunc, error) {
 	d, err := deployment.New(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := secret.New(cfg)
+	s, err := secret.New(cfg, vc)
 	if err != nil {
 		return nil, err
 	}
@@ -118,4 +109,30 @@ func initHandlers(ctx context.Context, cfg *config.Configuration) (map[string]en
 		"deployment": d.Handler,
 		"secret":     s.Handler,
 	}, nil
+}
+
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client) *healthcheck.HealthCheck {
+	hasErrors := false
+
+	// Create healthcheck object with versionInfo
+	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
+	if err != nil {
+		log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+	hc := healthcheck.New(versionInfo, cfg.HealthcheckCriticalTimeout, cfg.HealthcheckInterval)
+
+	if err := hc.AddCheck("Vault", vaultChecker.Checker); err != nil {
+		hasErrors = true
+		log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
+	}
+
+	if hasErrors {
+		os.Exit(1)
+	}
+
+	// Start healthcheck
+	hc.Start(ctx)
+
+	return &hc
 }

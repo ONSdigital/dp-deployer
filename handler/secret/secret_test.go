@@ -2,14 +2,13 @@ package secret
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
-
-	httpmock "gopkg.in/jarcoal/httpmock.v1"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -94,14 +93,14 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	Convey("an error is returned with an invalid AWS configuration", t, func() {
-		s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "foo"})
+		s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "foo"}, &VaultClientMock{})
 		So(s, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
 	})
 
 	Convey("an error is returned with an invalid private key", t, func() {
-		s, err := New(&config.Configuration{PrivateKey: "", S3SecretsRegion: "foo"})
+		s, err := New(&config.Configuration{PrivateKey: "", S3SecretsRegion: "foo"}, &VaultClientMock{})
 		So(s, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, io.EOF.Error())
@@ -109,7 +108,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("a handler is returned with valid configuration", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "bar"})
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "bar"}, &VaultClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 		})
@@ -119,7 +118,7 @@ func TestNew(t *testing.T) {
 func TestEntity(t *testing.T) {
 	withEnv(func() {
 		Convey("successfully creates openpgp entity", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "foo"})
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "foo"}, &VaultClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
@@ -134,7 +133,7 @@ func TestEntity(t *testing.T) {
 func TestDearmor(t *testing.T) {
 	withEnv(func() {
 		Convey("successfully strips armor", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"})
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"}, &VaultClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
@@ -150,7 +149,7 @@ func TestDearmor(t *testing.T) {
 func TestDecrypt(t *testing.T) {
 	withEnv(func() {
 		Convey("successfully decrypts message", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"})
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"}, &VaultClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
@@ -162,10 +161,11 @@ func TestDecrypt(t *testing.T) {
 	})
 }
 
-func TestWrite(t *testing.T) {
+func TestWriteFails(t *testing.T) {
 	withEnv(func() {
-		Convey("write functions as expected", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"})
+		Convey("given a failure writing to vault", t, func() {
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"},
+				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return errors.New("Error making API request") }})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
@@ -173,18 +173,7 @@ func TestWrite(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(m, ShouldNotBeNil)
 
-			httpmock.DeactivateAndReset()
-			httpmock.ActivateNonDefault(s.vaultHTTPClient)
-
-			Convey("writes secret correctly", func() {
-				httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(200, "{}"))
-				err := s.write("test", m)
-				So(err, ShouldBeNil)
-				So(m, ShouldNotBeNil)
-			})
-
 			Convey("handles error correctly", func() {
-				httpmock.RegisterResponder("PUT", "http://localhost:8200/v1/secret/test", httpmock.NewStringResponder(401, "{}"))
 				err := s.write("test", m)
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldStartWith, "Error making API request")
@@ -193,10 +182,30 @@ func TestWrite(t *testing.T) {
 	})
 }
 
+func TestWrite(t *testing.T) {
+	withEnv(func() {
+		Convey("write functions as expected", t, func() {
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"},
+				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return nil }})
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
+
+			m, err := s.decryptMessage([]byte(testMessage))
+			So(err, ShouldBeNil)
+			So(m, ShouldNotBeNil)
+
+			Convey("writes secret correctly", func() {
+				err := s.write("test", m)
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
+
 func TestContext(t *testing.T) {
 	withEnv(func() {
 		Convey("handler functions as expected when context is cancelled", t, func() {
-			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"})
+			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, S3SecretsRegion: "eu-west-1"}, &VaultClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
