@@ -102,7 +102,7 @@ func New(ctx context.Context, cfg *config.Configuration) (*Deployment, error) {
 	}
 
 	return &Deployment{
-		s3Client:    s3.New(a, aws.Regions[cfg.S3DeploymentRegion], HTTPClient),
+		s3Client:    s3.New(a, aws.Regions[cfg.AWSRegion], HTTPClient),
 		nomadClient: NomadClient,
 		root:        cfg.DeploymentRoot,
 		endpoint:    cfg.NomadEndpoint,

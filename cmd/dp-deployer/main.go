@@ -12,6 +12,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
@@ -49,6 +50,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create S3 secrets client
+	var s3sc *s3client.S3
+	s3sc, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
+	if err != nil {
+		log.Event(ctx, "error creating S3 secrets client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	// Create S3 deployments client
+	var s3dc *s3client.S3
+	s3dc, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
+	if err != nil {
+		log.Event(ctx, "error creating S3 deployments client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
 	h, err := initHandlers(ctx, cfg, vc)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
@@ -61,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc := startHealthChecks(ctx, cfg, vc)
+	hc := startHealthChecks(ctx, cfg, vc, s3sc, s3dc)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", hc.Handler)
@@ -111,7 +128,7 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client) *healthcheck.HealthCheck {
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3) *healthcheck.HealthCheck {
 	hasErrors := false
 
 	// Create healthcheck object with versionInfo
@@ -125,6 +142,16 @@ func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChec
 	if err := hc.AddCheck("Vault", vaultChecker.Checker); err != nil {
 		hasErrors = true
 		log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
+	}
+
+	if err := hc.AddCheck("S3 secret", s3sChecker.Checker); err != nil {
+		hasErrors = true
+		log.Event(ctx, "error adding check for S3 secrets", log.ERROR, log.Error(err))
+	}
+
+	if err := hc.AddCheck("S3 deployment", s3dChecker.Checker); err != nil {
+		hasErrors = true
+		log.Event(ctx, "error adding check for S3 deployments", log.ERROR, log.Error(err))
 	}
 
 	if hasErrors {

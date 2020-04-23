@@ -54,7 +54,7 @@ func New(cfg *config.Configuration, vc VaultClient) (*Secret, error) {
 
 	return &Secret{
 		entities: e,
-		s3Client: s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
+		s3Client: s3.New(a, aws.Regions[cfg.AWSRegion], HTTPClient),
 		vault:    vc,
 	}, nil
 }

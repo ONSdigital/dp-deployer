@@ -156,7 +156,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "",
 				ConsumerQueueURL: "foo",
 				ProducerQueue:    "bar",
-				QueueRegion:      "baz",
+				AWSRegion:        "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue name",
@@ -167,7 +167,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
 				ProducerQueue:    "bar",
-				QueueRegion:      "baz",
+				AWSRegion:        "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing consumer queue url",
@@ -178,7 +178,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "",
-				QueueRegion:      "baz",
+				AWSRegion:        "baz",
 				VerificationKey:  publicKey,
 			},
 			"missing producer queue name",
@@ -189,7 +189,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				QueueRegion:      "",
+				AWSRegion:        "",
 				VerificationKey:  publicKey,
 			},
 			"missing queue region",
@@ -200,7 +200,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				QueueRegion:      "qux",
+				AWSRegion:        "qux",
 				VerificationKey:  publicKey,
 			},
 			"No valid AWS authentication found",
@@ -211,7 +211,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				QueueRegion:      "qux",
+				AWSRegion:        "qux",
 				VerificationKey:  "",
 			},
 			"openpgp: invalid argument: no armored data found",
@@ -238,7 +238,7 @@ func TestNew(t *testing.T) {
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
-				QueueRegion:      "qux",
+				AWSRegion:        "qux",
 				VerificationKey:  publicKey,
 			}
 
@@ -256,10 +256,9 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", QueueRegion: "qux", VerificationKey: publicKey}, handlers)
+					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(e, ShouldNotBeNil)
-					
 
 					ErrHandler = func(ctx context.Context, event string, err error) {
 						cancel()
@@ -319,7 +318,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", QueueRegion: "qux", VerificationKey: publicKey}, nil)
+					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
@@ -339,7 +338,7 @@ func TestStart(t *testing.T) {
 func withEnv(f func()) {
 	defer os.Clearenv()
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-	os.Setenv("AWS_DEFAULT_REGION", "BAR")
+	os.Setenv("AWS_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	f()
 }

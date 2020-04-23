@@ -12,22 +12,22 @@ type Configuration struct {
 	ConsumerQueue              string        `envconfig:"CONSUMER_QUEUE"`
 	ConsumerQueueURL           string        `envconfig:"CONSUMER_QUEUE_URL"`
 	ProducerQueue              string        `envconfig:"PRODUCER_QUEUE"`
-	QueueRegion                string        `envconfig:"QUEUE_REGION"`
 	VerificationKey            string        `envconfig:"VERIFICATION_KEY" json:"-"`
 	DeploymentRoot             string        `envconfig:"DEPLOYMENT_ROOT"`
 	NomadEndpoint              string        `envconfig:"NOMAD_ENDPOINT"`
 	NomadToken                 string        `envconfig:"NOMAD_TOKEN" json:"-"`
 	NomadCACert                string        `envconfig:"NOMAD_CA_CERT" json:"-"`
 	NomadTLSSkipVerify         bool          `envconfig:"NOMAD_TLS_SKIP_VERIFY"`
-	S3DeploymentRegion         string        `envconfig:"S3_DEPLOYMENT_REGION"`
 	DeploymentTimeout          time.Duration `envconfig:"DEPLOYMENT_TIMEOUT"`
 	BindAddr                   string        `envconfig:"BIND_ADDR"`
 	HealthcheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
 	HealthcheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRTICAL_TIMEOUT"`
 	PrivateKey                 string        `envconfig:"PRIVATE_KEY" json:"-"`
-	S3SecretsRegion            string        `envconfig:"S3_SECRETS_REGION"`
 	VaultAddr                  string        `envconfig:"VAULT_ADDR"`
 	VaultToken                 string        `envconfig:"VAULT_TOKEN"`
+	AWSRegion                  string        `envconfig:"AWS_REGION"`
+	SecretsBucketName          string        `envconfig:"SECRETS_BUCKET_NAME"`
+	DeploymentsBucketName      string        `envconfig:"DEPLOYMENT_BUCKET_NAME"`
 }
 
 var cfg *Configuration
@@ -42,22 +42,22 @@ func Get() (*Configuration, error) {
 		ConsumerQueue:              "",
 		ConsumerQueueURL:           "",
 		ProducerQueue:              "",
-		QueueRegion:                "eu-west-1",
 		VerificationKey:            "",
 		DeploymentRoot:             "",
 		NomadEndpoint:              "http://localhost:4646",
 		NomadToken:                 "",
 		NomadCACert:                "",
 		NomadTLSSkipVerify:         false,
-		S3DeploymentRegion:         "eu-west-1",
 		DeploymentTimeout:          time.Second * 60 * 20,
 		BindAddr:                   ":24300",
 		HealthcheckInterval:        time.Second * 30,
 		HealthcheckCriticalTimeout: time.Second * 10,
 		PrivateKey:                 "",
-		S3SecretsRegion:            "eu-west-1",
 		VaultAddr:                  "http://localhost:8200",
 		VaultToken:                 "",
+		AWSRegion:                  "eu-west-1",
+		SecretsBucketName:          "",
+		DeploymentsBucketName:      "",
 	}
 	return cfg, envconfig.Process("", cfg)
 }

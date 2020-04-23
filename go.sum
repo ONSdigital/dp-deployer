@@ -9,6 +9,7 @@ github.com/Knetic/govaluate v3.0.0+incompatible/go.mod h1:r7JcOSlj0wfOMncg0iLm8L
 github.com/Microsoft/go-winio v0.4.3/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
 github.com/NYTimes/gziphandler v1.0.1/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
 github.com/ONSdigital/dp v0.0.0-20200325110502-7fdf1f016f3c h1:6XfnepyKIbr7sjRB5hYLDJMEhijjX8IB5DlxfB+wGoM=
+github.com/ONSdigital/dp v0.0.0-20200417143329-4f14ec370e37 h1:7idf17DhL80aE9CmuZJ7z35SFmx6m4r5om6fTpQGEgc=
 github.com/ONSdigital/dp-api-clients-go v1.1.0/go.mod h1:9lqor0I7caCnRWr04gU/r7x5dqxgoODob8L48q+cE4E=
 github.com/ONSdigital/dp-frontend-models v1.1.0/go.mod h1:TT96P7Mi69N3Tc/jFNdbjiwG4GAaMjP26HLotFQ6BPw=
 github.com/ONSdigital/dp-healthcheck v0.0.0-20200131122546-9db6d3f0494e/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
@@ -18,6 +19,8 @@ github.com/ONSdigital/dp-healthcheck v1.0.2/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-rchttp v0.0.0-20190919143000-bb5699e6fd59/go.mod h1:KkW68U3FPuivW4ogi9L8CPKNj9ZxGko4qcUY7KoAAkQ=
 github.com/ONSdigital/dp-rchttp v0.0.0-20200114090501-463a529590e8/go.mod h1:821jZtK0oBsV8hjIkNr8vhAWuv0FxJBPJuAHa2B70Gk=
+github.com/ONSdigital/dp-s3 v1.5.0 h1:d1EM+HlqDHovI6LqhLvzRBMBDnBYqbQmjFq9s+J8kTU=
+github.com/ONSdigital/dp-s3 v1.5.0/go.mod h1:5bZUUdWajH/La/YOYhFOdr8opzmJQEdgfm5bK2mzsgI=
 github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14 h1:sWgI0Rr4E63Zr3OO2in9xowAV7uh8Tvl8jMAXp+FOqk=
 github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14/go.mod h1:mDs5l0YV2B13RuLKzKMY163rDL+S4zUekRR1LHhJK/k=
 github.com/ONSdigital/dp-ssqs v0.0.0-20180703093001-3632c6374f23 h1:JZQgvCeHmHVROWrnhOL0sH9c3nBWb6OYj5RYooHqEU0=
@@ -30,6 +33,8 @@ github.com/ONSdigital/go-ns v0.0.0-20200205115900-a11716f93bad/go.mod h1:uHT6LaU
 github.com/ONSdigital/log.go v0.0.0-20191127134126-2a610b254f20/go.mod h1:BD7D8FWP1fzwUWsrCopEG72jl9cchCaVNIGSz6YvL+Y=
 github.com/ONSdigital/log.go v1.0.0 h1:hZQTuitFv4nSrpzMhpGvafUC5/8xMVnLI0CWe1rAJNc=
 github.com/ONSdigital/log.go v1.0.0/go.mod h1:UnGu9Q14gNC+kz0DOkdnLYGoqugCvnokHBRBxFRpVoQ=
+github.com/ONSdigital/s3crypto v0.0.0-20180725145621-f8943119a487 h1:gQ8g6w/Pe2e1bt1Ht//tQXPxNpwHFcPbi09MRGKH0eM=
+github.com/ONSdigital/s3crypto v0.0.0-20180725145621-f8943119a487/go.mod h1:sYVkbMGvEplxktSXXSOVMQgGOuhqIXX5qBns81v1vas=
 github.com/OwnLocal/goes v1.0.0/go.mod h1:8rIFjBGTue3lCU0wplczcUgt9Gxgrkkrw7etMIcn8TM=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/abdullin/seq v0.0.0-20160510034733-d5467c17e7af/go.mod h1:5Jv4cbFiHJMsVxt52+i0Ha45fjshj6wxYr1r19tB9bw=
@@ -44,6 +49,7 @@ github.com/armon/go-radix v1.0.0/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgI
 github.com/astaxie/beego v1.12.1 h1:dfpuoxpzLVgclveAXe4PyNKqkzgm5zF4tgF2B3kkM2I=
 github.com/astaxie/beego v1.12.1/go.mod h1:kPBWpSANNbSdIqOc8SUL9h+1oyBMZhROeYsXQDbidWQ=
 github.com/aws/aws-sdk-go v1.25.41/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/aws/aws-sdk-go v1.29.2/go.mod h1:1KvfttTE3SPKMpo8g2c6jL3ZKfXtFvKscTgahTma5Xg=
 github.com/aws/aws-sdk-go v1.29.32 h1:o4I8Qc+h9ht8NXvTHeXZH3EmtSUZ/PC0bg9Wawr+aTA=
 github.com/aws/aws-sdk-go v1.29.32/go.mod h1:1KvfttTE3SPKMpo8g2c6jL3ZKfXtFvKscTgahTma5Xg=
 github.com/aws/aws-sdk-go-v2 v0.20.0 h1:/yefUjgMrda9PNFwWctBU63nL10CJMdBwkAmaQ4w4Hs=

@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an error is returned with invalid tls configuration", t, func() {
-			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, QueueRegion: "qux"})
+			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"})
 			So(d, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldStartWith, "invalid configuration with https")
@@ -171,7 +171,7 @@ func TestRun(t *testing.T) {
 func withEnv(f func()) {
 	defer os.Clearenv()
 	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-	os.Setenv("AWS_DEFAULT_REGION", "BAR")
+	os.Setenv("AWS_REGION", "BAR")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	f()
 }
