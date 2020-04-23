@@ -66,7 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	h, err := initHandlers(ctx, cfg, vc)
+	h, err := initHandlers(ctx, cfg, vc, s3dc, s3sc)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -111,13 +111,13 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client) (map[string]engine.HandlerFunc, error) {
-	d, err := deployment.New(ctx, cfg)
+func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, s3dc *s3client.S3, s3sc *s3client.S3) (map[string]engine.HandlerFunc, error) {
+	d, err := deployment.New(ctx, cfg, s3dc)
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := secret.New(cfg, vc)
+	s, err := secret.New(cfg, vc, s3sc)
 	if err != nil {
 		return nil, err
 	}

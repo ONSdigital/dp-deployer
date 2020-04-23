@@ -11,6 +11,7 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/s3"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -40,7 +41,7 @@ func TestNew(t *testing.T) {
 	ctx := context.Background()
 
 	Convey("an error is returned with invalid configuration", t, func() {
-		d, err := New(ctx, &config.Configuration{})
+		d, err := New(ctx, &config.Configuration{}, &s3.ClientMock{})
 		So(d, ShouldBeNil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")

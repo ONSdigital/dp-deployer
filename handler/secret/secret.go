@@ -17,9 +17,10 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/s3"
 	"github.com/ONSdigital/log.go/log"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/s3"
+	// "github.com/goamz/goamz/aws"
+	// "github.com/goamz/goamz/s3"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.
@@ -37,24 +38,24 @@ var HTTPClient = &http.Client{Timeout: time.Second * 10}
 // Secret represents a secret.
 type Secret struct {
 	entities openpgp.EntityList
-	s3Client *s3.S3
+	s3Client s3.Client
 	vault    VaultClient
 }
 
 // New returns a new secret.
-func New(cfg *config.Configuration, vc VaultClient) (*Secret, error) {
+func New(cfg *config.Configuration, vc VaultClient, s3sc s3.Client) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
-	a, err := aws.GetAuth("", "", "", time.Time{})
-	if err != nil {
-		return nil, err
-	}
+	// a, err := aws.GetAuth("", "", "", time.Time{})
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &Secret{
 		entities: e,
-		s3Client: s3.New(a, aws.Regions[cfg.AWSRegion], HTTPClient),
+		s3Client: s3sc,
 		vault:    vc,
 	}, nil
 }

@@ -17,9 +17,11 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/s3"
 	"github.com/ONSdigital/log.go/log"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/s3"
+
+	// "github.com/goamz/goamz/aws"
+	// "github.com/goamz/goamz/s3"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -47,7 +49,7 @@ var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Deployment represents a deployment.
 type Deployment struct {
-	s3Client    *s3.S3
+	s3Client    s3.Client
 	nomadClient *http.Client
 	root        string
 	endpoint    string
@@ -56,11 +58,11 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration) (*Deployment, error) {
-	a, err := aws.GetAuth("", "", "", time.Time{})
-	if err != nil {
-		return nil, err
-	}
+func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deployment, error) {
+	// a, err := aws.GetAuth("", "", "", time.Time{})
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	NomadClient := HTTPClient
 	if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
@@ -102,7 +104,7 @@ func New(ctx context.Context, cfg *config.Configuration) (*Deployment, error) {
 	}
 
 	return &Deployment{
-		s3Client:    s3.New(a, aws.Regions[cfg.AWSRegion], HTTPClient),
+		s3Client:    s3dc,
 		nomadClient: NomadClient,
 		root:        cfg.DeploymentRoot,
 		endpoint:    cfg.NomadEndpoint,
@@ -113,11 +115,12 @@ func New(ctx context.Context, cfg *config.Configuration) (*Deployment, error) {
 
 // Handler handles deployment messages that are delegated by the engine.
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
-	b, err := d.s3Client.Bucket(msg.Bucket).Get(msg.Artifacts[0])
+	body, content, err := d.s3Client.Get(msg.Artifacts[0])
+	fmt.Print(content)
 	if err != nil {
 		return err
 	}
-	if err := untargz.Extract(bytes.NewReader(b), fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
+	if err := untargz.Extract(body, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
 		return err
 	}
 	if err := d.plan(ctx, msg); err != nil {
