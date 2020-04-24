@@ -115,8 +115,7 @@ func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deplo
 
 // Handler handles deployment messages that are delegated by the engine.
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
-	body, content, err := d.s3Client.Get(msg.Artifacts[0])
-	fmt.Print(content)
+	body, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
 		return err
 	}

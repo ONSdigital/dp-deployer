@@ -1,7 +1,6 @@
 package secret
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -68,11 +67,11 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			log.Event(ctx, "bailing on updating secrets", log.ERROR)
 			return &AbortedError{ID: msg.ID}
 		default:
-			a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)
+			body, _, err := s.s3Client.Get(artifact)
 			if err != nil {
 				return err
 			}
-			d, err := s.decryptMessage(a)
+			d, err := s.decryptMessage(body)
 			if err != nil {
 				return err
 			}
@@ -85,8 +84,8 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-func (s *Secret) decryptMessage(message []byte) ([]byte, error) {
-	a, err := dearmorMessage(bytes.NewReader(message))
+func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {
+	a, err := dearmorMessage(message)
 	if err != nil {
 		return nil, err
 	}

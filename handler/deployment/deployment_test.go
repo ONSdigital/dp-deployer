@@ -49,7 +49,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an error is returned with invalid tls configuration", t, func() {
-			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"})
+			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"}, &s3.ClientMock{})
 			So(d, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldStartWith, "invalid configuration with https")
