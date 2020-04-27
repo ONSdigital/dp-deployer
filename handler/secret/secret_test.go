@@ -89,16 +89,6 @@ Z/E5hX0lDHzAklyBHfVeUdarqA==
 -----END PGP PRIVATE KEY BLOCK-----`
 
 func TestNew(t *testing.T) {
-	os.Clearenv()
-	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
-	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
-
-	Convey("an error is returned with an invalid AWS configuration", t, func() {
-		s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "foo"}, &VaultClientMock{}, &s3.ClientMock{})
-		So(s, ShouldBeNil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
-	})
 
 	Convey("an error is returned with an invalid private key", t, func() {
 		s, err := New(&config.Configuration{PrivateKey: "", AWSRegion: "foo"}, &VaultClientMock{}, &s3.ClientMock{})
@@ -222,9 +212,6 @@ func TestContext(t *testing.T) {
 
 func withEnv(f func()) {
 	defer os.Clearenv()
-	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-	os.Setenv("AWS_REGION", "BAR")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	os.Setenv("VAULT_ADDR", "http://localhost:8200")
 	f()
 }

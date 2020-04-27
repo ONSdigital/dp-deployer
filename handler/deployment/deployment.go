@@ -20,8 +20,6 @@ import (
 	"github.com/ONSdigital/dp-deployer/s3"
 	"github.com/ONSdigital/log.go/log"
 
-	// "github.com/goamz/goamz/aws"
-	// "github.com/goamz/goamz/s3"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -59,10 +57,6 @@ type Deployment struct {
 
 // New returns a new deployment.
 func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deployment, error) {
-	// a, err := aws.GetAuth("", "", "", time.Time{})
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	NomadClient := HTTPClient
 	if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
@@ -115,11 +109,11 @@ func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deplo
 
 // Handler handles deployment messages that are delegated by the engine.
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
-	body, _, err := d.s3Client.Get(msg.Artifacts[0])
+	b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
 		return err
 	}
-	if err := untargz.Extract(body, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
+	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
 		return err
 	}
 	if err := d.plan(ctx, msg); err != nil {

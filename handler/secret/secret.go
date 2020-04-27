@@ -18,8 +18,6 @@ import (
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/s3"
 	"github.com/ONSdigital/log.go/log"
-	// "github.com/goamz/goamz/aws"
-	// "github.com/goamz/goamz/s3"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.
@@ -47,10 +45,6 @@ func New(cfg *config.Configuration, vc VaultClient, s3sc s3.Client) (*Secret, er
 	if err != nil {
 		return nil, err
 	}
-	// a, err := aws.GetAuth("", "", "", time.Time{})
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return &Secret{
 		entities: e,
@@ -67,11 +61,11 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			log.Event(ctx, "bailing on updating secrets", log.ERROR)
 			return &AbortedError{ID: msg.ID}
 		default:
-			body, _, err := s.s3Client.Get(artifact)
+			b, _, err := s.s3Client.Get(artifact)
 			if err != nil {
 				return err
 			}
-			d, err := s.decryptMessage(body)
+			d, err := s.decryptMessage(b)
 			if err != nil {
 				return err
 			}
