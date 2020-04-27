@@ -27,7 +27,7 @@ type Configuration struct {
 	VaultToken                 string        `envconfig:"VAULT_TOKEN"`
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	SecretsBucketName          string        `envconfig:"SECRETS_BUCKET_NAME"`
-	DeploymentsBucketName      string        `envconfig:"DEPLOYMENT_BUCKET_NAME"`
+	DeploymentsBucketName      string        `envconfig:"DEPLOYMENTS_BUCKET_NAME"`
 }
 
 var cfg *Configuration
