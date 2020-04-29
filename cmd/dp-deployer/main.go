@@ -51,22 +51,22 @@ func main() {
 	}
 
 	// Create S3 secrets client
-	var s3sc *s3client.S3
-	s3sc, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
+	var secretsClient *s3client.S3
+	secretsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
 	if err != nil {
 		log.Event(ctx, "error creating S3 secrets client", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
 	// Create S3 deployments client
-	var s3dc *s3client.S3
-	s3dc, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
+	var deploymentsClient *s3client.S3
+	deploymentsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
 	if err != nil {
 		log.Event(ctx, "error creating S3 deployments client", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
-	h, err := initHandlers(ctx, cfg, vc, s3dc, s3sc)
+	h, err := initHandlers(ctx, cfg, vc, deploymentsClient, secretsClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -78,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc := startHealthChecks(ctx, cfg, vc, s3sc, s3dc)
+	hc := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", hc.Handler)
@@ -111,13 +111,13 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, s3dc *s3client.S3, s3sc *s3client.S3) (map[string]engine.HandlerFunc, error) {
-	d, err := deployment.New(ctx, cfg, s3dc)
+func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3) (map[string]engine.HandlerFunc, error) {
+	d, err := deployment.New(ctx, cfg, deploymentsClient)
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := secret.New(cfg, vc, s3sc)
+	s, err := secret.New(cfg, vc, secretsClient)
 	if err != nil {
 		return nil, err
 	}

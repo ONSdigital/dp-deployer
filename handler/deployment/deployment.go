@@ -56,7 +56,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deployment, error) {
+func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client) (*Deployment, error) {
 
 	NomadClient := HTTPClient
 	if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
@@ -98,7 +98,7 @@ func New(ctx context.Context, cfg *config.Configuration, s3dc s3.Client) (*Deplo
 	}
 
 	return &Deployment{
-		s3Client:    s3dc,
+		s3Client:    deploymentsClient,
 		nomadClient: NomadClient,
 		root:        cfg.DeploymentRoot,
 		endpoint:    cfg.NomadEndpoint,

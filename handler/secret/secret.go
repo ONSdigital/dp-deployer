@@ -40,7 +40,7 @@ type Secret struct {
 }
 
 // New returns a new secret.
-func New(cfg *config.Configuration, vc VaultClient, s3sc s3.Client) (*Secret, error) {
+func New(cfg *config.Configuration, vc VaultClient, secretsClient s3.Client) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func New(cfg *config.Configuration, vc VaultClient, s3sc s3.Client) (*Secret, er
 
 	return &Secret{
 		entities: e,
-		s3Client: s3sc,
+		s3Client: secretsClient,
 		vault:    vc,
 	}, nil
 }
