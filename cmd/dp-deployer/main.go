@@ -12,6 +12,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
@@ -49,7 +50,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	h, err := initHandlers(ctx, cfg, vc)
+	// Create S3 secrets client
+	var secretsClient *s3client.S3
+	secretsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
+	if err != nil {
+		log.Event(ctx, "error creating S3 secrets client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	// Create S3 deployments client
+	var deploymentsClient *s3client.S3
+	deploymentsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
+	if err != nil {
+		log.Event(ctx, "error creating S3 deployments client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	h, err := initHandlers(ctx, cfg, vc, deploymentsClient, secretsClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -61,7 +78,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc := startHealthChecks(ctx, cfg, vc)
+	hc := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", hc.Handler)
@@ -94,13 +111,13 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client) (map[string]engine.HandlerFunc, error) {
-	d, err := deployment.New(ctx, cfg)
+func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3) (map[string]engine.HandlerFunc, error) {
+	d, err := deployment.New(ctx, cfg, deploymentsClient)
 	if err != nil {
 		return nil, err
 	}
 
-	s, err := secret.New(cfg, vc)
+	s, err := secret.New(cfg, vc, secretsClient)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +128,7 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client) *healthcheck.HealthCheck {
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3) *healthcheck.HealthCheck {
 	hasErrors := false
 
 	// Create healthcheck object with versionInfo
@@ -125,6 +142,16 @@ func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChec
 	if err := hc.AddCheck("Vault", vaultChecker.Checker); err != nil {
 		hasErrors = true
 		log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
+	}
+
+	if err := hc.AddCheck("S3 secret", s3sChecker.Checker); err != nil {
+		hasErrors = true
+		log.Event(ctx, "error adding check for S3 secrets", log.ERROR, log.Error(err))
+	}
+
+	if err := hc.AddCheck("S3 deployment", s3dChecker.Checker); err != nil {
+		hasErrors = true
+		log.Event(ctx, "error adding check for S3 deployments", log.ERROR, log.Error(err))
 	}
 
 	if hasErrors {

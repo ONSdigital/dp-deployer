@@ -1,7 +1,6 @@
 package secret
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,9 +16,8 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/s3"
 	"github.com/ONSdigital/log.go/log"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/s3"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.
@@ -37,24 +35,20 @@ var HTTPClient = &http.Client{Timeout: time.Second * 10}
 // Secret represents a secret.
 type Secret struct {
 	entities openpgp.EntityList
-	s3Client *s3.S3
+	s3Client s3.Client
 	vault    VaultClient
 }
 
 // New returns a new secret.
-func New(cfg *config.Configuration, vc VaultClient) (*Secret, error) {
+func New(cfg *config.Configuration, vc VaultClient, secretsClient s3.Client) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err
 	}
 
 	return &Secret{
 		entities: e,
-		s3Client: s3.New(a, aws.Regions[cfg.S3SecretsRegion], HTTPClient),
+		s3Client: secretsClient,
 		vault:    vc,
 	}, nil
 }
@@ -67,11 +61,11 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			log.Event(ctx, "bailing on updating secrets", log.ERROR)
 			return &AbortedError{ID: msg.ID}
 		default:
-			a, err := s.s3Client.Bucket(msg.Bucket).Get(artifact)
+			b, _, err := s.s3Client.Get(artifact)
 			if err != nil {
 				return err
 			}
-			d, err := s.decryptMessage(a)
+			d, err := s.decryptMessage(b)
 			if err != nil {
 				return err
 			}
@@ -84,8 +78,8 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-func (s *Secret) decryptMessage(message []byte) ([]byte, error) {
-	a, err := dearmorMessage(bytes.NewReader(message))
+func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {
+	a, err := dearmorMessage(message)
 	if err != nil {
 		return nil, err
 	}

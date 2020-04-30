@@ -11,6 +11,7 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
+	"github.com/ONSdigital/dp-deployer/s3"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -39,16 +40,9 @@ func TestNew(t *testing.T) {
 
 	ctx := context.Background()
 
-	Convey("an error is returned with invalid configuration", t, func() {
-		d, err := New(ctx, &config.Configuration{})
-		So(d, ShouldBeNil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldStartWith, "No valid AWS authentication found")
-	})
-
 	withEnv(func() {
 		Convey("an error is returned with invalid tls configuration", t, func() {
-			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, QueueRegion: "qux"})
+			d, err := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"}, &s3.ClientMock{})
 			So(d, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldStartWith, "invalid configuration with https")
@@ -170,9 +164,6 @@ func TestRun(t *testing.T) {
 
 func withEnv(f func()) {
 	defer os.Clearenv()
-	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-	os.Setenv("AWS_DEFAULT_REGION", "BAR")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	f()
 }
 

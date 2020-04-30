@@ -88,7 +88,7 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 	if len(cfg.ProducerQueue) < 1 {
 		return nil, ErrMissingProducerQueue
 	}
-	if len(cfg.QueueRegion) < 1 {
+	if len(cfg.AWSRegion) < 1 {
 		return nil, ErrMissingRegion
 	}
 
@@ -107,10 +107,10 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
-		producer:  sqs.New(a, aws.Regions[cfg.QueueRegion]),
+		producer:  sqs.New(a, aws.Regions[cfg.AWSRegion]),
 		consumer: ssqs.New(&ssqs.Queue{
 			Name:              cfg.ConsumerQueue,
-			Region:            cfg.QueueRegion,
+			Region:            cfg.AWSRegion,
 			URL:               cfg.ConsumerQueueURL,
 			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
 		}),
