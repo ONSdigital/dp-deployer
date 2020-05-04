@@ -3,6 +3,7 @@ module github.com/ONSdigital/dp-deployer
 go 1.13
 
 require (
+	github.com/ONSdigital/dp-api-clients-go v1.1.0
 	github.com/ONSdigital/dp-healthcheck v1.0.2
 	github.com/ONSdigital/dp-s3 v1.5.0
 	github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14
