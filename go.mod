@@ -23,6 +23,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/matryer/moq v0.0.0-20200310130814-7721994d1b54 // indirect
 	github.com/mitchellh/hashstructure v1.0.0 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/ugorji/go v0.0.0-20170620060102-0053ebfd9d0e // indirect

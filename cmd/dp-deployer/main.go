@@ -18,6 +18,7 @@ import (
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -82,9 +83,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc, ok := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadHealthClient)
-	if !ok {
-		log.Event(ctx, "failed to start healthchecks", log.FATAL)
+	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadHealthClient)
+	if err != nil {
+		log.Event(ctx, "failed to start healthchecks", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
@@ -136,39 +137,33 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadHealthClient *health.Client) (*healthcheck.HealthCheck, bool) {
-	hasErrors := false
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadHealthClient *health.Client) (*healthcheck.HealthCheck, error) {
 
 	// Create healthcheck object with versionInfo
 	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
 	if err != nil {
-		log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
-		os.Exit(1)
+		return nil, errors.Wrap(err, "failed to create service version information")
 	}
 	hc := healthcheck.New(versionInfo, cfg.HealthcheckCriticalTimeout, cfg.HealthcheckInterval)
 
 	if err := hc.AddCheck("Vault", vaultChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for vault")
 	}
 
 	if err := hc.AddCheck("S3 secret", s3sChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for S3 secrets", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for S3 secrets")
 	}
 
 	if err := hc.AddCheck("S3 deployment", s3dChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for S3 deployments", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for S3 deployments")
 	}
 
 	if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for nomad", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for nomad")
 	}
 
 	// Start healthcheck
 	hc.Start(ctx)
 
-	return &hc, hasErrors
+	return &hc, nil
 }
