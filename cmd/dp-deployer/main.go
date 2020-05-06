@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/ONSdigital/dp-api-clients-go/health"
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
@@ -17,6 +18,7 @@ import (
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -66,6 +68,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// create Nomad check client
+	nomadHealthClient := health.NewClient("nomad", cfg.NomadEndpoint)
+
 	h, err := initHandlers(ctx, cfg, vc, deploymentsClient, secretsClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
@@ -78,7 +83,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient)
+	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadHealthClient)
+	if err != nil {
+		log.Event(ctx, "failed to start healthchecks", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
 
 	r := mux.NewRouter()
 	r.HandleFunc("/health", hc.Handler)
@@ -128,38 +137,33 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3) *healthcheck.HealthCheck {
-	hasErrors := false
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadHealthClient *health.Client) (*healthcheck.HealthCheck, error) {
 
 	// Create healthcheck object with versionInfo
 	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
 	if err != nil {
-		log.Event(ctx, "failed to create service version information", log.FATAL, log.Error(err))
-		os.Exit(1)
+		return nil, errors.Wrap(err, "failed to create service version information")
 	}
 	hc := healthcheck.New(versionInfo, cfg.HealthcheckCriticalTimeout, cfg.HealthcheckInterval)
 
 	if err := hc.AddCheck("Vault", vaultChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for vault", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for vault")
 	}
 
 	if err := hc.AddCheck("S3 secret", s3sChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for S3 secrets", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for S3 secrets")
 	}
 
 	if err := hc.AddCheck("S3 deployment", s3dChecker.Checker); err != nil {
-		hasErrors = true
-		log.Event(ctx, "error adding check for S3 deployments", log.ERROR, log.Error(err))
+		return nil, errors.Wrap(err, "error adding check for S3 deployments")
 	}
 
-	if hasErrors {
-		os.Exit(1)
+	if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
+		return nil, errors.Wrap(err, "error adding check for nomad")
 	}
 
 	// Start healthcheck
 	hc.Start(ctx)
 
-	return &hc
+	return &hc, nil
 }
