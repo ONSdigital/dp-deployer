@@ -158,9 +158,9 @@ func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChec
 		return nil, errors.Wrap(err, "error adding check for S3 deployments")
 	}
 
-	if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
-		return nil, errors.Wrap(err, "error adding check for nomad")
-	}
+	// if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
+	// 	return nil, errors.Wrap(err, "error adding check for nomad")
+	// }
 
 	// Start healthcheck
 	hc.Start(ctx)
