@@ -187,11 +187,9 @@ func withMocks(f func()) {
 	// use the httpmock'ed http.DefaultClient in our dp-net http client
 	myClient.HTTPClient = http.DefaultClient
 	myClient.MaxRetries = 1
-	// convert to Clienter for using in nomad client
-	var httpClienter dpnethttp.Clienter = myClient
 
 	nomadClient = &nomad.Nomad{
-		Client: httpClienter,
+		Client: myClient,
 		URL:    nomadURL,
 	}
 
