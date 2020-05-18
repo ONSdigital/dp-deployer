@@ -3,7 +3,6 @@ module github.com/ONSdigital/dp-deployer
 go 1.13
 
 require (
-	github.com/ONSdigital/dp-api-clients-go v1.9.0
 	github.com/ONSdigital/dp-healthcheck v1.0.2
 	github.com/ONSdigital/dp-net v1.0.2
 	github.com/ONSdigital/dp-nomad v0.1.0
@@ -23,6 +22,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20200326004053-843dd67e39de
 	github.com/hashicorp/raft v1.1.2 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
+	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/miekg/dns v1.1.26 // indirect
 	github.com/mitchellh/hashstructure v1.0.0 // indirect
@@ -32,7 +32,6 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/ugorji/go v0.0.0-20170620060102-0053ebfd9d0e // indirect
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 	google.golang.org/grpc v1.23.0 // indirect
-	gopkg.in/jarcoal/httpmock.v1 v0.0.0-20170412085702-cf52904a3cf0
 )
