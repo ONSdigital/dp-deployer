@@ -52,42 +52,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Nomad) (*Deployment, error) {
-
-	// NomadClient := HTTPClient
-	// if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
-	// 	var tlsConfig *tls.Config
-	// 	if cfg.NomadCACert != "" {
-	// 		log.Event(ctx, "loading custom ca cert", log.INFO, log.Data{"ca_cert_path": cfg.NomadCACert})
-
-	// 		caCertPool, _ := x509.SystemCertPool()
-	// 		if caCertPool == nil {
-	// 			caCertPool = x509.NewCertPool()
-	// 		}
-
-	// 		caCert, err := ioutil.ReadFile(cfg.NomadCACert)
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 		if !caCertPool.AppendCertsFromPEM(caCert) {
-	// 			return nil, errors.New("failed to append ca cert to pool")
-	// 		}
-
-	// 		tlsConfig = &tls.Config{
-	// 			RootCAs: caCertPool,
-	// 		}
-	// 	} else if cfg.NomadTLSSkipVerify {
-
-	// 		// no CA file => do not check cert  XXX DANGER DANGER XXX
-	// 		log.Event(ctx, "using TLS without verification", log.WARN)
-	// 		tlsConfig = &tls.Config{
-	// 			InsecureSkipVerify: true,
-	// 		}
-	// 	} else {
-	// 		return nil, errors.New("invalid configuration with https but no CA cert or skip verification enabled")
-	// 	}
-	// 	NomadClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-	// }
+func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Nomad) *Deployment {
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile
@@ -100,7 +65,7 @@ func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Cl
 		endpoint:    cfg.NomadEndpoint,
 		token:       cfg.NomadToken,
 		timeout:     cfg.DeploymentTimeout,
-	}, nil
+	}
 }
 
 // Handler handles deployment messages that are delegated by the engine.

@@ -68,7 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// create Nomad check client
+	// create Nomad client
 	var nomadClient *nomad.Nomad
 	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)
 	if err != nil {
@@ -126,10 +126,7 @@ func main() {
 }
 
 func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Nomad) (map[string]engine.HandlerFunc, error) {
-	d, err := deployment.New(ctx, cfg, deploymentsClient, nomadClient)
-	if err != nil {
-		return nil, err
-	}
+	d := deployment.New(ctx, cfg, deploymentsClient, nomadClient)
 
 	s, err := secret.New(cfg, vc, secretsClient)
 	if err != nil {
