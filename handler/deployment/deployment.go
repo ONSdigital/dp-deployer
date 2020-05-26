@@ -38,13 +38,10 @@ type payload struct {
 	Job *api.Job
 }
 
-// HTTPClient is the default http client - used for s3
-var HTTPClient = &http.Client{Timeout: time.Second * 10}
-
 // Deployment represents a deployment.
 type Deployment struct {
 	s3Client    s3.Client
-	nomadClient *nomad.Nomad
+	nomadClient *nomad.Client
 	root        string
 	endpoint    string
 	token       string
@@ -52,7 +49,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Nomad) *Deployment {
+func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Client) *Deployment {
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile

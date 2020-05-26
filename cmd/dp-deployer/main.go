@@ -69,7 +69,7 @@ func main() {
 	}
 
 	// create Nomad client
-	var nomadClient *nomad.Nomad
+	var nomadClient *nomad.Client
 	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)
 	if err != nil {
 		log.Event(ctx, "error creating nomad client", log.FATAL, log.Error(err))
@@ -125,7 +125,7 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Nomad) (map[string]engine.HandlerFunc, error) {
+func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
 	d := deployment.New(ctx, cfg, deploymentsClient, nomadClient)
 
 	s, err := secret.New(cfg, vc, secretsClient)
@@ -139,7 +139,7 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadClient *nomad.Nomad) (*healthcheck.HealthCheck, error) {
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadClient *nomad.Client) (*healthcheck.HealthCheck, error) {
 
 	// Create healthcheck object with versionInfo
 	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
@@ -160,9 +160,9 @@ func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChec
 		return nil, errors.Wrap(err, "error adding check for S3 deployments")
 	}
 
-	// if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
-	// 	return nil, errors.Wrap(err, "error adding check for nomad")
-	// }
+	if err := hc.AddCheck("Nomad", nomadClient.Checker); err != nil {
+		return nil, errors.Wrap(err, "error adding check for nomad")
+	}
 
 	// Start healthcheck
 	hc.Start(ctx)

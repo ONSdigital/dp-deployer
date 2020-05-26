@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
+
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
@@ -28,9 +27,6 @@ type AbortedError struct {
 func (e *AbortedError) Error() string {
 	return "aborted updating secrets for message"
 }
-
-// HTTPClient is the default http client.
-var HTTPClient = &http.Client{Timeout: time.Second * 10}
 
 // Secret represents a secret.
 type Secret struct {

@@ -13,17 +13,6 @@ import (
 	dpnethttp "github.com/ONSdigital/dp-net/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/jarcoal/httpmock"
-
-	// "context"
-	// "os"
-	// "testing"
-	// "time"
-	// httpmock "gopkg.in/jarcoal/httpmock.v1"
-	// "github.com/ONSdigital/dp-deployer/config"
-	// "github.com/ONSdigital/dp-deployer/engine"
-	// "github.com/ONSdigital/dp-deployer/s3"
-
-	// nomad "github.com/ONSdigital/dp-nomad"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -43,7 +32,7 @@ var (
 	planSuccess  = `{}`
 	planWarnings = `{"Warnings": "test warning"}`
 
-	nomadClient = &nomad.Nomad{}
+	nomadClient = &nomad.Client{}
 
 	normalTimeout = time.Second * 10
 	shortTimeout  = time.Second * 2
@@ -188,7 +177,7 @@ func withMocks(f func()) {
 	myClient.HTTPClient = http.DefaultClient
 	myClient.MaxRetries = 1
 
-	nomadClient = &nomad.Nomad{
+	nomadClient = &nomad.Client{
 		Client: myClient,
 		URL:    nomadURL,
 	}

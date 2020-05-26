@@ -7,13 +7,13 @@ github.com/ONSdigital/dp-api-clients-go v1.1.0/go.mod h1:9lqor0I7caCnRWr04gU/r7x
 github.com/ONSdigital/dp-frontend-models v1.1.0/go.mod h1:TT96P7Mi69N3Tc/jFNdbjiwG4GAaMjP26HLotFQ6BPw=
 github.com/ONSdigital/dp-healthcheck v0.0.0-20200131122546-9db6d3f0494e/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-healthcheck v1.0.0/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
-github.com/ONSdigital/dp-healthcheck v1.0.2 h1:N8SzpYzdixVgJS9NMzTBA2RZ2bi3Am1wE5F8ROEpTYw=
-github.com/ONSdigital/dp-healthcheck v1.0.2/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
+github.com/ONSdigital/dp-healthcheck v1.0.4 h1:mR7y0zEULrq5oOYlrkJ3X8Z2nYdvu2TzQfueDCmCTl0=
+github.com/ONSdigital/dp-healthcheck v1.0.4/go.mod h1:9485FaCfhADi/jtudXVeaoBHMG/MoTTAibpFwovmSec=
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-net v1.0.2 h1:gVqTTchAmD4bj2C5592tiYc9NqrcMWnSVUGJ6jNHn40=
 github.com/ONSdigital/dp-net v1.0.2/go.mod h1:wDVhk2pYosQ1q6PXxuFIRYhYk2XX5+1CeRRnXpSczPY=
-github.com/ONSdigital/dp-nomad v0.1.0 h1:hkpEWGGQr5n8p3a9OernWh7WnPadluITXQxx7LHrCNY=
-github.com/ONSdigital/dp-nomad v0.1.0/go.mod h1:5XtFTz3i7CD2fsOmQxLS0pS4NQNBvFtWhHCUPeMXSSQ=
+github.com/ONSdigital/dp-nomad v0.2.0 h1:nOUAmiTRCGoyHGZIdTk2xDvrugp2MCHR62E68mv1cbQ=
+github.com/ONSdigital/dp-nomad v0.2.0/go.mod h1:NT7t//6TJMPOIlcejBW8rSlD75it/kGzcapUfDbHEhw=
 github.com/ONSdigital/dp-rchttp v0.0.0-20190919143000-bb5699e6fd59/go.mod h1:KkW68U3FPuivW4ogi9L8CPKNj9ZxGko4qcUY7KoAAkQ=
 github.com/ONSdigital/dp-rchttp v0.0.0-20200114090501-463a529590e8 h1:MWIHCr/ud5ur9elhfvKtSjMJInqf3iUY8F4J27qGQPA=
 github.com/ONSdigital/dp-rchttp v0.0.0-20200114090501-463a529590e8/go.mod h1:821jZtK0oBsV8hjIkNr8vhAWuv0FxJBPJuAHa2B70Gk=
