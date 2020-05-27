@@ -28,6 +28,7 @@ type Configuration struct {
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	SecretsBucketName          string        `envconfig:"SECRETS_BUCKET_NAME"`
 	DeploymentsBucketName      string        `envconfig:"DEPLOYMENTS_BUCKET_NAME"`
+	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 }
 
 var cfg *Configuration
@@ -58,6 +59,7 @@ func Get() (*Configuration, error) {
 		AWSRegion:                  "eu-west-1",
 		SecretsBucketName:          "",
 		DeploymentsBucketName:      "",
+		GracefulShutdownTimeout:    time.Second * 5,
 	}
 	return cfg, envconfig.Process("", cfg)
 }
