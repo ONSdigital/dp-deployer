@@ -26,10 +26,6 @@ const (
 	deploymentURL = "%s/v1/job/%s/deployments"
 	planURL       = "%s/v1/job/%s/plan"
 	runURL        = "%s/v1/jobs"
-
-	statusComplete = "complete"
-	statusPending  = "pending"
-	statusRunning  = "running"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -49,7 +45,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Client) *Deployment {
+func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Client) *Deployment {
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile

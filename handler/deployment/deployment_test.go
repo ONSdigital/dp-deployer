@@ -43,11 +43,9 @@ func TestNew(t *testing.T) {
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
-	ctx := context.Background()
-
 	withEnv(func() {
 		Convey("a deployment is returned", t, func() {
-			d := New(ctx, &config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"}, &s3.ClientMock{}, nomadClient)
+			d := New(&config.Configuration{DeploymentRoot: "foo", NomadEndpoint: "https://", NomadToken: "baz", NomadCACert: "", NomadTLSSkipVerify: false, AWSRegion: "qux"}, &s3.ClientMock{}, nomadClient)
 			So(d, ShouldNotBeNil)
 		})
 	})
