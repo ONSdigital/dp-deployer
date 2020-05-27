@@ -4,22 +4,18 @@ package deployment
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/s3"
+	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/ONSdigital/log.go/log"
-
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -30,10 +26,6 @@ const (
 	deploymentURL = "%s/v1/job/%s/deployments"
 	planURL       = "%s/v1/job/%s/plan"
 	runURL        = "%s/v1/jobs"
-
-	statusComplete = "complete"
-	statusPending  = "pending"
-	statusRunning  = "running"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -42,13 +34,10 @@ type payload struct {
 	Job *api.Job
 }
 
-// HTTPClient is the default http client - used for s3
-var HTTPClient = &http.Client{Timeout: time.Second * 10}
-
 // Deployment represents a deployment.
 type Deployment struct {
 	s3Client    s3.Client
-	nomadClient *http.Client
+	nomadClient *nomad.Client
 	root        string
 	endpoint    string
 	token       string
@@ -56,42 +45,7 @@ type Deployment struct {
 }
 
 // New returns a new deployment.
-func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Client) (*Deployment, error) {
-
-	NomadClient := HTTPClient
-	if strings.HasPrefix(cfg.NomadEndpoint, "https://") {
-		var tlsConfig *tls.Config
-		if cfg.NomadCACert != "" {
-			log.Event(ctx, "loading custom ca cert", log.INFO, log.Data{"ca_cert_path": cfg.NomadCACert})
-
-			caCertPool, _ := x509.SystemCertPool()
-			if caCertPool == nil {
-				caCertPool = x509.NewCertPool()
-			}
-
-			caCert, err := ioutil.ReadFile(cfg.NomadCACert)
-			if err != nil {
-				return nil, err
-			}
-			if !caCertPool.AppendCertsFromPEM(caCert) {
-				return nil, errors.New("failed to append ca cert to pool")
-			}
-
-			tlsConfig = &tls.Config{
-				RootCAs: caCertPool,
-			}
-		} else if cfg.NomadTLSSkipVerify {
-
-			// no CA file => do not check cert  XXX DANGER DANGER XXX
-			log.Event(ctx, "using TLS without verification", log.WARN)
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
-		} else {
-			return nil, errors.New("invalid configuration with https but no CA cert or skip verification enabled")
-		}
-		NomadClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
-	}
+func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Client) *Deployment {
 
 	if jsonFrom == nil {
 		jsonFrom = jsonFromFile
@@ -99,12 +53,12 @@ func New(ctx context.Context, cfg *config.Configuration, deploymentsClient s3.Cl
 
 	return &Deployment{
 		s3Client:    deploymentsClient,
-		nomadClient: NomadClient,
+		nomadClient: nomadClient,
 		root:        cfg.DeploymentRoot,
 		endpoint:    cfg.NomadEndpoint,
 		token:       cfg.NomadToken,
 		timeout:     cfg.DeploymentTimeout,
-	}, nil
+	}
 }
 
 // Handler handles deployment messages that are delegated by the engine.
@@ -237,7 +191,7 @@ func (d *Deployment) doNomadReq(req *http.Request, v interface{}) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Nomad-Token", d.token)
 
-	res, err := d.nomadClient.Do(req)
+	res, err := d.nomadClient.Client.Do(context.Background(), req)
 	if err != nil {
 		return err
 	}

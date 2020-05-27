@@ -7,12 +7,12 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/ONSdigital/dp-api-clients-go/health"
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/go-ns/server"
@@ -68,10 +68,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// create Nomad check client
-	nomadHealthClient := health.NewClient("nomad", cfg.NomadEndpoint)
+	// create Nomad client
+	var nomadClient *nomad.Client
+	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)
+	if err != nil {
+		log.Event(ctx, "error creating nomad client", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
 
-	h, err := initHandlers(ctx, cfg, vc, deploymentsClient, secretsClient)
+	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -83,7 +88,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadHealthClient)
+	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to start healthchecks", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -120,11 +125,8 @@ func main() {
 	wg.Wait()
 }
 
-func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3) (map[string]engine.HandlerFunc, error) {
-	d, err := deployment.New(ctx, cfg, deploymentsClient)
-	if err != nil {
-		return nil, err
-	}
+func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
+	d := deployment.New(cfg, deploymentsClient, nomadClient)
 
 	s, err := secret.New(cfg, vc, secretsClient)
 	if err != nil {
@@ -137,7 +139,7 @@ func initHandlers(ctx context.Context, cfg *config.Configuration, vc *vault.Clie
 	}, nil
 }
 
-func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadHealthClient *health.Client) (*healthcheck.HealthCheck, error) {
+func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadClient *nomad.Client) (*healthcheck.HealthCheck, error) {
 
 	// Create healthcheck object with versionInfo
 	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
@@ -158,9 +160,9 @@ func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChec
 		return nil, errors.Wrap(err, "error adding check for S3 deployments")
 	}
 
-	// if err := hc.AddCheck("Nomad", nomadHealthClient.Checker); err != nil {
-	// 	return nil, errors.Wrap(err, "error adding check for nomad")
-	// }
+	if err := hc.AddCheck("Nomad", nomadClient.Checker); err != nil {
+		return nil, errors.Wrap(err, "error adding check for nomad")
+	}
 
 	// Start healthcheck
 	hc.Start(ctx)
