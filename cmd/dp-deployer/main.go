@@ -100,9 +100,7 @@ func main() {
 	sigC := make(chan os.Signal)
 	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
 		e.Start(ctx)
 	}()
 
@@ -122,7 +120,34 @@ func main() {
 	case <-ctx.Done():
 		log.Event(ctx, "context done", log.INFO)
 	}
-	wg.Wait()
+
+	log.Event(ctx, "shutdown with timeout:", log.INFO, log.Data{"Timeout": cfg.GracefulShutdownTimeout})
+	shutdownContext, cancel := context.WithTimeout(context.Background(), cfg.GracefulShutdownTimeout)
+
+	go func() {
+
+		// Shutdown HTTP server
+		log.Event(shutdownContext, "closing http server", log.INFO)
+		if err := httpServer.Shutdown(ctx); err != nil {
+			log.Event(shutdownContext, "failed to gracefully close http server", log.ERROR, log.Error(err))
+		}
+		log.Event(ctx, "http server gracefully closed ", log.INFO)
+
+		// Stop healthcheck
+		hc.Stop()
+
+		e.Close()
+
+		<-shutdownContext.Done()
+		if shutdownContext.Err() == context.DeadlineExceeded {
+			log.Event(shutdownContext, "shutdown timeout", log.ERROR, log.Error(shutdownContext.Err()))
+			os.Exit(1)
+		} else {
+			log.Event(shutdownContext, "done shutdown gracefully", log.ERROR, log.Data{"context": shutdownContext.Err()})
+			os.Exit(0)
+		}
+
+	}()
 }
 
 func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
