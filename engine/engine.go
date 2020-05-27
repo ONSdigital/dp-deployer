@@ -137,6 +137,13 @@ func (e *Engine) Start(ctx context.Context) {
 	e.run(ctx)
 }
 
+func (e *Engine) Close() {
+	log.Event(nil, "halting consumer", log.INFO)
+	e.consumer.Close()
+	log.Event(nil, "waiting for handlers", log.INFO)
+	e.wg.Wait()
+}
+
 func (e *Engine) run(ctx context.Context) {
 	for {
 		select {
@@ -146,10 +153,7 @@ func (e *Engine) run(ctx context.Context) {
 			reqCtx := common.WithRequestId(ctx, msg.ID)
 			e.handle(reqCtx, msg)
 		case <-ctx.Done():
-			log.Event(ctx, "halting consumer", log.INFO)
-			e.consumer.Close()
-			log.Event(ctx, "waiting for handlers", log.INFO)
-			e.wg.Wait()
+
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)

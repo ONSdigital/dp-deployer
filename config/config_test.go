@@ -38,6 +38,7 @@ func TestSpec(t *testing.T) {
 				So(cfg.AWSRegion, ShouldEqual, "eu-west-1")
 				So(cfg.SecretsBucketName, ShouldEqual, "")
 				So(cfg.DeploymentsBucketName, ShouldEqual, "")
+				So(cfg.GracefulShutdownTimeout, ShouldEqual, 5*time.Second)
 			})
 		})
 	})
