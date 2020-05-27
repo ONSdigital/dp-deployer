@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -122,7 +121,7 @@ func main() {
 		log.Event(ctx, "context done", log.INFO)
 	}
 
-	log.Event(ctx, fmt.Sprintf("shutdown with timeout: %s", cfg.GracefulShutdownTimeout), log.INFO)
+	log.Event(ctx, "shutdown with timeout:", log.INFO, log.Data{"Timeout": cfg.GracefulShutdownTimeout})
 	shutdownContext, cancel := context.WithTimeout(context.Background(), cfg.GracefulShutdownTimeout)
 
 	go func() {
@@ -142,10 +141,11 @@ func main() {
 		<-shutdownContext.Done()
 		if shutdownContext.Err() == context.DeadlineExceeded {
 			log.Event(shutdownContext, "shutdown timeout", log.ERROR, log.Error(shutdownContext.Err()))
+			os.Exit(1)
 		} else {
 			log.Event(shutdownContext, "done shutdown gracefully", log.ERROR, log.Data{"context": shutdownContext.Err()})
+			os.Exit(0)
 		}
-		os.Exit(1)
 
 	}()
 }

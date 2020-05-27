@@ -137,6 +137,7 @@ func (e *Engine) Start(ctx context.Context) {
 	e.run(ctx)
 }
 
+// Close ssqs queue
 func (e *Engine) Close() {
 	log.Event(nil, "halting consumer", log.INFO)
 	e.consumer.Close()
@@ -153,7 +154,6 @@ func (e *Engine) run(ctx context.Context) {
 			reqCtx := common.WithRequestId(ctx, msg.ID)
 			e.handle(reqCtx, msg)
 		case <-ctx.Done():
-
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
