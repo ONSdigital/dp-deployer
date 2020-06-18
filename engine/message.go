@@ -1,12 +1,12 @@
-package message
+package engine
 
 // MessageSQS represents a message that has been consumed.
 type MessageSQS struct {
 	Job         string
 	Java        bool         `json:"java,omitempty"`
 	Go          bool         `json:"go,omitempty"`
-	Publishing  *group       `json:"publishing,omitempty"`
-	Web         *group       `json:"web,omitempty"`
+	Publishing  *groups      `json:"publishing,omitempty"`
+	Web         *groups      `json:"web,omitempty"`
 	Healthcheck *healthcheck `json:"healthcheck,omitempty"`
 }
 
