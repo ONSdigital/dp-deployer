@@ -1,4 +1,4 @@
-package engine
+package messsage
 
 // MessageSQS represents a message that has been consumed.
 type MessageSQS struct {
