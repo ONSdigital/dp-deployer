@@ -3,27 +3,29 @@ package nomad
 import (
 	"time"
 
+	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/hashicorp/nomad/api"
 )
 
-func createTask(name string, args []string, volumes []string, userns_mode string) api.Task {
+func createTask(name string, details *message.Groups) api.Task {
 	config := make(map[string]interface{})
 	portMap := make(map[string]interface{})
 
 	portMap["http"] = ""
 	config["command"] = "${NOMAD_TASK_DIR}/start-task"
-	config["args"] = args
+	config["args"] = details.CommandLineArgs
 	config["image"] = "{{ECR_URL}}:concourse-{{REVISION}}"
 	config["port_map"] = portMap
-	config["volumes"] = volumes
-	config["userns_mode"] = userns_mode
+	config["volumes"] = details.Volumes
+	config["userns_mode"] = details.UsernsMode
 
 	task := api.Task{
-		Name:   name, // will neeed the suffix of web or publishing
+		Name:   name,
 		Driver: "docker",
 		Config: config,
 	}
 
+	createResources(details)
 	createRestartPolicy()
 	CreateVault(name)
 
@@ -46,17 +48,17 @@ func createRestartPolicy() api.RestartPolicy {
 
 func CreateVault(name string) api.Vault {
 	return api.Vault{
-		Policies: []string{name}, // will neeed the suffix of web or publishing
+		Policies: []string{name},
 	}
 }
 
-func createResources() api.Resources {
+func createResources(details *message.Groups) api.Resources {
 
 	createNetworkResources()
 
 	return api.Resources{
-		CPU:    "", // publishing or web
-		Memory: "", // publishing or web
+		CPU:      &details.CPU,
+		MemoryMB: &details.Memory,
 	}
 
 }

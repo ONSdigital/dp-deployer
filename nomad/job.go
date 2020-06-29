@@ -4,14 +4,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad/api"
+
+	"github.com/ONSdigital/dp-deployer/message"
 )
 
-const webSuffix = "-web"
-const publishingSuffix = "-publishing"
-
-func CreateJob(name string, value string, distinctHosts bool,
-	args []string, volumes []string, userns_mode string, isJava bool,
-	isPublishing bool, isWeb bool) api.Job {
+func CreateJob(name string, isJava bool, publishing *message.Groups, web *message.Groups) api.Job {
 	region := "eu"
 	jobType := "service"
 
@@ -23,7 +20,13 @@ func CreateJob(name string, value string, distinctHosts bool,
 	}
 
 	createUpdateStrategy(isJava)
-	createTaskGroup(name, value, distinctHosts, args, volumes, userns_mode)
+
+	if publishing != nil {
+		createTaskGroup(name, "publishing", publishing)
+	}
+	if web != nil {
+		createTaskGroup(name, "web", web)
+	}
 
 	return job
 }
@@ -50,17 +53,17 @@ func createUpdateStrategy(isJava bool) api.UpdateStrategy {
 	return updateStrategy
 }
 
-func createTaskGroup(name string, value string, distinctHosts bool, args []string,
-	volumes []string, userns_mode string) {
+func createTaskGroup(name string, groupName string, details *message.Groups) {
 	// validation for goup and pub / web here first
 	// group name var needed too
 	for tasks {
-		createTask(name, args, volumes, userns_mode)
+		createTask(name+"-"+groupName, details)
 	}
-	if distinctHosts {
-		createConstraint("", distinctHosts)
+
+	if details.DistinctHosts {
+		createConstraint("", details.DistinctHosts)
 	}
-	createConstraint(value, false)
+	createConstraint(groupName, false)
 }
 
 func createConstraint(value string, distinctHosts bool) api.Constraint {
