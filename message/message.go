@@ -12,6 +12,7 @@ type MessageSQS struct {
 
 type groups struct {
 	Mount           bool     `json:"mount,omitempty"`
+	DistinctHosts   bool     `json:"distinct_hosts,omitempty"`
 	Volumes         []string `json:"volumes,omitempty"`
 	UsernsMode      bool     `json:"userns_mode,omitempty"`
 	CommandLineArgs []string `json:"command_line_args,omitempty"`

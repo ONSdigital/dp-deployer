@@ -6,31 +6,41 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-func CreateJob(jobName string, value string, distinctHosts bool, stagger time.Duration) api.Job {
+const webSuffix = "-web"
+const publishingSuffix = "-publishing"
+
+func CreateJob(name string, value string, distinctHosts bool,
+	args []string, volumes []string, userns_mode string, isJava bool,
+	isPublishing bool, isWeb bool) api.Job {
 	region := "eu"
 	jobType := "service"
 
 	job := api.Job{
-		Name:        &jobName,
+		Name:        &name,
 		Region:      &region,
 		Datacenters: []string{"eu-west-1"},
 		Type:        &jobType,
 	}
 
-	createUpdateStrategy(stagger)
-	createTaskGroup(value, distinctHosts)
+	createUpdateStrategy(isJava)
+	createTaskGroup(name, value, distinctHosts, args, volumes, userns_mode)
 
 	return job
 }
 
-func createUpdateStrategy(stagger time.Duration) api.UpdateStrategy {
+func createUpdateStrategy(isJava bool) api.UpdateStrategy {
 	healthyTime := time.Second * 30
 	healthyDeadline := time.Minute * 2
 	maxParallel := 1
 	autorevert := true
+	stagger := time.Second * 60
+
+	if isJava {
+		stagger = time.Second * 150
+	}
 
 	updateStrategy := api.UpdateStrategy{
-		Stagger:         &stagger, //Java 150s Go 60s
+		Stagger:         &stagger,
 		MinHealthyTime:  &healthyTime,
 		HealthyDeadline: &healthyDeadline,
 		MaxParallel:     &maxParallel,
@@ -40,25 +50,28 @@ func createUpdateStrategy(stagger time.Duration) api.UpdateStrategy {
 	return updateStrategy
 }
 
-func createTaskGroup(value string, distinctHosts bool) {
+func createTaskGroup(name string, value string, distinctHosts bool, args []string,
+	volumes []string, userns_mode string) {
+	// validation for goup and pub / web here first
+	// group name var needed too
 	for tasks {
+		createTask(name, args, volumes, userns_mode)
 	}
-
-	createConstraint(value, distinctHosts)
+	if distinctHosts {
+		createConstraint("", distinctHosts)
+	}
+	createConstraint(value, false)
 }
 
 func createConstraint(value string, distinctHosts bool) api.Constraint {
-	// bool for distinct hosts the if statement so if bool set operand to "distinct_hosts"
 	if !distinctHosts {
 		return api.Constraint{
 			LTarget: "${node.class}",
 			RTarget: value,
 		}
-	} else {
-		return api.Constraint{
-			LTarget: "${node.class}",
-			RTarget: value,            // publishing, web, web-mount or publishing-mount
-			Operand: "distinct_hosts", // is set for Java
-		}
+	}
+
+	return api.Constraint{
+		Operand: "distinct_hosts", // is set for Java
 	}
 }
