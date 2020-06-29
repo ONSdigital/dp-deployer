@@ -6,42 +6,59 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-func CreateJob(jobName string, value string, distinctHosts bool, stagger time.Duration) {
-	job := api.Job {
-		Name: jobName,
-		Region: "eu",
-		Datacenters: ["eu-west-1"],
-		Type: "service",
+func CreateJob(jobName string, value string, distinctHosts bool, stagger time.Duration) api.Job {
+	region := "eu"
+	jobType := "service"
+
+	job := api.Job{
+		Name:        &jobName,
+		Region:      &region,
+		Datacenters: []string{"eu-west-1"},
+		Type:        &jobType,
 	}
 
 	createUpdateStrategy(stagger)
-	createTaskGroup(vaue, distinctHosts)
+	createTaskGroup(value, distinctHosts)
+
+	return job
 }
 
-func createUpdateStrategy(stagger time.Duration) {
-	updateStrategy := api.UpdateStrategy {
-		Stagger: , //Java 150s Go 60s
-		MinHealthyTime: "30s",
-		HealthyDeadline: "2m",
-		MaxParallel: 1,
-		AutoRevert: true,
+func createUpdateStrategy(stagger time.Duration) api.UpdateStrategy {
+	healthyTime := time.Second * 30
+	healthyDeadline := time.Minute * 2
+	maxParallel := 1
+	autorevert := true
+
+	updateStrategy := api.UpdateStrategy{
+		Stagger:         &stagger, //Java 150s Go 60s
+		MinHealthyTime:  &healthyTime,
+		HealthyDeadline: &healthyDeadline,
+		MaxParallel:     &maxParallel,
+		AutoRevert:      &autorevert,
 	}
 
 	return updateStrategy
 }
 
-func createTaskGroup() {
-	for tasks {}
-
-	createConstraint()
-}
-
-func createConstraint(value string, distinctHosts bool) {
-	constraint := api.Constraint {
-		LTarget: ,
-		RTarget: value, // publishing, web, web-mount or publishing-mount
-		Operand: distinctHosts, // true for Java
+func createTaskGroup(value string, distinctHosts bool) {
+	for tasks {
 	}
 
-	return constraint
+	createConstraint(value, distinctHosts)
+}
+
+func createConstraint(value string, distinctHosts bool) api.Constraint {
+	// bool for distinct hosts the if statement so if bool set operand to "distinct_hosts"
+	if !distinctHosts {
+		return api.Constraint{
+			LTarget: "${node.class}",
+			RTarget: value,
+		}
+	} else {
+		return api.Constraint{
+			LTarget: "${node.class}",
+			RTarget: value,            // publishing, web, web-mount or publishing-mount
+			Operand: "distinct_hosts", // is set for Java
+		}
+	}
 }
