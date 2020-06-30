@@ -1,22 +1,29 @@
 package nomad
 
-import "github.com/hashicorp/nomad/api"
+import (
+	"time"
 
-func CreateService(tags []string, path string) {
-	service := api.Service {
-		Name: serviceName,
+	"github.com/ONSdigital/dp-deployer/message"
+	"github.com/hashicorp/nomad/api"
+)
+
+func createService(name string, groupName string, healthcheck *message.Healthcheck) api.Service {
+	service := api.Service{
+		Name:      name,
 		PortLabel: "http",
-		Tags: [], // web or publishing
+		Tags:      []string{groupName},
 	}
 
-	createServiceCheck(path)
+	createServiceCheck(healthcheck)
+
+	return service
 }
 
-func createServiceCheck() {
-	serviceCheck := api.ServiceCheck {
-		Type: "http",
-		Path: ,
-		Interval: "10s",
-		Timeout: "2s"
+func createServiceCheck(healthcheck *message.Healthcheck) api.ServiceCheck {
+	return api.ServiceCheck{
+		Type:     "http",
+		Path:     healthcheck.Path,
+		Interval: time.Second * 10,
+		Timeout:  time.Second * 2,
 	}
 }

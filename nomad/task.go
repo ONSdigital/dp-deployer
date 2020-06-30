@@ -7,14 +7,14 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-func createTask(name string, details *message.Groups) api.Task {
+func createTask(name string, details *message.Groups, revision string) api.Task {
 	config := make(map[string]interface{})
 	portMap := make(map[string]interface{})
 
-	portMap["http"] = ""
+	portMap["http"] = "${NOMAD_PORT_http}"
 	config["command"] = "${NOMAD_TASK_DIR}/start-task"
 	config["args"] = details.CommandLineArgs
-	config["image"] = "{{ECR_URL}}:concourse-{{REVISION}}"
+	config["image"] = cfg.ECRURL + ":concourse-" + revision
 	config["port_map"] = portMap
 	config["volumes"] = details.Volumes
 	config["userns_mode"] = details.UsernsMode
@@ -27,7 +27,8 @@ func createTask(name string, details *message.Groups) api.Task {
 
 	createResources(details)
 	createRestartPolicy()
-	CreateVault(name)
+	createVault(name)
+	createTemplate()
 
 	return task
 }
@@ -46,7 +47,7 @@ func createRestartPolicy() api.RestartPolicy {
 	}
 }
 
-func CreateVault(name string) api.Vault {
+func createVault(name string) api.Vault {
 	return api.Vault{
 		Policies: []string{name},
 	}

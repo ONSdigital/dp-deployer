@@ -1,14 +1,19 @@
 package nomad
 
 import (
+	"context"
+	"errors"
 	"time"
 
 	"github.com/hashicorp/nomad/api"
 
 	"github.com/ONSdigital/dp-deployer/message"
+	"github.com/ONSdigital/log.go/log"
 )
 
-func CreateJob(name string, isJava bool, publishing *message.Groups, web *message.Groups) api.Job {
+// CreateJob Creates the Nomad job structure for an application deployment
+func CreateJob(ctx context.Context, name string, jobStruct *message.MessageSQS, publishing *message.Groups,
+	web *message.Groups, healthcheck *message.Healthcheck) api.Job {
 	region := "eu"
 	jobType := "service"
 
@@ -19,13 +24,13 @@ func CreateJob(name string, isJava bool, publishing *message.Groups, web *messag
 		Type:        &jobType,
 	}
 
-	createUpdateStrategy(isJava)
+	createUpdateStrategy(jobStruct.Java)
 
 	if publishing != nil {
-		createTaskGroup(name, "publishing", publishing)
+		createTaskGroup(ctx, name, "publishing", publishing, healthcheck, jobStruct.Revision)
 	}
 	if web != nil {
-		createTaskGroup(name, "web", web)
+		createTaskGroup(ctx, name, "web", web, healthcheck, jobStruct.Revision)
 	}
 
 	return job
@@ -53,17 +58,29 @@ func createUpdateStrategy(isJava bool) api.UpdateStrategy {
 	return updateStrategy
 }
 
-func createTaskGroup(name string, groupName string, details *message.Groups) {
-	// validation for goup and pub / web here first
-	// group name var needed too
-	for tasks {
-		createTask(name+"-"+groupName, details)
+func createTaskGroup(ctx context.Context, name string, groupName string, details *message.Groups, healthcheck *message.Healthcheck,
+	revision string) (*api.TaskGroup, error) {
+
+	if groupName != "web" && groupName != "publishing" {
+		err := errors.New("Not a valid group name")
+		log.Event(ctx, err.Error(), log.ERROR, log.Data{"group_name": groupName})
+		return nil, err
 	}
+
+	taskGroup := api.TaskGroup{
+		Name:  &groupName,
+		Count: &details.TaskCount,
+	}
+	createTask(name+"-"+groupName, details, revision)
 
 	if details.DistinctHosts {
 		createConstraint("", details.DistinctHosts)
 	}
 	createConstraint(groupName, false)
+
+	createService(name, groupName, healthcheck)
+
+	return &taskGroup, nil
 }
 
 func createConstraint(value string, distinctHosts bool) api.Constraint {

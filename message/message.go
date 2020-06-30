@@ -7,7 +7,8 @@ type MessageSQS struct {
 	Go          bool         `json:"go,omitempty"`
 	Publishing  *Groups      `json:"publishing,omitempty"`
 	Web         *Groups      `json:"web,omitempty"`
-	Healthcheck *healthcheck `json:"healthcheck,omitempty"`
+	Healthcheck *Healthcheck `json:"healthcheck,omitempty"`
+	Revision    string
 }
 
 // Groups represents the publishing or web group for the MessageSQS
@@ -19,11 +20,11 @@ type Groups struct {
 	CommandLineArgs []string `json:"command_line_args,omitempty"`
 	CPU             int
 	Memory          int
-	TaskCount       string
+	TaskCount       int
 	HeapMemory      string `json:"heap_memory,omitempty"`
 }
 
-type healthcheck struct {
+type Healthcheck struct {
 	Enabled bool   `json:"enabled,omitempty"`
 	Path    string `json:"path,omitempty"`
 }
