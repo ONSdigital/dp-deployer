@@ -8,13 +8,15 @@ import (
 )
 
 func createService(name string, groupName string, healthcheck *message.Healthcheck) api.Service {
+
+	serviceCheck := createServiceCheck(healthcheck)
+
 	service := api.Service{
 		Name:      name,
 		PortLabel: "http",
 		Tags:      []string{groupName},
+		Checks:    []api.ServiceCheck{serviceCheck},
 	}
-
-	createServiceCheck(healthcheck)
 
 	return service
 }

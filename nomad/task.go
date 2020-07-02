@@ -19,16 +19,19 @@ func createTask(name string, details *message.Groups, revision string) api.Task 
 	config["volumes"] = details.Volumes
 	config["userns_mode"] = details.UsernsMode
 
-	task := api.Task{
-		Name:   name,
-		Driver: "docker",
-		Config: config,
-	}
+	resources := createResources(details)
+	restartPolicy := createRestartPolicy()
+	vault := createVault(name)
+	template := createTemplate()
 
-	createResources(details)
-	createRestartPolicy()
-	createVault(name)
-	createTemplate()
+	task := api.Task{
+		Name:          name,
+		Driver:        "docker",
+		Config:        config,
+		Resources:     &resources,
+		RestartPolicy: &restartPolicy,
+		Vault:         &vault,
+	}
 
 	return task
 }
@@ -55,11 +58,12 @@ func createVault(name string) api.Vault {
 
 func createResources(details *message.Groups) api.Resources {
 
-	createNetworkResources()
+	networkResources := createNetworkResources()
 
 	return api.Resources{
 		CPU:      &details.CPU,
 		MemoryMB: &details.Memory,
+		Networks: []*api.NetworkResource{&networkResources},
 	}
 
 }

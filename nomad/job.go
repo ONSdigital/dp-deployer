@@ -17,20 +17,25 @@ func CreateJob(ctx context.Context, name string, jobStruct *message.MessageSQS, 
 	region := "eu"
 	jobType := "service"
 
+	updateStrategy := createUpdateStrategy(jobStruct.Java)
+	var taskGroups []*api.TaskGroup
+
+	if publishing != nil {
+		taskGroup1, _ := createTaskGroup(ctx, name, "publishing", publishing, healthcheck, jobStruct.Revision)
+		taskGroups = append(taskGroups, taskGroup1)
+	}
+	if web != nil {
+		taskGroup2, _ := createTaskGroup(ctx, name, "web", web, healthcheck, jobStruct.Revision)
+		taskGroups = append(taskGroups, taskGroup2)
+	}
+
 	job := api.Job{
 		Name:        &name,
 		Region:      &region,
 		Datacenters: []string{"eu-west-1"},
 		Type:        &jobType,
-	}
-
-	createUpdateStrategy(jobStruct.Java)
-
-	if publishing != nil {
-		createTaskGroup(ctx, name, "publishing", publishing, healthcheck, jobStruct.Revision)
-	}
-	if web != nil {
-		createTaskGroup(ctx, name, "web", web, healthcheck, jobStruct.Revision)
+		Update:      &updateStrategy,
+		TaskGroups:  taskGroups,
 	}
 
 	return job
@@ -67,18 +72,27 @@ func createTaskGroup(ctx context.Context, name string, groupName string, details
 		return nil, err
 	}
 
-	taskGroup := api.TaskGroup{
-		Name:  &groupName,
-		Count: &details.TaskCount,
-	}
-	createTask(name+"-"+groupName, details, revision)
+	task := createTask(name+"-"+groupName, details, revision)
+
+	var constraints []*api.Constraint
 
 	if details.DistinctHosts {
-		createConstraint("", details.DistinctHosts)
+		constraint1 := createConstraint("", details.DistinctHosts)
+		constraints = append(constraints, &constraint1)
 	}
-	createConstraint(groupName, false)
 
-	createService(name, groupName, healthcheck)
+	constraint2 := createConstraint(groupName, false)
+	constraints = append(constraints, &constraint2)
+
+	service := createService(name, groupName, healthcheck)
+
+	taskGroup := api.TaskGroup{
+		Name:        &groupName,
+		Count:       &details.TaskCount,
+		Tasks:       []*api.Task{&task},
+		Services:    []*api.Service{&service},
+		Constraints: constraints,
+	}
 
 	return &taskGroup, nil
 }

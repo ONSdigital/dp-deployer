@@ -68,6 +68,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO: create a new client for new sqs queue
+
 	// create Nomad client
 	var nomadClient *nomad.Client
 	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)

@@ -7,6 +7,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// TODO add new config for new queue
+
 // Configuration structure whiich holds information for configuring the deployer
 type Configuration struct {
 	ConsumerQueue              string        `envconfig:"CONSUMER_QUEUE"`
