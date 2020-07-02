@@ -31,6 +31,7 @@ func createTask(name string, details *message.Groups, revision string) api.Task 
 		Resources:     &resources,
 		RestartPolicy: &restartPolicy,
 		Vault:         &vault,
+		Templates:     []*api.Template{&template},
 	}
 
 	return task
