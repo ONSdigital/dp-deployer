@@ -31,7 +31,8 @@ type Configuration struct {
 	SecretsBucketName          string        `envconfig:"SECRETS_BUCKET_NAME"`
 	DeploymentsBucketName      string        `envconfig:"DEPLOYMENTS_BUCKET_NAME"`
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
-	ECRURL                     string        `envconfig:"ECR_URL"`
+	ECR_URL                    string        `envconfig:"ECR_URL"`
+	ArtifactSource             string        `envconfig:"ARTIFACT_SOURCE"`
 }
 
 var cfg *Configuration
@@ -63,7 +64,8 @@ func Get() (*Configuration, error) {
 		SecretsBucketName:          "",
 		DeploymentsBucketName:      "",
 		GracefulShutdownTimeout:    time.Second * 5,
-		ECRURL:                     "",
+		ECR_URL:                    "",
+		ArtifactSource:             "",
 	}
 	return cfg, envconfig.Process("", cfg)
 }

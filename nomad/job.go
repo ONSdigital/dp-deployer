@@ -7,25 +7,25 @@ import (
 
 	"github.com/hashicorp/nomad/api"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/log.go/log"
 )
 
 // CreateJob Creates the Nomad job structure for an application deployment
-func CreateJob(ctx context.Context, name string, jobStruct *message.MessageSQS, publishing *message.Groups,
-	web *message.Groups, healthcheck *message.Healthcheck) api.Job {
+func CreateJob(ctx context.Context, cfg *config.Configuration, name string, jobStruct *message.MessageSQS) api.Job {
 	region := "eu"
 	jobType := "service"
 
 	updateStrategy := createUpdateStrategy(jobStruct.Java)
 	var taskGroups []*api.TaskGroup
 
-	if publishing != nil {
-		taskGroup1, _ := createTaskGroup(ctx, name, "publishing", publishing, healthcheck, jobStruct.Revision)
+	if jobStruct.Publishing != nil {
+		taskGroup1, _ := createTaskGroup(ctx, name, "publishing", jobStruct.Publishing, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup1)
 	}
-	if web != nil {
-		taskGroup2, _ := createTaskGroup(ctx, name, "web", web, healthcheck, jobStruct.Revision)
+	if jobStruct.Web != nil {
+		taskGroup2, _ := createTaskGroup(ctx, name, "web", jobStruct.Web, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup2)
 	}
 
