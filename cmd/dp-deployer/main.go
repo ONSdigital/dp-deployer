@@ -11,6 +11,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
+	"github.com/ONSdigital/dp-deployer/queue"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
@@ -68,8 +69,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: create a new client for new sqs queue
-
 	// create Nomad client
 	var nomadClient *nomad.Client
 	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)
@@ -90,6 +89,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	q, err := queue.New(cfg, h)
+	if err != nil {
+		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
 	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to start healthchecks", log.FATAL, log.Error(err))
@@ -104,6 +109,8 @@ func main() {
 
 	go func() {
 		e.Start(ctx)
+
+		q.Start(ctx)
 	}()
 
 	// Create and start http server for healthcheck

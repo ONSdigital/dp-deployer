@@ -74,7 +74,7 @@ func createResources(details *message.Groups) api.Resources {
 
 func createNetworkResources() api.NetworkResource {
 	return api.NetworkResource{
-		DynamicPorts: []api.Port{api.Port{Label: "http"}},
+		DynamicPorts: []api.Port{{Label: "http"}},
 	}
 }
 

@@ -22,6 +22,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20200326004053-843dd67e39de
 	github.com/hashicorp/raft v1.1.2 // indirect
 	github.com/hashicorp/serf v0.8.5 // indirect
+	github.com/hashicorp/vault/sdk v0.1.14-0.20200514144402-4bfac290c352
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0

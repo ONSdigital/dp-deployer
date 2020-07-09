@@ -33,6 +33,9 @@ type Configuration struct {
 	GracefulShutdownTimeout    time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	ECR_URL                    string        `envconfig:"ECR_URL"`
 	ArtifactSource             string        `envconfig:"ARTIFACT_SOURCE"`
+	ConsumerQueueNew           string        `envconfig:"CONSUMER_QUEUE_NEW"`
+	ConsumerQueueURLNew        string        `envconfig:"CONSUMER_QUEUE_URL_NEW"`
+	ProducerQueueNew           string        `envconfig:"PRODUCER_QUEUE_NEW"`
 }
 
 var cfg *Configuration
@@ -66,6 +69,9 @@ func Get() (*Configuration, error) {
 		GracefulShutdownTimeout:    time.Second * 5,
 		ECR_URL:                    "",
 		ArtifactSource:             "",
+		ConsumerQueueNew:           "",
+		ConsumerQueueURLNew:        "",
+		ProducerQueueNew:           "",
 	}
 	return cfg, envconfig.Process("", cfg)
 }

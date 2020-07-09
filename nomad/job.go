@@ -21,11 +21,11 @@ func CreateJob(ctx context.Context, cfg *config.Configuration, name string, jobS
 	var taskGroups []*api.TaskGroup
 
 	if jobStruct.Publishing != nil {
-		taskGroup1, _ := createTaskGroup(ctx, name, "publishing", jobStruct.Publishing, jobStruct.Healthcheck, jobStruct.Revision)
+		taskGroup1, _ := createTaskGroup(ctx, cfg, name, "publishing", jobStruct.Publishing, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup1)
 	}
 	if jobStruct.Web != nil {
-		taskGroup2, _ := createTaskGroup(ctx, name, "web", jobStruct.Web, jobStruct.Healthcheck, jobStruct.Revision)
+		taskGroup2, _ := createTaskGroup(ctx, cfg, name, "web", jobStruct.Web, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup2)
 	}
 
@@ -63,7 +63,7 @@ func createUpdateStrategy(isJava bool) api.UpdateStrategy {
 	return updateStrategy
 }
 
-func createTaskGroup(ctx context.Context, name string, groupName string, details *message.Groups, healthcheck *message.Healthcheck,
+func createTaskGroup(ctx context.Context, cfg *config.Configuration, name string, groupName string, details *message.Groups, healthcheck *message.Healthcheck,
 	revision string) (*api.TaskGroup, error) {
 
 	if groupName != "web" && groupName != "publishing" {
@@ -72,7 +72,7 @@ func createTaskGroup(ctx context.Context, name string, groupName string, details
 		return nil, err
 	}
 
-	task := createTask(name+"-"+groupName, details, revision)
+	task := createTask(cfg, name+"-"+groupName, details, revision)
 
 	var constraints []*api.Constraint
 
