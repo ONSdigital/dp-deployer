@@ -77,6 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO add if for feature flag
 	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
@@ -89,6 +90,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	//take d.newHander
 	q, err := queue.New(cfg, h)
 	if err != nil {
 		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
@@ -159,7 +161,7 @@ func main() {
 	}()
 }
 
-func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
+func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
 	d := deployment.New(cfg, deploymentsClient, nomadClient)
 
 	s, err := secret.New(cfg, vc, secretsClient)
@@ -168,6 +170,20 @@ func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient
 	}
 
 	return map[string]engine.HandlerFunc{
+		"deployment": d.Handler,
+		"secret":     s.Handler,
+	}, nil
+}
+
+func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]queue.HandlerFunc, error) {
+	d := deployment.New(cfg, deploymentsClient, nomadClient)
+
+	s, err := secret.New(cfg, vc, secretsClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]queue.HandlerFunc{
 		"deployment": d.Handler,
 		"secret":     s.Handler,
 	}, nil

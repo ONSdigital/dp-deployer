@@ -77,7 +77,8 @@ type responseError struct {
 	Message string
 }
 
-// New returns a new engine.
+// New returns a new queue.
+//take a handlerFunc not a map string
 func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
 		return nil, ErrMissingConsumerQueue
@@ -177,13 +178,13 @@ func (q *Queue) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			return
 		}
 
-		engMsg := Message{ID: rawMsg.ID}
+		engMsg := Message{ID: rawMsg.ID} // replace this with messageSQS
 		if err := json.Unmarshal(m, &engMsg); err != nil {
 			q.postHandle(ctx, rawMsg, err)
 			return
 		}
 
-		var handlerFunc HandlerFunc
+		var handlerFunc HandlerFunc // replace all handlerFunc logic with specific handler
 		var ok bool
 		if handlerFunc, ok = q.handlers[engMsg.Type]; !ok {
 			q.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
