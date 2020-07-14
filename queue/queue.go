@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 
 	"github.com/ONSdigital/dp-deployer/config"
+	"github.com/ONSdigital/dp-deployer/message"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
 	"github.com/ONSdigital/log.go/log"
@@ -64,7 +65,7 @@ type Message struct {
 }
 
 // HandlerFunc represents a function that is applied to a consumed message.
-type HandlerFunc func(context.Context, *Message) error
+type HandlerFunc func(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error
 
 type response struct {
 	Error   *responseError `json:"Error,omitempty"`
@@ -178,19 +179,13 @@ func (q *Queue) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			return
 		}
 
-		engMsg := Message{ID: rawMsg.ID} // replace this with messageSQS
+		engMsg := message.MessageSQS{Job: rawMsg.ID} // replace this with messageSQS
 		if err := json.Unmarshal(m, &engMsg); err != nil {
 			q.postHandle(ctx, rawMsg, err)
 			return
 		}
 
-		var handlerFunc HandlerFunc // replace all handlerFunc logic with specific handler
-		var ok bool
-		if handlerFunc, ok = q.handlers; /*[engMsg.Type]*/ !ok {
-			q.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
-			return
-		}
-		if err := handlerFunc(ctx, &engMsg); err != nil {
+		if err := q.handlers(ctx, config.Configuration{}, &engMsg); err != nil {
 			q.postHandle(ctx, rawMsg, err)
 			return
 		}
