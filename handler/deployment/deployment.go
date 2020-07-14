@@ -14,6 +14,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/message"
+	job "github.com/ONSdigital/dp-deployer/nomad"
 	"github.com/ONSdigital/dp-deployer/s3"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/ONSdigital/log.go/log"
@@ -80,8 +81,8 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
-// change this to our way not using S3
-func (d *Deployment) NewHandler(ctx context.Context, msg *message.MessageSQS) error {
+// NewHandler change this to our way not using S3
+func (d *Deployment) NewHandler(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error {
 	// b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	// if err != nil {
 	// 	return err
@@ -89,23 +90,31 @@ func (d *Deployment) NewHandler(ctx context.Context, msg *message.MessageSQS) er
 	// if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
 	// 	return err
 	// }
-	// Where we want to call the CreateJob() from nomad package
-	// pass create job into plan instead of message
-	// if err := d.plan(ctx, msg); err != nil {
-	// 	return err
-	// }
-	// if err := d.run(ctx, msg); err != nil {
-	// 	return err
-	// }
-	// return nil
+	// Where we want to call the CreateJob() from nomad package - done
+	// pass create job into plan instead of message - done
+	nomadJob := job.CreateJob(ctx, &cfg, msg.Job, msg)
+	if err := d.planNew(ctx, nomadJob); err != nil {
+		return err
+	}
+	if err := d.runNew(ctx, nomadJob); err != nil {
+		return err
+	}
+	return nil
 }
 
 // duplicate this function and change parameters to take job Struct
+// TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
 	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobPlanResponse
-	if err := d.post(fmt.Sprintf(planURL, d.endpoint, msg.Service), msg, &res); err != nil {
+	// call jsonFormat func here and pass into post.
+	jFormat, err := d.jsonFormat(msg)
+	if err != nil {
+		log.Event(ctx, "Error formatting to json", log.Error(err))
+	}
+
+	if err := d.post(fmt.Sprintf(planURL, d.endpoint, msg.Service), jFormat, &res); err != nil {
 		return err
 	}
 	if len(res.Warnings) == 0 && res.FailedTGAllocs == nil {
@@ -121,16 +130,54 @@ func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
 	return &PlanError{Errors: string(j), Service: msg.Service}
 }
 
+func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
+	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": job, "service": job.Name})
+
+	var res api.JobPlanResponse
+	if err := d.post(fmt.Sprintf(planURL, d.endpoint, job.Name), job, &res); err != nil {
+		return err
+	}
+	if len(res.Warnings) == 0 && res.FailedTGAllocs == nil {
+		return nil
+	}
+	if len(res.Warnings) > 0 {
+		return &PlanError{Service: *job.Name, Warnings: res.Warnings}
+	}
+	j, err := json.Marshal(res.FailedTGAllocs)
+	if err != nil {
+		return err
+	}
+	return &PlanError{Errors: string(j), Service: *job.Name}
+}
+
 // duplicate and change message to take in created job instead
+// TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	log.Event(ctx, "running job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
 	// remove jsonFrom and put here
-	if err := d.post(fmt.Sprintf(runURL, d.endpoint), msg, &res); err != nil {
+	jsonFormat, err := d.jsonFormat(msg)
+	if err != nil {
+		log.Event(ctx, "Error formatting to json", log.Error(err))
+	}
+	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
 		return err
 	}
 	if err := d.deploymentSuccess(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
+	log.Event(ctx, "running job", log.INFO, log.Data{"msg": job, "service": job.Name})
+
+	var res api.JobRegisterResponse
+	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job, &res); err != nil {
+		return err
+	}
+	if err := d.deploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
 		return err
 	}
 	return nil
@@ -199,14 +246,14 @@ func (d *Deployment) get(url string, v interface{}) error {
 }
 
 // change message to bytes or reader
-func (d *Deployment) post(url string, msg *engine.Message, v interface{}) error {
+func (d *Deployment) post(url string, reader []byte, v interface{}) error {
 	// pull this out and put in the old plan and run
-	j, err := jsonFrom(fmt.Sprintf("%s/%s/%s.nomad", d.root, msg.Service, msg.Service))
-	if err != nil {
-		return err
-	}
+	// j, err := jsonFrom(fmt.Sprintf("%s/%s/%s.nomad", d.root, msg.Service, msg.Service))
+	// if err != nil {
+	// 	return err
+	// }
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(j))
+	req, err := http.NewRequest("POST", url, bytes.NewReader(reader))
 	if err != nil {
 		return err
 	}
@@ -255,5 +302,14 @@ func jsonFromFile(jobPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return j, nil
+}
+
+func (d *Deployment) jsonFormat(msg *engine.Message) ([]byte, error) {
+	j, err := jsonFrom(fmt.Sprintf("%s/%s/%s.nomad", d.root, msg.Service, msg.Service))
+	if err != nil {
+		return nil, err
+	}
+
 	return j, nil
 }

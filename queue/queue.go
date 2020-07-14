@@ -48,7 +48,7 @@ type Queue struct {
 	config    *config.Configuration
 	consumer  *ssqs.Consumer
 	keyring   openpgp.EntityList
-	handlers  map[string]HandlerFunc
+	handlers  HandlerFunc
 	producer  *sqs.SQS
 	semaphore chan struct{}
 	wg        sync.WaitGroup
@@ -78,8 +78,8 @@ type responseError struct {
 }
 
 // New returns a new queue.
-//take a handlerFunc not a map string
-func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Queue, error) {
+//take a handlerFunc not a map string - done
+func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
@@ -186,7 +186,7 @@ func (q *Queue) handle(ctx context.Context, rawMsg *ssqs.Message) {
 
 		var handlerFunc HandlerFunc // replace all handlerFunc logic with specific handler
 		var ok bool
-		if handlerFunc, ok = q.handlers[engMsg.Type]; !ok {
+		if handlerFunc, ok = q.handlers; /*[engMsg.Type]*/ !ok {
 			q.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
 			return
 		}
