@@ -78,15 +78,21 @@ func main() {
 	}
 
 	// TODO add if for feature flag
-	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
+	oldHandler, err := initHandlersOld(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
-	e, err := engine.New(cfg, h)
+	e, err := engine.New(cfg, oldHandler)
 	if err != nil {
 		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
+	if err != nil {
+		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
@@ -175,18 +181,15 @@ func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsCli
 	}, nil
 }
 
-func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]queue.HandlerFunc, error) {
+func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (queue.HandlerFunc, error) {
 	d := deployment.New(cfg, deploymentsClient, nomadClient)
 
-	s, err := secret.New(cfg, vc, secretsClient)
-	if err != nil {
-		return nil, err
-	}
+	// s, err := secret.New(cfg, vc, secretsClient)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return map[string]queue.HandlerFunc{
-		"deployment": d.Handler,
-		"secret":     s.Handler,
-	}, nil
+	return d.NewHandler, nil
 }
 
 func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadClient *nomad.Client) (*healthcheck.HealthCheck, error) {

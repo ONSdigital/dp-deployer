@@ -64,6 +64,7 @@ func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *no
 }
 
 // Handler handles deployment messages that are delegated by the engine.
+// TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
@@ -134,7 +135,7 @@ func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
 	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": job, "service": job.Name})
 
 	var res api.JobPlanResponse
-	if err := d.post(fmt.Sprintf(planURL, d.endpoint, job.Name), job, &res); err != nil {
+	if err := d.post(fmt.Sprintf(planURL, d.endpoint, *job.Name), job.Payload, &res); err != nil {
 		return err
 	}
 	if len(res.Warnings) == 0 && res.FailedTGAllocs == nil {
@@ -174,7 +175,7 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 	log.Event(ctx, "running job", log.INFO, log.Data{"msg": job, "service": job.Name})
 
 	var res api.JobRegisterResponse
-	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job, &res); err != nil {
+	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
 		return err
 	}
 	if err := d.deploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
