@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
+	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/go-ns/common"
 	. "github.com/smartystreets/goconvey/convey"
 
@@ -254,9 +255,9 @@ func TestStart(t *testing.T) {
 		Convey("start functions as expected", t, func(c C) {
 			ctx, cancel := context.WithCancel(context.Background())
 
-			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
+			doErrTest := func(handlers HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
+					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueueNew: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(q, ShouldNotBeNil)
 
@@ -293,8 +294,8 @@ func TestStart(t *testing.T) {
 			})
 
 			Convey("handler errors are propogated as expected", func() {
-				handlers := map[string]HandlerFunc{
-					"test": func(ctx context.Context, msg *Message) error { return &handlerError{"foo", "bar"} },
+				handlers := func(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error {
+					return &handlerError{"foo", "bar"}
 				}
 				expectedError := "handler error"
 				expectedMsgID := "200"
@@ -318,12 +319,12 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueueNew: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
 					So(q, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
-					hfunction := func(ctx context.Context, msg *Message) error { return nil }
-					q.handlers = map[string]HandlerFunc{"test": hfunction}
+					hfunction := func(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error { return nil }
+					q.handlers = hfunction
 					ErrHandler = defaultErrHandler
 
 					go time.AfterFunc(time.Second*1, cancel)
