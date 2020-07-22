@@ -84,15 +84,6 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 
 // NewHandler change this to our way not using S3
 func (d *Deployment) NewHandler(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error {
-	// b, _, err := d.s3Client.Get(msg.Artifacts[0])
-	// if err != nil {
-	// 	return err
-	// }
-	// if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
-	// 	return err
-	// }
-	// Where we want to call the CreateJob() from nomad package - done
-	// pass create job into plan instead of message - done
 	nomadJob := job.CreateJob(ctx, &cfg, msg.Job, msg)
 	if err := d.planNew(ctx, nomadJob); err != nil {
 		return err
@@ -103,13 +94,11 @@ func (d *Deployment) NewHandler(ctx context.Context, cfg config.Configuration, m
 	return nil
 }
 
-// duplicate this function and change parameters to take job Struct
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
 	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobPlanResponse
-	// call jsonFormat func here and pass into post.
 	jFormat, err := d.jsonFormat(msg)
 	if err != nil {
 		log.Event(ctx, "Error formatting to json", log.Error(err))
@@ -151,13 +140,11 @@ func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
 	return &PlanError{Errors: string(j), Service: *job.Name}
 }
 
-// duplicate and change message to take in created job instead
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	log.Event(ctx, "running job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
-	// remove jsonFrom and put here
 	jsonFormat, err := d.jsonFormat(msg)
 	if err != nil {
 		log.Event(ctx, "Error formatting to json", log.Error(err))
@@ -246,14 +233,7 @@ func (d *Deployment) get(url string, v interface{}) error {
 	return d.doNomadReq(req, v)
 }
 
-// change message to bytes or reader
 func (d *Deployment) post(url string, reader []byte, v interface{}) error {
-	// pull this out and put in the old plan and run
-	// j, err := jsonFrom(fmt.Sprintf("%s/%s/%s.nomad", d.root, msg.Service, msg.Service))
-	// if err != nil {
-	// 	return err
-	// }
-
 	req, err := http.NewRequest("POST", url, bytes.NewReader(reader))
 	if err != nil {
 		return err

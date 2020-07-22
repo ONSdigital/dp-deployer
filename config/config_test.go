@@ -43,7 +43,6 @@ func TestSpec(t *testing.T) {
 				So(cfg.ArtifactSource, ShouldEqual, "")
 				So(cfg.ConsumerQueueNew, ShouldEqual, "")
 				So(cfg.ConsumerQueueURLNew, ShouldEqual, "")
-				So(cfg.ProducerQueueNew, ShouldEqual, "")
 			})
 		})
 	})

@@ -79,7 +79,6 @@ type responseError struct {
 }
 
 // New returns a new queue.
-//take a handlerFunc not a map string - done
 func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
 		return nil, ErrMissingConsumerQueue
@@ -87,7 +86,7 @@ func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueURLNew) < 1 {
 		return nil, ErrMissingConsumerQueueURL
 	}
-	if len(cfg.ProducerQueueNew) < 1 {
+	if len(cfg.ProducerQueue) < 1 {
 		return nil, ErrMissingProducerQueue
 	}
 	if len(cfg.AWSRegion) < 1 {
@@ -101,6 +100,11 @@ func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 
 	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
+		return nil, err
+	}
+
+	if hs == nil {
+		err = &MissingHandlerError{}
 		return nil, err
 	}
 
@@ -185,13 +189,6 @@ func (q *Queue) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			return
 		}
 
-		// var handlerFunc HandlerFunc // replace all handlerFunc logic with specific handler
-		// var ok bool
-		// if handlerFunc, ok = q.handlers; /*[engMsg.Type]*/ !ok {
-		// 	q.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
-		// 	return
-		// }
-		// if err := handlerFunc(ctx, &engMsg); err != nil {
 		if err := q.handlers(ctx, config.Configuration{}, &queueMsg); err != nil {
 			q.postHandle(ctx, rawMsg, err)
 			return

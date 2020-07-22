@@ -138,6 +138,8 @@ var (
 		ReceiptHandle: aws.String(""),
 		Body:          aws.String(`{"type": "test"}`),
 	}
+
+	handlerFuncMock = func(ctx context.Context, cfg config.Configuration, msg *message.MessageSQS) error { return nil }
 )
 
 var defaultErrHandler = ErrHandler
@@ -156,7 +158,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "",
 				ConsumerQueueURLNew: "foo",
-				ProducerQueueNew:    "bar",
+				ProducerQueue:       "bar",
 				AWSRegion:           "baz",
 				VerificationKey:     publicKey,
 			},
@@ -167,7 +169,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "",
-				ProducerQueueNew:    "bar",
+				ProducerQueue:       "bar",
 				AWSRegion:           "baz",
 				VerificationKey:     publicKey,
 			},
@@ -178,7 +180,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
-				ProducerQueueNew:    "",
+				ProducerQueue:       "",
 				AWSRegion:           "baz",
 				VerificationKey:     publicKey,
 			},
@@ -189,7 +191,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
-				ProducerQueueNew:    "baz",
+				ProducerQueue:       "baz",
 				AWSRegion:           "",
 				VerificationKey:     publicKey,
 			},
@@ -200,7 +202,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
-				ProducerQueueNew:    "baz",
+				ProducerQueue:       "baz",
 				AWSRegion:           "qux",
 				VerificationKey:     publicKey,
 			},
@@ -211,7 +213,7 @@ func TestNew(t *testing.T) {
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
-				ProducerQueueNew:    "baz",
+				ProducerQueue:       "baz",
 				AWSRegion:           "qux",
 				VerificationKey:     "",
 			},
@@ -235,18 +237,34 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an engine is returned with valid configuration", t, func() {
-			config := &config.Configuration{
+			cfg := &config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
-				ProducerQueueNew:    "baz",
+				ProducerQueue:       "baz",
 				AWSRegion:           "qux",
 				VerificationKey:     publicKey,
 			}
 
-			q, err := New(config, nil)
+			q, err := New(cfg, handlerFuncMock)
 			So(err, ShouldBeNil)
 			So(q, ShouldNotBeNil)
 		})
+
+		Convey("an engine is returned with valid configuration", t, func() {
+			cfg := &config.Configuration{
+				ConsumerQueueNew:    "foo",
+				ConsumerQueueURLNew: "bar",
+				ProducerQueue:       "baz",
+				AWSRegion:           "qux",
+				VerificationKey:     publicKey,
+			}
+
+			q, err := New(cfg, nil)
+			So(q, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "missing handler for message")
+		})
+
 	})
 }
 
@@ -257,7 +275,7 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueueNew: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
+					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(q, ShouldNotBeNil)
 
@@ -276,21 +294,14 @@ func TestStart(t *testing.T) {
 				expectedError := "consumer error"
 				expectedMsgID := ""
 				expectedMsgBody := ""
-				doErrTest(nil, true, invalidMessage, expectedMsgID, expectedMsgBody, expectedError)
+				doErrTest(handlerFuncMock, true, invalidMessage, expectedMsgID, expectedMsgBody, expectedError)
 			})
 
 			Convey("unmarshaling errors are propogated as expected", func() {
 				expectedError := "unexpected end of JSON input"
 				expectedMsgID := "100"
 				expectedMsgBody := `{"Error":{"Data":{"Offset":1},"Message":"unexpected end of JSON input"},"ID":"100","Success":false}`
-				doErrTest(nil, false, emptyMessage, expectedMsgID, expectedMsgBody, expectedError)
-			})
-
-			Convey("missing handler errors are propogated as expected", func() {
-				expectedError := "missing handler for message"
-				expectedMsgID := "200"
-				expectedMsgBody := `{"Error":{"Data":{"MessageType":"test"},"Message":"missing handler for message"},"ID":"200","Success":false}`
-				doErrTest(nil, false, validMessage, expectedMsgID, expectedMsgBody, expectedError)
+				doErrTest(handlerFuncMock, false, emptyMessage, expectedMsgID, expectedMsgBody, expectedError)
 			})
 
 			Convey("handler errors are propogated as expected", func() {
@@ -307,19 +318,19 @@ func TestStart(t *testing.T) {
 				expectedError := "invalid clearsign block for message"
 				expectedMsgID := "300"
 				expectedMsgBody := `{"Error":{"Data":{"MessageID":"300"},"Message":"invalid clearsign block for message"},"ID":"300","Success":false}`
-				doErrTest(nil, false, unsignedMessage, expectedMsgID, expectedMsgBody, expectedError)
+				doErrTest(handlerFuncMock, false, unsignedMessage, expectedMsgID, expectedMsgBody, expectedError)
 			})
 
 			Convey("invalid signature errors are propogated as expected", func() {
 				expectedError := "openpgp: signature made by unknown entity"
 				expectedMsgID := "400"
 				expectedMsgBody := `{"Error":{"Data":0,"Message":"openpgp: signature made by unknown entity"},"ID":"400","Success":false}`
-				doErrTest(nil, false, invalidMessage, expectedMsgID, expectedMsgBody, expectedError)
+				doErrTest(handlerFuncMock, false, invalidMessage, expectedMsgID, expectedMsgBody, expectedError)
 			})
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueueNew: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlerFuncMock)
 					So(q, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
