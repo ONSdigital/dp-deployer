@@ -11,6 +11,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/handler/deployment"
 	"github.com/ONSdigital/dp-deployer/handler/secret"
+	"github.com/ONSdigital/dp-deployer/queue"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
@@ -76,13 +77,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	oldHandler, err := initHandlersOld(cfg, vc, deploymentsClient, secretsClient, nomadClient)
+	if err != nil {
+		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
+	e, err := engine.New(cfg, oldHandler)
+	if err != nil {
+		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
+
 	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
 		os.Exit(1)
 	}
 
-	e, err := engine.New(cfg, h)
+	q, err := queue.New(cfg, h)
 	if err != nil {
 		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
 		os.Exit(1)
@@ -102,6 +115,8 @@ func main() {
 
 	go func() {
 		e.Start(ctx)
+
+		q.Start(ctx)
 	}()
 
 	// Create and start http server for healthcheck
@@ -150,7 +165,7 @@ func main() {
 	}()
 }
 
-func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
+func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
 	d := deployment.New(cfg, deploymentsClient, nomadClient)
 
 	s, err := secret.New(cfg, vc, secretsClient)
@@ -162,6 +177,12 @@ func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient
 		"deployment": d.Handler,
 		"secret":     s.Handler,
 	}, nil
+}
+
+func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (queue.HandlerFunc, error) {
+	d := deployment.New(cfg, deploymentsClient, nomadClient)
+
+	return d.NewHandler, nil
 }
 
 func startHealthChecks(ctx context.Context, cfg *config.Configuration, vaultChecker *vault.Client, s3sChecker *s3client.S3, s3dChecker *s3client.S3, nomadClient *nomad.Client) (*healthcheck.HealthCheck, error) {
