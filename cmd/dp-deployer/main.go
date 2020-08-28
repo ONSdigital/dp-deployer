@@ -77,6 +77,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// TODO: remove once new queue implemented fully
 	oldHandler, err := initHandlersOld(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
 		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
@@ -113,9 +114,12 @@ func main() {
 	sigC := make(chan os.Signal)
 	signal.Notify(sigC, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 
+	// TODO: remove once new queue implemented fully
 	go func() {
 		e.Start(ctx)
+	}()
 
+	go func() {
 		q.Start(ctx)
 	}()
 
@@ -165,6 +169,7 @@ func main() {
 	}()
 }
 
+// TODO: remove once new queue implemented fully
 func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (map[string]engine.HandlerFunc, error) {
 	d := deployment.New(cfg, deploymentsClient, nomadClient)
 

@@ -24,6 +24,7 @@ type Groups struct {
 	HeapMemory      string `json:"heap_memory,omitempty"`
 }
 
+// Healthcheck represents the healthcheck config
 type Healthcheck struct {
 	Enabled bool   `json:"enabled,omitempty"`
 	Path    string `json:"path,omitempty"`
