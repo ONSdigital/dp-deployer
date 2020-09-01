@@ -189,7 +189,7 @@ func (q *Queue) handle(ctx context.Context, rawMsg *ssqs.Message) {
 			return
 		}
 
-		if err := q.handlers(ctx, config.Configuration{}, &queueMsg); err != nil {
+		if err := q.handlers(ctx, *q.config, &queueMsg); err != nil {
 			q.postHandle(ctx, rawMsg, err)
 			return
 		}
