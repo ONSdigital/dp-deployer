@@ -1,7 +1,9 @@
 Deploying apps
 ==============
 
-In order to deploy an app into an environment using dp-deployer an accompanying .yml file is needed. The .yml files to be used are the manifests in [dp-configs](https://github.com/ONSdigital/dp-configs/tree/master/manifests)
+TODO: Bring this documentation in lne with https://github.com/ONSdigital/dp-configs/blob/master/manifests/README.md
+
+In order to deploy an app into an environment using dp-deployer an accompanying .yml file is needed. The .yml files to be used are the manifests in [dp-configs](https://github.com/ONSdigital/dp-configs/tree/master/manifests). See zebedee-reader and dp-dataset-exporter manifest files for examples of Java and Go yml.
 
 Full Example .yml
 ------------
@@ -44,7 +46,7 @@ nomad:
       userns_mode: true
       volumes: "/var/babbage/site:/content:ro"
       distinct_hosts: true
-      mount: false
+      mount: true
       profiles:
         development:
           count: 2
@@ -94,14 +96,18 @@ The Full Example above is an example of all the variables that should go into th
 
 It's also important to state whether the app is a Java or a Golang app by using the variables `java` or `go` and set to true. See example above for a Java example and Golang will be the same.
 
+The table below contains all coonfigurable fields for the yml. If the value of the variable in the app matches the default value in the table **do not** add the variable to the yml.
+
 | Variable | Default Value | Description |
 |----------|---------------| -------------|
+| java     |  | Is the app written in Java? | 
+| go       |  | Is the app written in Golang? |
 | enabled  | true          | Does the app have a healthcheck?|
 | path     | "/health"       | Path for the healthcheck |
-| usersns_mode| false | |
-| volumes  |  |
-| distinct_hosts| false | |
-| mount |  | Does the app use a mount eg. web-mount  |
+| usersns_mode| false | Is usersns_mode set fot the app? |
+| volumes  |  | |
+| distinct_hosts| false | Does the app reqire a distinct host? |
+| mount | false | Does the app use a mount eg. web-mount  |
 | command_line_args | [ "./&lt;app-name&gt;" ] | What are the args used by nomad to run the app? |
 
 Nomad Mappings
