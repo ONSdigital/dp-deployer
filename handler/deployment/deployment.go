@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	infoURL		   	= "%s/v1/job/%s"
 	deploymentURL  	= "%s/v1/job/%s/deployments"
 	allocationsURL 	= "%s/v1/job/%s/allocations"
 	planURL        	= "%s/v1/job/%s/plan"
@@ -153,8 +154,25 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
 		return err
 	}
-	if err := d.deploymentSuccess(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
+	if err := d.deploymentSuccessCheck(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+	var jobInfo *api.Job
+	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
+		return err
+	}
+	if *jobInfo.Type == api.JobTypeSystem {
+		if err := d.systemDeploymentSuccess(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
+			return err
+		}
+	} else {
+		if err := d.serviceDeploymentSuccess(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
+			return err
+		}
 	}
 	return nil
 }
