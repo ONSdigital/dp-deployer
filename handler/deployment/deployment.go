@@ -165,8 +165,14 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
 		return err
 	}
-	if err := d.deploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
-		return err
+	if *job.Type == api.JobTypeSystem {
+		if err := d.systemDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
+			return err
+		}
+	} else {
+		if err := d.serviceDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
+			return err
+		}
 	}
 	return nil
 }
