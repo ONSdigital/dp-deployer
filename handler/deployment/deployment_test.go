@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"context"
+	"fmt"
+	"github.com/hashicorp/nomad/api"
 	"net/http"
 	"os"
 	"testing"
@@ -20,6 +22,8 @@ const nomadURL = "http://localhost:4646"
 
 var (
 	jobSuccess = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
+	serviceJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "service", "Version": 2}`
+	systemJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
 
 	otherDeployment      = `{"JobSpecModifyIndex": 1, "ID": "54321", "Status": "failed"}`
 	yetAnotherDeployment = `{"JobSpecModifyIndex": 2, "ID": "54321", "Status": "failed"}`
@@ -27,6 +31,12 @@ var (
 	deploymentSuccess = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "Status": "successful", "StatusDescription": "Deployment completed successfully"},` + yetAnotherDeployment + `]`
 	deploymentError   = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
 	deploymentRunning = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
+
+	emptyAllocations = `[]`
+	allocationsSuccess = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "running"}]`
+	allocationsPending = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending"}]`
+	allocationsOldVersion = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "running"}]`
+	allocationsError = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed"}]`
 
 	planErrors   = `{"FailedTGAllocs": { "test": {} } }`
 	planSuccess  = `{}`
@@ -99,7 +109,7 @@ func TestRun(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 
 			Convey("job api errors handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(500, "server error"))
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(500, "server error"))
 				dep := &Deployment{endpoint: nomadURL, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{Service: "test"})
 				So(err, ShouldNotBeNil)
@@ -107,39 +117,58 @@ func TestRun(t *testing.T) {
 				cancel()
 			})
 
-			Convey("deployment api errors handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", nomadURL+"/v1/job/test/deployments", httpmock.NewStringResponder(500, "server error"))
-				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+			Convey("job info api errors handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(500, "server error"))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
+				dep := &Deployment{endpoint: nomadURL, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{Service: serviceName})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "unexpected response from client")
 				cancel()
 			})
 
-			Convey("deployment failures handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", nomadURL+"/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentError))
+			Convey("deployment api errors handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "unexpected response from client")
+				cancel()
+			})
+
+			Convey("deployment api failures handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentError))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
 				cancel()
 			})
 
-			Convey("deployment timeouts handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", nomadURL+"/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentRunning))
+			Convey("service deployment timeouts handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentRunning))
 				dep := &Deployment{endpoint: nomadURL, timeout: shortTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
 				cancel()
 			})
 
-			Convey("deployment cancellation handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", nomadURL+"/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentRunning))
+			Convey("service deployment cancellation handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentRunning))
 				time.AfterFunc(time.Second*2, cancel)
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
@@ -147,11 +176,248 @@ func TestRun(t *testing.T) {
 				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
 			})
 
-			Convey("successful deployments handled correctly", func() {
-				httpmock.RegisterResponder("POST", nomadURL+"/v1/jobs", httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", nomadURL+"/v1/job/test/deployments", httpmock.NewStringResponder(200, deploymentSuccess))
+			Convey("successful service deployments handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentSuccess))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("allocations api errors handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "unexpected response from client")
+				cancel()
+			})
+
+			Convey("empty allocations api response handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, emptyAllocations))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+				cancel()
+			})
+
+			Convey("system deployment timeouts handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsPending))
+				dep := &Deployment{endpoint: nomadURL, timeout: shortTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
+				cancel()
+			})
+
+			Convey("system deployment cancellation handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsPending))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("system deployment failed allocation handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsError))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("system deployment old version persists handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsOldVersion))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("successful system deployments handled correctly", func() {
+				serviceName :="test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+		})
+	})
+}
+
+func TestRunNew(t *testing.T) {
+	withMocks(func() {
+		Convey("runNew functions as expected", t, func() {
+
+			ctx, cancel := context.WithCancel(context.Background())
+			jobID := "54321"
+			jobName := "test"
+			var jobVersion uint64 = 2
+
+			Convey("job api errors handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(500, "server error"))
+				dep := &Deployment{endpoint: nomadURL, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "unexpected response from client")
+				cancel()
+			})
+
+			Convey("deployment api errors handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, jobName), httpmock.NewStringResponder(500, "server error"))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "unexpected response from client")
+				cancel()
+			})
+
+			Convey("deployment api failures handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, jobName), httpmock.NewStringResponder(200, deploymentError))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+				cancel()
+			})
+
+			Convey("service deployment timeouts handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, jobName), httpmock.NewStringResponder(200, deploymentRunning))
+				dep := &Deployment{endpoint: nomadURL, timeout: shortTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
+				cancel()
+			})
+
+			Convey("service deployment cancellation handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, jobName), httpmock.NewStringResponder(200, deploymentRunning))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("successful service deployments handled correctly", func() {
+				jobType := "service"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, jobName), httpmock.NewStringResponder(200, deploymentSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("allocations api errors handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(500, "server error"))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "unexpected response from client")
+				cancel()
+			})
+
+			Convey("empty allocations api response handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, emptyAllocations))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+				cancel()
+			})
+
+			Convey("system deployment timeouts handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsPending))
+				dep := &Deployment{endpoint: nomadURL, timeout: shortTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
+				cancel()
+			})
+
+			Convey("system deployment cancellation handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsPending))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("system deployment failed allocation handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsError))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("system deployment old version persists handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsOldVersion))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
+			Convey("successful system deployments handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
 				So(err, ShouldBeNil)
 				cancel()
 			})
