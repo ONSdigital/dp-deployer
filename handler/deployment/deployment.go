@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	infoURL		   	= "%s/v1/job/%s"
+	infoURL	        = "%s/v1/job/%s"
 	deploymentURL  	= "%s/v1/job/%s/deployments"
 	allocationsURL 	= "%s/v1/job/%s/allocations"
 	planURL        	= "%s/v1/job/%s/plan"
