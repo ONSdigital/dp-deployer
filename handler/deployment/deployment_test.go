@@ -118,7 +118,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("job info api errors handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(500, "server error"))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
 				dep := &Deployment{endpoint: nomadURL, nomadClient: nomadClient}
@@ -129,7 +129,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("deployment api errors handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
@@ -141,7 +141,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("deployment api failures handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentError))
@@ -153,7 +153,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("service deployment timeouts handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentRunning))
@@ -165,7 +165,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("service deployment cancellation handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentRunning))
@@ -177,7 +177,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("successful service deployments handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, serviceJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(deploymentURL, nomadURL, serviceName), httpmock.NewStringResponder(200, deploymentSuccess))
@@ -188,7 +188,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("allocations api errors handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(500, "server error"))
@@ -200,7 +200,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("empty allocations api response handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, emptyAllocations))
@@ -212,7 +212,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("system deployment timeouts handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsPending))
@@ -224,7 +224,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("system deployment cancellation handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsPending))
@@ -236,7 +236,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("system deployment failed allocation handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsError))
@@ -248,7 +248,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("system deployment old version persists handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsOldVersion))
@@ -260,7 +260,7 @@ func TestRun(t *testing.T) {
 			})
 
 			Convey("successful system deployments handled correctly", func() {
-				serviceName :="test"
+				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsSuccess))
