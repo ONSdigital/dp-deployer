@@ -4,3 +4,4 @@ build
 /dp-deployer
 *.tar.gz
 dp-deployer.sh
+.idea/
