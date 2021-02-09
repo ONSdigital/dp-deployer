@@ -283,9 +283,8 @@ func (d *Deployment) systemDeploymentSuccess(ctx context.Context, correlationID,
 			if updateComplete {
 				log.Event(ctx, "deployment success", log.INFO, minLogData)
 				return nil
-			} else {
-				log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
 			}
+			log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
 		}
 	}
 }
