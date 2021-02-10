@@ -272,15 +272,14 @@ func (d *Deployment) systemDeploymentSuccess(ctx context.Context, correlationID,
 				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 			}
 
-			updateComplete := true
+			updatedAllocations := 0
 			for _, allocation := range allocations {
-				if allocation.JobVersion != jobVersion || allocation.ClientStatus != structs.AllocClientStatusRunning {
-					updateComplete = false
-					break
+				if allocation.JobVersion == jobVersion && allocation.ClientStatus == structs.AllocClientStatusRunning {
+					updatedAllocations += 1
 				}
 			}
 
-			if updateComplete {
+			if len(allocations) == updatedAllocations {
 				log.Event(ctx, "deployment success", log.INFO, minLogData)
 				return nil
 			}
