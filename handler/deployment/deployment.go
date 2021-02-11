@@ -25,9 +25,11 @@ import (
 )
 
 const (
-	deploymentURL = "%s/v1/job/%s/deployments"
-	planURL       = "%s/v1/job/%s/plan"
-	runURL        = "%s/v1/jobs"
+	infoURL	        = "%s/v1/job/%s"
+	deploymentURL  	= "%s/v1/job/%s/deployments"
+	allocationsURL 	= "%s/v1/job/%s/allocations"
+	planURL        	= "%s/v1/job/%s/plan"
+	runURL         	= "%s/v1/jobs"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -152,8 +154,25 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
 		return err
 	}
-	if err := d.deploymentSuccess(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
+	if err := d.deploymentSuccessCheck(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+	var jobInfo *api.Job
+	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
+		return err
+	}
+	if *jobInfo.Type == api.JobTypeSystem {
+		if err := d.systemDeploymentSuccess(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
+			return err
+		}
+	} else {
+		if err := d.serviceDeploymentSuccess(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -165,13 +184,19 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
 		return err
 	}
-	if err := d.deploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
-		return err
+	if *job.Type == api.JobTypeSystem {
+		if err := d.systemDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
+			return err
+		}
+	} else {
+		if err := d.serviceDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+func (d *Deployment) serviceDeploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
@@ -220,6 +245,45 @@ func (d *Deployment) deploymentSuccess(ctx context.Context, correlationID, evalu
 			} else {
 				log.Event(ctx, "deployment not found - will re-test", log.WARN, minLogData)
 			}
+		}
+	}
+}
+
+func (d *Deployment) systemDeploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
+	ticker := time.Tick(time.Second * 1)
+	timeout := time.After(d.timeout)
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Event(ctx, "bailing on deployment status", log.ERROR, minLogData)
+			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+		case <-timeout:
+			return &TimeoutError{Action: "deployment"}
+		case <-ticker:
+			var allocations []api.AllocationListStub
+			if err := d.get(fmt.Sprintf(allocationsURL, d.endpoint, jobID), &allocations); err != nil {
+				return err
+			}
+
+			if len(allocations) == 0 {
+				log.Event(ctx, "deployment failed - no allocations", log.ERROR, minLogData)
+				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+			}
+
+			updatedAllocations := 0
+			for _, allocation := range allocations {
+				if allocation.JobVersion == jobVersion && allocation.ClientStatus == structs.AllocClientStatusRunning {
+					updatedAllocations += 1
+				}
+			}
+
+			if len(allocations) == updatedAllocations {
+				log.Event(ctx, "deployment success", log.INFO, minLogData)
+				return nil
+			}
+			log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
 		}
 	}
 }
