@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	infoURL	        = "%s/v1/job/%s"
-	deploymentURL  	= "%s/v1/job/%s/deployments"
-	allocationsURL 	= "%s/v1/job/%s/allocations"
-	planURL        	= "%s/v1/job/%s/plan"
-	runURL         	= "%s/v1/jobs"
+	infoURL        = "%s/v1/job/%s"
+	deploymentURL  = "%s/v1/job/%s/deployments"
+	allocationsURL = "%s/v1/job/%s/allocations"
+	planURL        = "%s/v1/job/%s/plan"
+	runURL         = "%s/v1/jobs"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -272,16 +272,30 @@ func (d *Deployment) systemDeploymentSuccess(ctx context.Context, correlationID,
 				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 			}
 
-			updatedAllocations := 0
+			desiredStopIsRunning := false
+			var desiredAllocations []api.AllocationListStub
 			for _, allocation := range allocations {
-				if allocation.JobVersion == jobVersion && allocation.ClientStatus == structs.AllocClientStatusRunning {
-					updatedAllocations += 1
+				if allocation.DesiredStatus == structs.AllocDesiredStatusRun {
+					desiredAllocations = append(desiredAllocations, allocation)
+				} else if allocation.DesiredStatus != structs.AllocDesiredStatusRun &&
+					allocation.ClientStatus == structs.AllocClientStatusRunning {
+					desiredStopIsRunning = true
+					break
 				}
 			}
 
-			if len(allocations) == updatedAllocations {
-				log.Event(ctx, "deployment success", log.INFO, minLogData)
-				return nil
+			if !desiredStopIsRunning {
+				updatedAllocations := 0
+				for _, allocation := range desiredAllocations {
+					if allocation.JobVersion == jobVersion && allocation.ClientStatus == structs.AllocClientStatusRunning {
+						updatedAllocations += 1
+					}
+				}
+
+				if len(desiredAllocations) == updatedAllocations {
+					log.Event(ctx, "deployment success", log.INFO, minLogData)
+					return nil
+				}
 			}
 			log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
 		}
