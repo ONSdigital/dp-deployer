@@ -33,10 +33,14 @@ var (
 	deploymentRunning = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
 
 	emptyAllocations = `[]`
-	allocationsSuccess = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "running"}]`
-	allocationsPending = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending"}]`
-	allocationsOldVersion = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "running"}]`
-	allocationsError = `[{"ID": "54321", "JobVersion": 2, "ClientStatus": "running"}, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed"}]`
+	anAllocation = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	anotherAllocation = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	allocationsSuccess = `[` + anAllocation + `, ` + anotherAllocation + `]`
+	allocationsPending = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
+	allocationsOldVersion = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
+	allocationsError = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
+	allocationsStopIsRunning = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "stop"}]`
+	allocationsStopIsStopped = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "complete", "DesiredStatus": "stop"}]`
 
 	planErrors   = `{"FailedTGAllocs": { "test": {} } }`
 	planSuccess  = `{}`
@@ -259,11 +263,34 @@ func TestRun(t *testing.T) {
 				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
 			})
 
+			Convey("system deployment allocation desired 'stop' still running handled correctly", func() {
+				serviceName := "test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsStopIsRunning))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
 			Convey("successful system deployments handled correctly", func() {
 				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("successful system deployments with allocation desired 'stop' stopped handled correctly", func() {
+				serviceName := "test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, systemJobInfoSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsStopIsStopped))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldBeNil)
@@ -412,10 +439,31 @@ func TestRunNew(t *testing.T) {
 				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
 			})
 
+			Convey("system deployment allocation desired 'stop' still running handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsStopIsRunning))
+				time.AfterFunc(time.Second*2, cancel)
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldNotBeNil)
+				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
+			})
+
 			Convey("successful system deployments handled correctly", func() {
 				jobType := "system"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("successful system deployments with allocation desired 'stop' stopped handled correctly", func() {
+				jobType := "system"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsStopIsStopped))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
 				So(err, ShouldBeNil)
