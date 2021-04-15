@@ -160,17 +160,22 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	return nil
 }
 
+// TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
 	var jobInfo *api.Job
 	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
 		return err
 	}
 	if *jobInfo.Type == api.JobTypeSystem {
-		if err := d.systemDeploymentSuccess(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
+		if err := d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
+			return err
+		}
+	} else if *jobInfo.Type == api.JobTypeBatch {
+		if err := d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
 			return err
 		}
 	} else {
-		if err := d.serviceDeploymentSuccess(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
+		if err := d.successCheckByDeployment(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
 			return err
 		}
 	}
@@ -185,18 +190,22 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 		return err
 	}
 	if *job.Type == api.JobTypeSystem {
-		if err := d.systemDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
+		if err := d.successCheckByAllocations(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
+			return err
+		}
+	} else if *job.Type == api.JobTypeBatch {
+		if err := d.successCheckByAllocations(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
 			return err
 		}
 	} else {
-		if err := d.serviceDeploymentSuccess(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
+		if err := d.successCheckByDeployment(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (d *Deployment) serviceDeploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
@@ -249,7 +258,7 @@ func (d *Deployment) serviceDeploymentSuccess(ctx context.Context, correlationID
 	}
 }
 
-func (d *Deployment) systemDeploymentSuccess(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
+func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
 	ticker := time.Tick(time.Second * 1)
 	timeout := time.After(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
