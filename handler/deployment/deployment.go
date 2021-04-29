@@ -166,11 +166,7 @@ func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, 
 	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
 		return err
 	}
-	if *jobInfo.Type == api.JobTypeSystem {
-		if err := d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
-			return err
-		}
-	} else if *jobInfo.Type == api.JobTypeBatch {
+	if *jobInfo.Type == api.JobTypeSystem || *jobInfo.Type == api.JobTypeBatch {
 		if err := d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
 			return err
 		}
@@ -189,11 +185,7 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
 		return err
 	}
-	if *job.Type == api.JobTypeSystem {
-		if err := d.successCheckByAllocations(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
-			return err
-		}
-	} else if *job.Type == api.JobTypeBatch {
+	if *job.Type == api.JobTypeSystem || *job.Type == api.JobTypeBatch {
 		if err := d.successCheckByAllocations(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
 			return err
 		}
