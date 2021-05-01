@@ -81,6 +81,9 @@ func createTaskGroup(ctx context.Context, cfg *config.Configuration, name string
 		constraints = append(constraints, &constraint1)
 	}
 
+	if details.Mount {
+		groupName = groupName + "-mount"
+	}
 	constraint2 := createConstraint(groupName, false)
 	constraints = append(constraints, &constraint2)
 
