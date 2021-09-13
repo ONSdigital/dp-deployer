@@ -2,10 +2,7 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.13
 
-replace (
-	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	github.com/hashicorp/nomad => github.com/hashicorp/nomad v1.0.10
-)
+replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.0.4
@@ -16,11 +13,11 @@ require (
 	github.com/ONSdigital/dp-vault v1.1.1
 	github.com/ONSdigital/go-ns v0.0.0-20200205115900-a11716f93bad
 	github.com/ONSdigital/log.go v1.0.0
-	github.com/aws/aws-sdk-go v1.35.3
+	github.com/aws/aws-sdk-go v1.38.20
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8
 	github.com/gorilla/mux v1.7.4
-	github.com/hashicorp/nomad v0.0.0-00010101000000-000000000000
+	github.com/hashicorp/nomad v1.1.4
 	github.com/hashicorp/nomad/api v0.0.0-20210910134105-b2b9013e524c
 	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0
