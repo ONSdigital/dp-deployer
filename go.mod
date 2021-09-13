@@ -2,7 +2,11 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.13
 
-replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+replace (
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.14
+	github.com/spf13/viper => github.com/spf13/viper v1.8.1
+)
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.0.4
@@ -25,5 +29,5 @@ require (
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 )
