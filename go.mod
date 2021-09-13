@@ -2,7 +2,10 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.13
 
-replace github.com/hashicorp/nomad => github.com/hashicorp/nomad v1.0.10
+replace (
+	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
+	github.com/hashicorp/nomad => github.com/hashicorp/nomad v1.0.10
+)
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.0.4
