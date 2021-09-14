@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,7 +18,7 @@ import (
 	job "github.com/ONSdigital/dp-deployer/nomad"
 	"github.com/ONSdigital/dp-deployer/s3"
 	nomad "github.com/ONSdigital/dp-nomad"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -98,12 +99,12 @@ func (d *Deployment) NewHandler(ctx context.Context, cfg config.Configuration, m
 
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
-	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
+	log.Info(ctx, "planning job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobPlanResponse
 	jFormat, err := d.jsonFormat(msg)
 	if err != nil {
-		log.Event(ctx, "Error formatting to json", log.Error(err))
+		log.Error(ctx, "Error formatting to json", err)
 	}
 
 	if err := d.post(fmt.Sprintf(planURL, d.endpoint, msg.Service), jFormat, &res); err != nil {
@@ -123,7 +124,7 @@ func (d *Deployment) plan(ctx context.Context, msg *engine.Message) error {
 }
 
 func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
-	log.Event(ctx, "planning job", log.INFO, log.Data{"msg": job, "service": job.Name})
+	log.Info(ctx, "planning job", log.Data{"msg": job, "service": job.Name})
 
 	var res api.JobPlanResponse
 	if err := d.post(fmt.Sprintf(planURL, d.endpoint, *job.Name), job.Payload, &res); err != nil {
@@ -144,12 +145,12 @@ func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
 
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
-	log.Event(ctx, "running job", log.INFO, log.Data{"msg": msg, "service": msg.Service})
+	log.Info(ctx, "running job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
 	jsonFormat, err := d.jsonFormat(msg)
 	if err != nil {
-		log.Event(ctx, "Error formatting to json", log.Error(err))
+		log.Error(ctx, "Error formatting to json", err)
 	}
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
 		return err
@@ -179,7 +180,7 @@ func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, 
 }
 
 func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
-	log.Event(ctx, "running job", log.INFO, log.Data{"msg": job, "service": job.Name})
+	log.Info(ctx, "running job", log.Data{"msg": job, "service": job.Name})
 
 	var res api.JobRegisterResponse
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
@@ -205,7 +206,7 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 	for {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "bailing on deployment status", log.ERROR, minLogData)
+			log.Error(ctx, "bailing on deployment status", errors.New("bailing on deployment status"), minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout:
 			return &TimeoutError{Action: "deployment"}
@@ -230,21 +231,21 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 
 				switch deployment.Status {
 				case structs.DeploymentStatusSuccessful:
-					log.Event(ctx, "deployment success", log.INFO, logData)
+					log.Info(ctx, "deployment success", logData)
 					return nil
 				case structs.DeploymentStatusFailed,
 					structs.DeploymentStatusCancelled:
 
-					log.Event(ctx, "deployment failed", log.ERROR, logData)
+					log.Error(ctx, "deployment failed", errors.New("deployment failed"), logData)
 					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 				}
 				foundJobByIndex = true
 				break
 			}
 			if foundJobByIndex {
-				log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
+				log.Warn(ctx, "deployment incomplete - will re-test", minLogData)
 			} else {
-				log.Event(ctx, "deployment not found - will re-test", log.WARN, minLogData)
+				log.Warn(ctx, "deployment not found - will re-test", minLogData)
 			}
 		}
 	}
@@ -258,7 +259,7 @@ func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationI
 	for {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "bailing on deployment status", log.ERROR, minLogData)
+			log.Error(ctx, "bailing on deployment status", errors.New("bailing on deployment status"), minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout:
 			return &TimeoutError{Action: "deployment"}
@@ -269,7 +270,7 @@ func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationI
 			}
 
 			if len(allocations) == 0 {
-				log.Event(ctx, "deployment failed - no allocations", log.ERROR, minLogData)
+				log.Error(ctx, "deployment failed - no allocations", errors.New("deployment failed - no allocations"), minLogData)
 				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 			}
 
@@ -294,11 +295,11 @@ func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationI
 				}
 
 				if len(desiredAllocations) == updatedAllocations {
-					log.Event(ctx, "deployment success", log.INFO, minLogData)
+					log.Info(ctx, "deployment success", minLogData)
 					return nil
 				}
 			}
-			log.Event(ctx, "deployment incomplete - will re-test", log.WARN, minLogData)
+			log.Warn(ctx, "deployment incomplete - will re-test", minLogData)
 		}
 	}
 }

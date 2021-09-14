@@ -3,6 +3,7 @@ package secret
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,7 +17,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/s3"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // AbortedError is an error implementation that includes the id of the aborted message.
@@ -54,7 +55,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 	for _, artifact := range msg.Artifacts {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "bailing on updating secrets", log.ERROR)
+			log.Error(ctx, "bailing on updating secrets", errors.New("bailing on updating secrets"))
 			return &AbortedError{ID: msg.ID}
 		default:
 			b, _, err := s.s3Client.Get(artifact)
@@ -65,7 +66,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			if err != nil {
 				return err
 			}
-			log.Event(ctx, "writing secret", log.INFO, log.Data{"artifact": artifact})
+			log.Info(ctx, "writing secret", log.Data{"artifact": artifact})
 			if err := s.write(pathFor(artifact), d); err != nil {
 				return err
 			}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // CreateJob Creates the Nomad job structure for an application deployment
@@ -68,7 +68,7 @@ func createTaskGroup(ctx context.Context, cfg *config.Configuration, name string
 
 	if groupName != "web" && groupName != "publishing" {
 		err := errors.New("Not a valid group name")
-		log.Event(ctx, err.Error(), log.ERROR, log.Data{"group_name": groupName})
+		log.Error(ctx, "Not a valid group name", err, log.Data{"group_name": groupName})
 		return nil, err
 	}
 

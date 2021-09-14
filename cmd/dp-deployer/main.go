@@ -17,7 +17,7 @@ import (
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
 	"github.com/ONSdigital/go-ns/server"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 )
@@ -39,17 +39,17 @@ func main() {
 
 	cfg, err := config.Get()
 	if err != nil {
-		log.Event(ctx, "Failed to initialise config", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "Failed to initialise config", err)
 		os.Exit(1)
 	}
 
-	log.Event(ctx, "config on startup", log.INFO, log.Data{"config": cfg})
+	log.Info(ctx, "config on startup", log.Data{"config": cfg})
 
 	// Create vault client
 	var vc *vault.Client
 	vc, err = vault.CreateClient(cfg.VaultToken, cfg.VaultAddr, 3)
 	if err != nil {
-		log.Event(ctx, "error creating vault client", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "error creating vault client", err)
 		os.Exit(1)
 	}
 
@@ -57,7 +57,7 @@ func main() {
 	var secretsClient *s3client.S3
 	secretsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
 	if err != nil {
-		log.Event(ctx, "error creating S3 secrets client", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "error creating S3 secrets client", err)
 		os.Exit(1)
 	}
 
@@ -65,7 +65,7 @@ func main() {
 	var deploymentsClient *s3client.S3
 	deploymentsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
 	if err != nil {
-		log.Event(ctx, "error creating S3 deployments client", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "error creating S3 deployments client", err)
 		os.Exit(1)
 	}
 
@@ -73,38 +73,38 @@ func main() {
 	var nomadClient *nomad.Client
 	nomadClient, err = nomad.NewClient(cfg.NomadEndpoint, cfg.NomadCACert, cfg.NomadTLSSkipVerify)
 	if err != nil {
-		log.Event(ctx, "error creating nomad client", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "error creating nomad client", err)
 		os.Exit(1)
 	}
 
 	// TODO: remove once new queue implemented fully
 	oldHandler, err := initHandlersOld(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
-		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "failed to initialise handlers", err)
 		os.Exit(1)
 	}
 
 	e, err := engine.New(cfg, oldHandler)
 	if err != nil {
-		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)
 	}
 
 	h, err := initHandlers(cfg, vc, deploymentsClient, secretsClient, nomadClient)
 	if err != nil {
-		log.Event(ctx, "failed to initialise handlers", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "failed to initialise handlers", err)
 		os.Exit(1)
 	}
 
 	q, err := queue.New(cfg, h)
 	if err != nil {
-		log.Event(ctx, "failed to create engine", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)
 	}
 
 	hc, err := startHealthChecks(ctx, cfg, vc, secretsClient, deploymentsClient, nomadClient)
 	if err != nil {
-		log.Event(ctx, "failed to start healthchecks", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "failed to start healthchecks", err)
 		os.Exit(1)
 	}
 
@@ -127,30 +127,30 @@ func main() {
 	httpServer := server.New(cfg.BindAddr, r)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Event(ctx, "error starting http server", log.Error(err))
+			log.Error(ctx, "error starting http server", err)
 			cancel()
 		}
 	}()
 
 	select {
 	case sig := <-sigC:
-		log.Event(ctx, "received exit signal", log.ERROR, log.Data{"signal": sig})
+		log.Error(ctx, "received exit signal", errors.New("received exit signal"), log.Data{"signal": sig})
 		cancel()
 	case <-ctx.Done():
-		log.Event(ctx, "context done", log.INFO)
+		log.Info(ctx, "context done")
 	}
 
-	log.Event(ctx, "shutdown with timeout:", log.INFO, log.Data{"Timeout": cfg.GracefulShutdownTimeout})
+	log.Info(ctx, "shutdown with timeout:", log.Data{"Timeout": cfg.GracefulShutdownTimeout})
 	shutdownContext, cancel := context.WithTimeout(context.Background(), cfg.GracefulShutdownTimeout)
 
 	go func() {
 
 		// Shutdown HTTP server
-		log.Event(shutdownContext, "closing http server", log.INFO)
+		log.Info(shutdownContext, "closing http server")
 		if err := httpServer.Shutdown(ctx); err != nil {
-			log.Event(shutdownContext, "failed to gracefully close http server", log.ERROR, log.Error(err))
+			log.Error(shutdownContext, "failed to gracefully close http server", err)
 		}
-		log.Event(ctx, "http server gracefully closed ", log.INFO)
+		log.Info(ctx, "http server gracefully closed ")
 
 		// Stop healthcheck
 		hc.Stop()
@@ -159,10 +159,10 @@ func main() {
 
 		<-shutdownContext.Done()
 		if shutdownContext.Err() == context.DeadlineExceeded {
-			log.Event(shutdownContext, "shutdown timeout", log.ERROR, log.Error(shutdownContext.Err()))
+			log.Error(shutdownContext, "shutdown timeout", shutdownContext.Err())
 			os.Exit(1)
 		} else {
-			log.Event(shutdownContext, "done shutdown gracefully", log.ERROR, log.Data{"context": shutdownContext.Err()})
+			log.Error(shutdownContext, "done shutdown gracefully", errors.New("done shutdown gracefully"), log.Data{"context": shutdownContext.Err()})
 			os.Exit(0)
 		}
 

@@ -15,7 +15,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/cenkalti/backoff"
 	"github.com/goamz/goamz/aws"
 	"github.com/goamz/goamz/sqs"
@@ -40,7 +40,7 @@ var BackoffStrategy = func() backoff.BackOff {
 
 // ErrHandler is the handler function applied to an error.
 var ErrHandler = func(ctx context.Context, event string, err error) {
-	log.Event(ctx, event, log.ERROR, log.Error(err))
+	log.Error(ctx, event, err)
 }
 
 // Engine represents an engine.
@@ -139,9 +139,9 @@ func (e *Engine) Start(ctx context.Context) {
 
 // Close ssqs queue
 func (e *Engine) Close() {
-	log.Event(nil, "halting consumer", log.INFO)
+	log.Info(context.Background(), "halting consumer")
 	e.consumer.Close()
-	log.Event(nil, "waiting for handlers", log.INFO)
+	log.Info(context.Background(), "waiting for handlers")
 	e.wg.Wait()
 }
 
