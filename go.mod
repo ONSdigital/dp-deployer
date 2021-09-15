@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-deployer
 
-go 1.13
+go 1.16
 
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
