@@ -4,7 +4,7 @@ go 1.16
 
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.14
+	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.15
 	github.com/spf13/viper => github.com/spf13/viper v1.8.1
 	github.com/ulikunitz/xz => github.com/ulikunitz/xz v0.5.10
 	k8s.io/api => k8s.io/api v0.0.0-20190325185214-7544f9db76f6
