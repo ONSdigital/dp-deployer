@@ -30,7 +30,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.1
 	k8s.io/kubectl => k8s.io/kubectl v0.22.1
 	k8s.io/kubelet => k8s.io/kubelet v0.22.1
-	k8s.io/kubernetes => k8s.io/kubernetes v1.22.1
+	k8s.io/kubernetes => k8s.io/kubernetes v1.22.2
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.1
 	k8s.io/metrics => k8s.io/metrics v0.22.1
 	k8s.io/mount-utils => k8s.io/mount-utils v0.22.1
@@ -62,4 +62,5 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	k8s.io/kubernetes v1.22.2 // indirect
 )
