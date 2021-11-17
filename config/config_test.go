@@ -22,6 +22,7 @@ func TestSpec(t *testing.T) {
 				So(cfg.ConsumerQueue, ShouldEqual, "")
 				So(cfg.ConsumerQueueURL, ShouldEqual, "")
 				So(cfg.ProducerQueue, ShouldEqual, "")
+				So(cfg.ProducerQueueURL, ShouldEqual, "")
 				So(cfg.VerificationKey, ShouldEqual, "")
 				So(cfg.DeploymentRoot, ShouldEqual, "")
 				So(cfg.NomadEndpoint, ShouldEqual, "http://localhost:4646")

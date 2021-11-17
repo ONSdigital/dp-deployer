@@ -238,6 +238,13 @@ func (q *Queue) reply(res *response) func() error {
 }
 
 func (q *Queue) sendMessage(body string) error {
+	if q.config.ProducerQueueURL!= "" {
+		pq := q.producer.QueueFromArn(q.config.ProducerQueueURL)
+		if _, err := pq.SendMessage(body); err != nil {
+			return err
+		}
+		return nil
+	}
 	pq, err := q.producer.GetQueue(q.config.ProducerQueue)
 	if err != nil {
 		return err

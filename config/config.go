@@ -12,6 +12,7 @@ type Configuration struct {
 	ConsumerQueue              string        `envconfig:"CONSUMER_QUEUE"`
 	ConsumerQueueURL           string        `envconfig:"CONSUMER_QUEUE_URL"`
 	ProducerQueue              string        `envconfig:"PRODUCER_QUEUE"`
+	ProducerQueueURL             string        `envconfig:"PRODUCER_QUEUE_URL"`
 	VerificationKey            string        `envconfig:"VERIFICATION_KEY" json:"-"`
 	DeploymentRoot             string        `envconfig:"DEPLOYMENT_ROOT"`
 	NomadEndpoint              string        `envconfig:"NOMAD_ENDPOINT"`
@@ -47,6 +48,7 @@ func Get() (*Configuration, error) {
 		ConsumerQueue:              "",
 		ConsumerQueueURL:           "",
 		ProducerQueue:              "",
+		ProducerQueueURL:           "",
 		VerificationKey:            "",
 		DeploymentRoot:             "",
 		NomadEndpoint:              "http://localhost:4646",
