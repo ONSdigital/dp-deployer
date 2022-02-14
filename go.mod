@@ -2,9 +2,12 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.16
 
+// This is to avoid vulnerability in v0.8.7 coming from github.com/hashicorp/nomad
+replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.20
+
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.15
+	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.19
 	github.com/spf13/viper => github.com/spf13/viper v1.8.1
 	github.com/ulikunitz/xz => github.com/ulikunitz/xz v0.5.10
 	k8s.io/api => k8s.io/api v0.0.0-20190325185214-7544f9db76f6
@@ -30,7 +33,7 @@ replace (
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.22.1
 	k8s.io/kubectl => k8s.io/kubectl v0.22.1
 	k8s.io/kubelet => k8s.io/kubelet v0.22.1
-	k8s.io/kubernetes => k8s.io/kubernetes v1.22.2
+	k8s.io/kubernetes => k8s.io/kubernetes v1.22.6
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.22.1
 	k8s.io/metrics => k8s.io/metrics v0.22.1
 	k8s.io/mount-utils => k8s.io/mount-utils v0.22.1
@@ -53,7 +56,7 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8
 	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/nomad v1.1.4
+	github.com/hashicorp/nomad v1.1.6
 	github.com/hashicorp/nomad/api v0.0.0-20210902134234-9ba1a2fba7d6
 	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -62,5 +65,4 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
-	k8s.io/kubernetes v1.22.2 // indirect
 )
