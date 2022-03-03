@@ -7,7 +7,7 @@ replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.20
 
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	github.com/hashicorp/consul => github.com/hashicorp/consul v1.8.19
+	github.com/hashicorp/consul => github.com/hashicorp/consul v1.11.4
 	github.com/spf13/viper => github.com/spf13/viper v1.8.1
 	github.com/ulikunitz/xz => github.com/ulikunitz/xz v0.5.10
 	k8s.io/api => k8s.io/api v0.0.0-20190325185214-7544f9db76f6
@@ -52,11 +52,11 @@ require (
 	github.com/ONSdigital/dp-vault v1.1.1
 	github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e
 	github.com/ONSdigital/log.go/v2 v2.0.9
-	github.com/aws/aws-sdk-go v1.38.49
+	github.com/aws/aws-sdk-go v1.42.6
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8
 	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/nomad v1.1.6
+	github.com/hashicorp/nomad v1.2.6
 	github.com/hashicorp/nomad/api v0.0.0-20210902134234-9ba1a2fba7d6
 	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -64,5 +64,5 @@ require (
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
