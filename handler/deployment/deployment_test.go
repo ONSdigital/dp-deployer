@@ -3,11 +3,12 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/nomad/api"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/nomad/api"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -21,10 +22,10 @@ import (
 const nomadURL = "http://localhost:4646"
 
 var (
-	jobSuccess = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
+	jobSuccess            = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
 	serviceJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "service", "Version": 2}`
-	systemJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
-	batchJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	systemJobInfoSuccess  = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	batchJobInfoSuccess   = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
 
 	otherDeployment      = `{"JobSpecModifyIndex": 1, "ID": "54321", "Status": "failed"}`
 	yetAnotherDeployment = `{"JobSpecModifyIndex": 2, "ID": "54321", "Status": "failed"}`
@@ -33,13 +34,13 @@ var (
 	deploymentError   = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
 	deploymentRunning = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
 
-	emptyAllocations = `[]`
-	anAllocation = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
-	anotherAllocation = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
-	allocationsSuccess = `[` + anAllocation + `, ` + anotherAllocation + `]`
-	allocationsPending = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
-	allocationsOldVersion = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
-	allocationsError = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
+	emptyAllocations         = `[]`
+	anAllocation             = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	anotherAllocation        = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	allocationsSuccess       = `[` + anAllocation + `, ` + anotherAllocation + `]`
+	allocationsPending       = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
+	allocationsOldVersion    = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
+	allocationsError         = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
 	allocationsStopIsRunning = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "stop"}]`
 	allocationsStopIsStopped = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "complete", "DesiredStatus": "stop"}]`
 
