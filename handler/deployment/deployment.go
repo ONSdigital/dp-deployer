@@ -199,7 +199,8 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 }
 
 func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
-	ticker := time.Tick(time.Second * 1)
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
 	timeout := time.NewTimer(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
 
@@ -215,7 +216,7 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout.C:
 			return &TimeoutError{Action: "deployment"}
-		case <-ticker:
+		case <-ticker.C:
 			var deployments []api.Deployment
 			if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, jobID), &deployments); err != nil {
 				// Ensure timer is stopped and its resources are freed
@@ -272,7 +273,8 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 }
 
 func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
-	ticker := time.Tick(time.Second * 1)
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
 	timeout := time.NewTimer(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
 
@@ -288,7 +290,7 @@ func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationI
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 		case <-timeout.C:
 			return &TimeoutError{Action: "deployment"}
-		case <-ticker:
+		case <-ticker.C:
 			var allocations []api.AllocationListStub
 			if err := d.get(fmt.Sprintf(allocationsURL, d.endpoint, jobID), &allocations); err != nil {
 				// Ensure timer is stopped and its resources are freed
