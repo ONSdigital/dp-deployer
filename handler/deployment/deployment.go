@@ -359,6 +359,7 @@ func jsonFromFile(jobPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	patchJob(p)
 	j, err := json.Marshal(payload{p})
 	if err != nil {
 		return nil, err
@@ -371,6 +372,38 @@ func (d *Deployment) jsonFormat(msg *engine.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return j, nil
+}
+
+const (
+	wPatchFrom = "web_cantabular"
+	wPatchTo   = "web"
+	pPatchFrom = "publishing_cantabular"
+	pPatchTo   = "publishing"
+)
+
+// patchJob is a temporary development stage function to point the new ASG names
+// back at the existing ASG's for 'dp-cantabular-api-ext' nomad jobs.
+// TODO Its existence and use is to ultimately be removed after new ASG for cantabular is
+// all working.
+func patchJob(p *api.Job) {
+	for i, _ := range p.TaskGroups {
+		if *p.TaskGroups[i].Name == wPatchFrom {
+			*p.TaskGroups[i].Name = wPatchTo
+		} else if *p.TaskGroups[i].Name == pPatchFrom {
+			*p.TaskGroups[i].Name = pPatchTo
+		}
+
+		if p.TaskGroups[i].Constraints[0].RTarget == wPatchFrom {
+			p.TaskGroups[i].Constraints[0].RTarget = wPatchTo
+		} else if p.TaskGroups[i].Constraints[0].RTarget == pPatchFrom {
+			p.TaskGroups[i].Constraints[0].RTarget = pPatchTo
+		}
+
+		if p.TaskGroups[i].Tasks[0].Services[0].Tags[0] == wPatchFrom {
+			p.TaskGroups[i].Tasks[0].Services[0].Tags[0] = wPatchTo
+		} else if p.TaskGroups[i].Tasks[0].Services[0].Tags[0] == pPatchFrom {
+			p.TaskGroups[i].Tasks[0].Services[0].Tags[0] = pPatchTo
+		}
+	}
 }

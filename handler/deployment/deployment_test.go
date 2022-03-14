@@ -3,11 +3,15 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/nomad/api"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/nomad/api"
+	"github.com/hashicorp/nomad/jobspec"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -21,10 +25,10 @@ import (
 const nomadURL = "http://localhost:4646"
 
 var (
-	jobSuccess = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
+	jobSuccess            = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
 	serviceJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "service", "Version": 2}`
-	systemJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
-	batchJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	systemJobInfoSuccess  = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	batchJobInfoSuccess   = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
 
 	otherDeployment      = `{"JobSpecModifyIndex": 1, "ID": "54321", "Status": "failed"}`
 	yetAnotherDeployment = `{"JobSpecModifyIndex": 2, "ID": "54321", "Status": "failed"}`
@@ -33,13 +37,13 @@ var (
 	deploymentError   = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "failed"},` + yetAnotherDeployment + `]`
 	deploymentRunning = `[` + otherDeployment + `,{"JobSpecModifyIndex": 99, "ID": "54321", "Status": "running"},` + yetAnotherDeployment + `]`
 
-	emptyAllocations = `[]`
-	anAllocation = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
-	anotherAllocation = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
-	allocationsSuccess = `[` + anAllocation + `, ` + anotherAllocation + `]`
-	allocationsPending = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
-	allocationsOldVersion = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
-	allocationsError = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
+	emptyAllocations         = `[]`
+	anAllocation             = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	anotherAllocation        = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
+	allocationsSuccess       = `[` + anAllocation + `, ` + anotherAllocation + `]`
+	allocationsPending       = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
+	allocationsOldVersion    = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
+	allocationsError         = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
 	allocationsStopIsRunning = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "stop"}]`
 	allocationsStopIsStopped = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "complete", "DesiredStatus": "stop"}]`
 
@@ -707,3 +711,305 @@ func withMocks(f func()) {
 	jsonFrom = func(string) ([]byte, error) { return nil, nil }
 	f()
 }
+
+func TestPatchJob(t *testing.T) {
+	Convey("run functions as expected", t, func() {
+		Convey("Given a job with no patches needed, then no changes are seen", func() {
+			f := strings.NewReader(nomadJobNoPatchNeeded)
+			p, err := jobspec.Parse(f)
+			So(err, ShouldBeNil)
+
+			patchJob(p)
+
+			fWant := strings.NewReader(nomadJobNoPatchNeeded)
+			pWant, err := jobspec.Parse(fWant)
+			// check nothing in the job jas been changed
+			So(reflect.DeepEqual(p, pWant), ShouldBeTrue)
+		})
+
+		Convey("Given a job with patches needed, then expected changes are seen", func() {
+			f := strings.NewReader(nomadJobPatchNeeded)
+			p, err := jobspec.Parse(f)
+			So(err, ShouldBeNil)
+
+			patchJob(p)
+
+			So(*p.TaskGroups[0].Name, ShouldEqual, wPatchTo)
+			So(p.TaskGroups[0].Constraints[0].RTarget, ShouldEqual, wPatchTo)
+			So(p.TaskGroups[0].Tasks[0].Services[0].Tags[0], ShouldEqual, wPatchTo)
+
+			So(*p.TaskGroups[1].Name, ShouldEqual, pPatchTo)
+			So(p.TaskGroups[1].Constraints[0].RTarget, ShouldEqual, pPatchTo)
+			So(p.TaskGroups[1].Tasks[0].Services[0].Tags[0], ShouldEqual, pPatchTo)
+		})
+	})
+}
+
+var nomadJobNoPatchNeeded string = `job "dp-cantabular-api-ext" {
+	datacenters = ["eu-west-1"]
+	region      = "eu"
+	type        = "service"
+	
+	update {
+	  stagger          = "60s"
+	  min_healthy_time = "30s"
+	  healthy_deadline = "2m"
+	  max_parallel     = 1
+	  auto_revert      = true
+	}
+  
+	group "web" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "web"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-web" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["web"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-web"]
+		}
+	  }
+	}
+  
+	group "publishing" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "publishing"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-publishing" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["publishing"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-publishing"]
+		}
+	  }
+	}
+  }`
+
+// the following contains fields of 'web_cantabular' or 'publishing_cantabular' for patching
+var nomadJobPatchNeeded string = `job "dp-cantabular-api-ext" {
+	datacenters = ["eu-west-1"]
+	region      = "eu"
+	type        = "service"
+	
+	update {
+	  stagger          = "60s"
+	  min_healthy_time = "30s"
+	  healthy_deadline = "2m"
+	  max_parallel     = 1
+	  auto_revert      = true
+	}
+  
+	group "web_cantabular" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "web_cantabular"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-web" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["web_cantabular"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-web"]
+		}
+	  }
+	}
+  
+	group "publishing_cantabular" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "publishing_cantabular"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-publishing" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["publishing_cantabular"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-publishing"]
+		}
+	  }
+	}
+  }`

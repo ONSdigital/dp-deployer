@@ -2,13 +2,15 @@ package message
 
 // MessageSQS represents a message that has been consumed.
 type MessageSQS struct {
-	Job         string
-	Java        bool         `json:"java,omitempty"`
-	Go          bool         `json:"go,omitempty"`
-	Publishing  *Groups      `json:"publishing,omitempty"`
-	Web         *Groups      `json:"web,omitempty"`
-	Healthcheck *Healthcheck `json:"healthcheck,omitempty"`
-	Revision    string
+	Job                  string
+	Java                 bool         `json:"java,omitempty"`
+	Go                   bool         `json:"go,omitempty"`
+	Publishing           *Groups      `json:"publishing,omitempty"`
+	Web                  *Groups      `json:"web,omitempty"`
+	PublishingCantabular *Groups      `json:"publishing_cantabular,omitempty"` //!!! hmm, where does the incoming SQS message get built to have these new fields ?
+	WebCantabular        *Groups      `json:"web_cantabular,omitempty"`
+	Healthcheck          *Healthcheck `json:"healthcheck,omitempty"`
+	Revision             string
 }
 
 // Groups represents the publishing or web group for the MessageSQS
