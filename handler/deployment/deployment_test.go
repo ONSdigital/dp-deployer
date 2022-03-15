@@ -745,7 +745,7 @@ func TestPatchJob(t *testing.T) {
 	})
 }
 
-var nomadJobNoPatchNeeded string = `job "dp-cantabular-api-ext" {
+var nomadJobNoPatchNeeded = `job "dp-cantabular-api-ext" {
 	datacenters = ["eu-west-1"]
 	region      = "eu"
 	type        = "service"
@@ -880,7 +880,7 @@ var nomadJobNoPatchNeeded string = `job "dp-cantabular-api-ext" {
   }`
 
 // the following contains fields of 'web_cantabular' or 'publishing_cantabular' for patching
-var nomadJobPatchNeeded string = `job "dp-cantabular-api-ext" {
+var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 	datacenters = ["eu-west-1"]
 	region      = "eu"
 	type        = "service"

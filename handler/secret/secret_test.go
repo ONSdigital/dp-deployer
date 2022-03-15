@@ -156,7 +156,7 @@ func TestWriteFails(t *testing.T) {
 	withEnv(func() {
 		Convey("given a failure writing to vault", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"},
-				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return errors.New("Error making API request") }}, &s3.ClientMock{})
+				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return errors.New("error making API request") }}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
 			So(s, ShouldNotBeNil)
 
@@ -167,7 +167,7 @@ func TestWriteFails(t *testing.T) {
 			Convey("handles error correctly", func() {
 				err := s.write("test", m)
 				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldStartWith, "Error making API request")
+				So(err.Error(), ShouldStartWith, "error making API request")
 			})
 		})
 	})

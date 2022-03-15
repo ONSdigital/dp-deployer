@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"github.com/ONSdigital/dp-deployer/config"
@@ -30,8 +29,6 @@ var (
 	// Version represents the version of the service that is running
 	Version string
 )
-
-var wg sync.WaitGroup
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())

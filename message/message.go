@@ -1,13 +1,14 @@
 package message
 
 // MessageSQS represents a message that has been consumed.
+// TODO there is work in the CI to create the new SQS message for this struct
 type MessageSQS struct {
 	Job                  string
 	Java                 bool         `json:"java,omitempty"`
 	Go                   bool         `json:"go,omitempty"`
 	Publishing           *Groups      `json:"publishing,omitempty"`
 	Web                  *Groups      `json:"web,omitempty"`
-	PublishingCantabular *Groups      `json:"publishing_cantabular,omitempty"` //!!! hmm, where does the incoming SQS message get built to have these new fields ?
+	PublishingCantabular *Groups      `json:"publishing_cantabular,omitempty"`
 	WebCantabular        *Groups      `json:"web_cantabular,omitempty"`
 	Healthcheck          *Healthcheck `json:"healthcheck,omitempty"`
 	Revision             string

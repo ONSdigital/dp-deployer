@@ -234,7 +234,7 @@ func TestNew(t *testing.T) {
 
 	withEnv(func() {
 		Convey("an engine is returned with valid configuration", t, func() {
-			config := &config.Configuration{
+			cfg := &config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
 				ProducerQueue:    "baz",
@@ -242,7 +242,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			}
 
-			e, err := New(config, nil)
+			e, err := New(cfg, nil)
 			So(err, ShouldBeNil)
 			So(e, ShouldNotBeNil)
 		})
