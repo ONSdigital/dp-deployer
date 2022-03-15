@@ -387,23 +387,33 @@ const (
 // TODO Its existence and use is to ultimately be removed after new ASG for cantabular is
 // all working.
 func patchJob(p *api.Job) {
-	for i, _ := range p.TaskGroups {
-		if *p.TaskGroups[i].Name == wPatchFrom {
-			*p.TaskGroups[i].Name = wPatchTo
-		} else if *p.TaskGroups[i].Name == pPatchFrom {
-			*p.TaskGroups[i].Name = pPatchTo
+	for i := range p.TaskGroups {
+		if p.TaskGroups[i].Name != nil {
+			if *p.TaskGroups[i].Name == wPatchFrom {
+				*p.TaskGroups[i].Name = wPatchTo
+			} else if *p.TaskGroups[i].Name == pPatchFrom {
+				*p.TaskGroups[i].Name = pPatchTo
+			}
 		}
 
-		if p.TaskGroups[i].Constraints[0].RTarget == wPatchFrom {
-			p.TaskGroups[i].Constraints[0].RTarget = wPatchTo
-		} else if p.TaskGroups[i].Constraints[0].RTarget == pPatchFrom {
-			p.TaskGroups[i].Constraints[0].RTarget = pPatchTo
+		for j := range p.TaskGroups[i].Constraints {
+			if p.TaskGroups[i].Constraints[j].RTarget == wPatchFrom {
+				p.TaskGroups[i].Constraints[j].RTarget = wPatchTo
+			} else if p.TaskGroups[i].Constraints[j].RTarget == pPatchFrom {
+				p.TaskGroups[i].Constraints[j].RTarget = pPatchTo
+			}
 		}
 
-		if p.TaskGroups[i].Tasks[0].Services[0].Tags[0] == wPatchFrom {
-			p.TaskGroups[i].Tasks[0].Services[0].Tags[0] = wPatchTo
-		} else if p.TaskGroups[i].Tasks[0].Services[0].Tags[0] == pPatchFrom {
-			p.TaskGroups[i].Tasks[0].Services[0].Tags[0] = pPatchTo
+		for j := range p.TaskGroups[i].Tasks {
+			for k := range p.TaskGroups[i].Tasks[j].Services {
+				for m := range p.TaskGroups[i].Tasks[j].Services[k].Tags {
+					if p.TaskGroups[i].Tasks[j].Services[k].Tags[m] == wPatchFrom {
+						p.TaskGroups[i].Tasks[j].Services[k].Tags[m] = wPatchTo
+					} else if p.TaskGroups[i].Tasks[j].Services[k].Tags[m] == pPatchFrom {
+						p.TaskGroups[i].Tasks[j].Services[k].Tags[m] = pPatchTo
+					}
+				}
+			}
 		}
 	}
 }
