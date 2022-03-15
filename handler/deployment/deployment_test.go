@@ -727,6 +727,19 @@ func TestPatchJob(t *testing.T) {
 			So(reflect.DeepEqual(p, pWant), ShouldBeTrue)
 		})
 
+		Convey("Given a 2nd job with no patches needed with groups we dont use, then no changes are seen", func() {
+			f := strings.NewReader(nomadJobNoPatchNeeded2)
+			p, err := jobspec.Parse(f)
+			So(err, ShouldBeNil)
+
+			patchJob(p)
+
+			fWant := strings.NewReader(nomadJobNoPatchNeeded2)
+			pWant, err := jobspec.Parse(fWant)
+			// check nothing in the job jas been changed
+			So(reflect.DeepEqual(p, pWant), ShouldBeTrue)
+		})
+
 		Convey("Given a job with patches needed, then expected changes are seen", func() {
 			f := strings.NewReader(nomadJobPatchNeeded)
 			p, err := jobspec.Parse(f)
@@ -745,6 +758,7 @@ func TestPatchJob(t *testing.T) {
 	})
 }
 
+// the following contains fields of 'web' or 'publishing' that wont be changed
 var nomadJobNoPatchNeeded = `job "dp-cantabular-api-ext" {
 	datacenters = ["eu-west-1"]
 	region      = "eu"
@@ -991,6 +1005,141 @@ var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 		  name = "dp-cantabular-api-ext"
 		  port = "http"
 		  tags = ["publishing_cantabular"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-publishing"]
+		}
+	  }
+	}
+  }`
+
+// the following contains fields of 'web-not' or 'publishing-not' that wont be changed
+var nomadJobNoPatchNeeded2 = `job "dp-cantabular-api-ext" {
+	datacenters = ["eu-west-1"]
+	region      = "eu"
+	type        = "service"
+	
+	update {
+	  stagger          = "60s"
+	  min_healthy_time = "30s"
+	  healthy_deadline = "2m"
+	  max_parallel     = 1
+	  auto_revert      = true
+	}
+  
+	group "web-not" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "web-not"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-web" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["web-not"]
+		}
+  
+		resources {
+		  cpu    = "500"
+		  memory = "1000"
+  
+		  network {
+			port "http" {}
+		  }
+		}
+  
+		template {
+		  source      = "${NOMAD_TASK_DIR}/vars-template"
+		  destination = "${NOMAD_TASK_DIR}/vars"
+		}
+  
+		vault {
+		  policies = ["dp-cantabular-api-ext-web"]
+		}
+	  }
+	}
+  
+	group "publishing-not" {
+	  count = "1"
+  
+	  constraint {
+		attribute = "${node.class}"
+		value     = "publishing-not"
+	  }
+  
+	  restart {
+		attempts = 3
+		delay    = "15s"
+		interval = "1m"
+		mode     = "delay"
+	  }
+  
+	  task "dp-cantabular-api-ext-publishing" {
+		driver = "docker"
+  
+		artifact {
+		  source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-cantabular-api-ext/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
+		}
+  
+		config {
+		  command = "${NOMAD_TASK_DIR}/start-task"
+  
+		  args = ["./dp-cantabular-api-ext"]
+  
+		  image = "{{ECR_URL}}:concourse-{{REVISION}}"
+  
+		  port_map {
+			http = "${NOMAD_PORT_http}"
+		  }
+		}
+  
+		service {
+		  name = "dp-cantabular-api-ext"
+		  port = "http"
+		  tags = ["publishing-not"]
 		}
   
 		resources {
