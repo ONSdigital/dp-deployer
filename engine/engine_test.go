@@ -221,8 +221,7 @@ func TestNew(t *testing.T) {
 
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
-			e, err := New(fixture.config, nil)
-			So(e, ShouldBeNil)
+			_, err := New(fixture.config, nil)
 			So(err, ShouldNotBeNil)
 			if fixture.isPrefix {
 				So(err.Error(), ShouldStartWith, fixture.errMsg)
