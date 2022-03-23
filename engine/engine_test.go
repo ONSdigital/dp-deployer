@@ -220,14 +220,17 @@ func TestNew(t *testing.T) {
 	}
 
 	for _, fixture := range fixtures {
-		Convey("an error is returned with invalid configuration", t, func() {
-			_, err := New(fixture.config, nil)
-			So(err, ShouldNotBeNil)
-			if fixture.isPrefix {
-				So(err.Error(), ShouldStartWith, fixture.errMsg)
-			} else {
-				So(err.Error(), ShouldEqual, fixture.errMsg)
-			}
+		withNoEnv(func() {
+			Convey("an error is returned with invalid configuration", t, func() {
+				_, err := New(fixture.config, nil)
+				// So(e, ShouldBeNil)
+				So(err, ShouldNotBeNil)
+				if fixture.isPrefix {
+					So(err.Error(), ShouldStartWith, fixture.errMsg)
+				} else {
+					So(err.Error(), ShouldEqual, fixture.errMsg)
+				}
+			})
 		})
 	}
 
@@ -338,6 +341,11 @@ func TestStart(t *testing.T) {
 			})
 		})
 	})
+}
+
+func withNoEnv(f func()) {
+	os.Clearenv()
+	f()
 }
 
 func withEnv(f func()) {
