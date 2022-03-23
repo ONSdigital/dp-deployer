@@ -119,6 +119,8 @@ github.com/ONSdigital/dp-vault v1.1.1/go.mod h1:ZcC6ZNL4c94JCKK4a8uVUcMBTiMg5zdn
 github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58/go.mod h1:iWos35il+NjbvDEqwtB736pyHru0MPFE/LqcwkV1wDc=
 github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e h1:tXdCJg2SUi2vLPA22bgVmeAY+sp3pKtUsAboBrOkO5Y=
 github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e/go.mod h1:BCx4ULp5nT3dT7Mft5iMrp9439JG9lqIlc0JOPmsHTg=
+github.com/ONSdigital/goamz v0.0.0-20211118152127-9b03aca7c244 h1:Tx+C7UsLqBIAEPos1wDU6OYGgnVe+XfdDKBalynmvwI=
+github.com/ONSdigital/goamz v0.0.0-20211118152127-9b03aca7c244/go.mod h1:ZiA9nvPeQMNTmF0MUnmtBoYSGOOi16/4gB+5YKJgtGM=
 github.com/ONSdigital/log.go v0.0.0-20191127134126-2a610b254f20/go.mod h1:BD7D8FWP1fzwUWsrCopEG72jl9cchCaVNIGSz6YvL+Y=
 github.com/ONSdigital/log.go v1.0.0/go.mod h1:UnGu9Q14gNC+kz0DOkdnLYGoqugCvnokHBRBxFRpVoQ=
 github.com/ONSdigital/log.go v1.0.1-0.20200805084515-ee61165ea36a/go.mod h1:dDnQATFXCBOknvj6ZQuKfmDhbOWf3e8mtV+dPEfWJqs=

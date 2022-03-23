@@ -3,19 +3,22 @@ package engine
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-deployer/config"
-	"github.com/ONSdigital/go-ns/common"
-	. "github.com/smartystreets/goconvey/convey"
-
-	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+
+	"github.com/ONSdigital/dp-deployer/config"
+	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/go-ns/common"
+	goamz "github.com/ONSdigital/goamz/aws"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 type handlerError struct {
@@ -141,6 +144,13 @@ var (
 
 var defaultErrHandler = ErrHandler
 
+type NotMuch struct{}
+
+func (nowt NotMuch) RoundTrip(*http.Request) (*http.Response, error) {
+	resp := &http.Response{}
+	return resp, nil
+}
+
 func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
@@ -217,6 +227,10 @@ func TestNew(t *testing.T) {
 			"openpgp: invalid argument: no armored data found",
 			false,
 		},
+	}
+
+	goamz.RetryingClient = &http.Client{
+		Transport: NotMuch{},
 	}
 
 	for _, fixture := range fixtures {
