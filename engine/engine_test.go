@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -219,9 +220,9 @@ func TestNew(t *testing.T) {
 		},
 	}
 
-	for _, fixture := range fixtures {
+	for index, fixture := range fixtures {
 		withNoEnv(func() {
-			Convey("an error is returned with invalid configuration", t, func() {
+			Convey("an error is returned with invalid configuration - number "+strconv.Itoa(index), t, func() {
 				_, err := New(fixture.config, nil)
 				// So(e, ShouldBeNil)
 				So(err, ShouldNotBeNil)
