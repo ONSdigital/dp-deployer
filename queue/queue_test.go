@@ -286,7 +286,10 @@ func TestStart(t *testing.T) {
 					}
 
 					q.Start(ctx)
-					c.So(producer.message, ShouldEqual, producedMsgBody)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					c.So(pMessage, ShouldEqual, producedMsgBody)
 				})
 			}
 
@@ -340,7 +343,10 @@ func TestStart(t *testing.T) {
 
 					go time.AfterFunc(time.Second*1, cancel)
 					q.Start(ctx)
-					So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					So(pMessage, ShouldEqual, `{"ID":"200","Success":true}`)
 				})
 			})
 		})
@@ -365,6 +371,7 @@ type mockConsumer struct {
 
 type mockProducer struct {
 	message string
+	mu      sync.Mutex
 }
 
 func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
@@ -389,7 +396,9 @@ func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMes
 }
 
 func (m *mockProducer) SendMessage(body string) error {
+	m.mu.Lock()
 	m.message = body
+	m.mu.Unlock()
 	return nil
 }
 
