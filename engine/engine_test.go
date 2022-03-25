@@ -3,17 +3,22 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-deployer/config"
-	"github.com/ONSdigital/go-ns/common"
 	. "github.com/smartystreets/goconvey/convey"
 
+	"github.com/ONSdigital/dp-deployer/config"
 	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/go-ns/common"
+
+	goamz "github.com/ONSdigital/goamz/aws"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -220,11 +225,17 @@ func TestNew(t *testing.T) {
 		},
 	}
 
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "{}")
+	}))
+	defer ts.Close()
+	nullClient := ts.Client()
+	goamz.RetryingClient = nullClient
+
 	for index, fixture := range fixtures {
 		withNoEnv(func() {
 			Convey("an error is returned with invalid configuration - number "+strconv.Itoa(index), t, func() {
 				_, err := New(fixture.config, nil)
-				// So(e, ShouldBeNil)
 				So(err, ShouldNotBeNil)
 				if fixture.isPrefix {
 					So(err.Error(), ShouldStartWith, fixture.errMsg)
