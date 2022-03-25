@@ -225,7 +225,7 @@ func TestNew(t *testing.T) {
 	}
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "")
+		fmt.Fprint(w, "x")
 	}))
 	defer ts.Close()
 	awsClient = ts.Client()
