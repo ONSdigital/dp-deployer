@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -15,16 +16,17 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
-	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/ONSdigital/goamz/aws"
 	"github.com/ONSdigital/goamz/sqs"
-	"github.com/cenkalti/backoff"	
+	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/cenkalti/backoff"
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
 const maxConcurrentHandlers = 50
 
 var sendMessage func(string) error
+var awsClient *http.Client = nil
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -97,6 +99,9 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 		return nil, err
 	}
 
+	if awsClient != nil {
+		aws.RetryingClient = awsClient
+	}
 	a, err := aws.GetAuth("", "", "", time.Time{})
 	if err != nil {
 		return nil, err

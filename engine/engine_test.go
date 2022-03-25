@@ -18,7 +18,6 @@ import (
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
 
-	goamz "github.com/ONSdigital/goamz/aws"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
@@ -229,8 +228,7 @@ func TestNew(t *testing.T) {
 		fmt.Fprint(w, "{}")
 	}))
 	defer ts.Close()
-	nullClient := ts.Client()
-	goamz.RetryingClient = nullClient
+	awsClient = ts.Client()
 
 	for index, fixture := range fixtures {
 		withNoEnv(func() {
