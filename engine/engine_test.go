@@ -235,16 +235,14 @@ func TestNew(t *testing.T) {
 	}
 
 	for index, fixture := range fixtures {
-		withNoEnv(func() {
-			Convey("an error is returned with invalid configuration - number "+strconv.Itoa(index), t, func() {
-				_, err := New(fixture.config, nil)
-				So(err, ShouldNotBeNil)
-				if fixture.isPrefix {
-					So(err.Error(), ShouldStartWith, fixture.errMsg)
-				} else {
-					So(err.Error(), ShouldEqual, fixture.errMsg)
-				}
-			})
+		Convey("an error is returned with invalid configuration - number "+strconv.Itoa(index), t, func() {
+			_, err := New(fixture.config, nil)
+			So(err, ShouldNotBeNil)
+			if fixture.isPrefix {
+				So(err.Error(), ShouldStartWith, fixture.errMsg)
+			} else {
+				So(err.Error(), ShouldEqual, fixture.errMsg)
+			}
 		})
 	}
 

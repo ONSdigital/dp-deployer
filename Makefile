@@ -12,27 +12,22 @@ GIT_COMMIT=$(shell git rev-parse HEAD)
 VERSION ?= $(shell git tag --points-at HEAD | grep ^v | head -n 1)
 LDFLAGS=-ldflags "-w -s -X 'main.Version=${VERSION}' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.GitCommit=$(GIT_COMMIT)'"
 
-.PHONY: all
 all: audit test build
 
-.PHONY: audit
 audit:
 	go list -m all | nancy sleuth --exclude-vulnerability-file ./.nancy-ignore
 
-.PHONY: build
 build:
 	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)
 	go build $(LDFLAGS) -o $(BUILD_ARCH)/$(BIN_DIR)/dp-deployer cmd/dp-deployer/main.go
 
-.PHONY: generate
 generate:
 	go generate ./...
 
-.PHONY: debug
 debug: build
-	HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/dp-deployer/main.go 
+	HUMAN_LOG=1 go run -race $(LDFLAGS) -race cmd/dp-deployer/main.go
 
-.PHONY: test
 test:
 	go test -cover -v -race ./...
 
+.PHONY: all audit build debug test generate
