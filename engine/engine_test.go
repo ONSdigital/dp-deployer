@@ -3,24 +3,23 @@ package engine
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
+	goamz "github.com/ONSdigital/goamz/aws"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 type handlerError struct {
@@ -146,6 +145,13 @@ var (
 
 var defaultErrHandler = ErrHandler
 
+type NotMuch struct{}
+
+func (nowt NotMuch) RoundTrip(*http.Request) (*http.Response, error) {
+	resp := &http.Response{}
+	return resp, nil
+}
+
 func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
@@ -224,11 +230,9 @@ func TestNew(t *testing.T) {
 		},
 	}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "x")
-	}))
-	defer ts.Close()
-	awsClient = ts.Client()
+	goamz.RetryingClient = &http.Client{
+		Transport: NotMuch{},
+	}
 
 	for index, fixture := range fixtures {
 		withNoEnv(func() {
