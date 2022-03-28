@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -234,9 +233,10 @@ func TestNew(t *testing.T) {
 		Transport: NotMuch{},
 	}
 
-	for index, fixture := range fixtures {
-		Convey("an error is returned with invalid configuration - number "+strconv.Itoa(index), t, func() {
-			_, err := New(fixture.config, nil)
+	for _, fixture := range fixtures {
+		Convey("an error is returned with invalid configuration", t, func() {
+			e, err := New(fixture.config, nil)
+			So(e, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			if fixture.isPrefix {
 				So(err.Error(), ShouldStartWith, fixture.errMsg)
@@ -353,11 +353,6 @@ func TestStart(t *testing.T) {
 			})
 		})
 	})
-}
-
-func withNoEnv(f func()) {
-	os.Clearenv()
-	f()
 }
 
 func withEnv(f func()) {

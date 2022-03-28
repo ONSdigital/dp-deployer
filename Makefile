@@ -25,9 +25,9 @@ generate:
 	go generate ./...
 
 debug: build
-	HUMAN_LOG=1 go run -race $(LDFLAGS) -race cmd/dp-deployer/main.go
+	HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/dp-deployer/main.go
 
 test:
-	go test -cover -v -race ./...
+	go test -cover -race ./...
 
 .PHONY: all audit build debug test generate

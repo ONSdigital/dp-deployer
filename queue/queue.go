@@ -16,10 +16,10 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/ONSdigital/go-ns/common"
-	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/ONSdigital/goamz/aws"
 	"github.com/ONSdigital/goamz/sqs"
-	"github.com/cenkalti/backoff"	
+	"github.com/ONSdigital/log.go/v2/log"
+	"github.com/cenkalti/backoff"
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
