@@ -144,9 +144,9 @@ var (
 
 var defaultErrHandler = ErrHandler
 
-type NotMuch struct{}
+type BadTransport struct{}
 
-func (nowt NotMuch) RoundTrip(*http.Request) (*http.Response, error) {
+func (nowt BadTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	resp := &http.Response{}
 	return resp, nil
 }
@@ -230,7 +230,9 @@ func TestNew(t *testing.T) {
 	}
 
 	goamz.RetryingClient = &http.Client{
-		Transport: NotMuch{},
+		// force the goamz http call (to AWS to get auth details for an instance role)
+		// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
+		Transport: BadTransport{},
 	}
 
 	for _, fixture := range fixtures {
