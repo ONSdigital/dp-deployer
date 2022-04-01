@@ -51,10 +51,11 @@ require (
 	github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14
 	github.com/ONSdigital/dp-vault v1.1.1
 	github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e
+	github.com/ONSdigital/goamz v0.0.0-20211118152127-9b03aca7c244
 	github.com/ONSdigital/log.go/v2 v2.0.9
 	github.com/aws/aws-sdk-go v1.42.6
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8
+	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/nomad v1.2.6
 	github.com/hashicorp/nomad/api v0.0.0-20210902134234-9ba1a2fba7d6

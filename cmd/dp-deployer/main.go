@@ -141,7 +141,7 @@ func main() {
 	}
 
 	log.Info(ctx, "shutdown with timeout:", log.Data{"Timeout": cfg.GracefulShutdownTimeout})
-	shutdownContext, cancel := context.WithTimeout(context.Background(), cfg.GracefulShutdownTimeout)
+	shutdownContext, shutdownCtxCancel := context.WithTimeout(context.Background(), cfg.GracefulShutdownTimeout)
 
 	go func() {
 
@@ -157,16 +157,18 @@ func main() {
 
 		e.Close()
 
-		<-shutdownContext.Done()
-		if shutdownContext.Err() == context.DeadlineExceeded {
-			log.Error(shutdownContext, "shutdown timeout", shutdownContext.Err())
-			os.Exit(1)
-		} else {
-			log.Error(shutdownContext, "done shutdown gracefully", errors.New("done shutdown gracefully"), log.Data{"context": shutdownContext.Err()})
-			os.Exit(0)
-		}
-
+		shutdownCtxCancel()
 	}()
+
+	<-shutdownContext.Done()
+	if shutdownContext.Err() == context.DeadlineExceeded {
+		log.Error(shutdownContext, "shutdown timeout", shutdownContext.Err())
+		os.Exit(1)
+	} else {
+		log.Error(shutdownContext, "done shutdown gracefully", errors.New("done shutdown gracefully"), log.Data{"context": shutdownContext.Err()})
+		os.Exit(0)
+	}
+
 }
 
 // TODO: remove once new queue implemented fully
