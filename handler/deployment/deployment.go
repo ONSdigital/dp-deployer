@@ -163,7 +163,7 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
-	var jobInfo *api.Job
+	var jobInfo api.Job
 	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
 		return err
 	}

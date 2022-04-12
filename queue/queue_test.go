@@ -15,7 +15,7 @@ import (
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
-	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/go-ns/common"
 	goamz "github.com/ONSdigital/goamz/aws"
 

@@ -112,8 +112,6 @@ github.com/ONSdigital/dp-rchttp v0.0.0-20190919143000-bb5699e6fd59/go.mod h1:KkW
 github.com/ONSdigital/dp-rchttp v0.0.0-20200114090501-463a529590e8/go.mod h1:821jZtK0oBsV8hjIkNr8vhAWuv0FxJBPJuAHa2B70Gk=
 github.com/ONSdigital/dp-s3 v1.6.0 h1:CsjyjwovF1cPrrP4X7BcUWRvDpmfoOeOj12cJfVQSBk=
 github.com/ONSdigital/dp-s3 v1.6.0/go.mod h1:Ic+CrvClcP/XGB/69Jl6IR1yJO8EGSFAN8crAu270+U=
-github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14 h1:sWgI0Rr4E63Zr3OO2in9xowAV7uh8Tvl8jMAXp+FOqk=
-github.com/ONSdigital/dp-ssqs v0.0.0-20170720062323-643bf97d9e14/go.mod h1:mDs5l0YV2B13RuLKzKMY163rDL+S4zUekRR1LHhJK/k=
 github.com/ONSdigital/dp-vault v1.1.1 h1:oenA0oci08viJrg5kGY+jTaX9jGWNOKyIEZCTbDAaQM=
 github.com/ONSdigital/dp-vault v1.1.1/go.mod h1:ZcC6ZNL4c94JCKK4a8uVUcMBTiMg5zdn/e7ZIYUGeh8=
 github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58/go.mod h1:iWos35il+NjbvDEqwtB736pyHru0MPFE/LqcwkV1wDc=

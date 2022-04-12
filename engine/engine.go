@@ -15,7 +15,7 @@ import (
 	"github.com/cenkalti/backoff"
 
 	"github.com/ONSdigital/dp-deployer/config"
-	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/go-ns/common"
 	"github.com/ONSdigital/goamz/aws"
 	"github.com/ONSdigital/goamz/sqs"
@@ -153,7 +153,7 @@ func (e *Engine) run(ctx context.Context) {
 			ErrHandler(ctx, "received consumer error", err)
 		case msg := <-e.consumer.Messages:
 			reqCtx := common.WithRequestId(ctx, msg.ID)
-			e.handle(reqCtx, msg)
+			e.handle(reqCtx, &msg)
 		case <-ctx.Done():
 			return
 		default:

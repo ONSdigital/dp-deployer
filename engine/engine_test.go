@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
 	"github.com/ONSdigital/dp-deployer/config"
-	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/go-ns/common"
 	goamz "github.com/ONSdigital/goamz/aws"
 
