@@ -3,19 +3,22 @@ package engine
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ONSdigital/dp-deployer/config"
-	"github.com/ONSdigital/go-ns/common"
-	. "github.com/smartystreets/goconvey/convey"
-
-	ssqs "github.com/ONSdigital/dp-ssqs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+
+	"github.com/ONSdigital/dp-deployer/config"
+	ssqs "github.com/ONSdigital/dp-ssqs"
+	"github.com/ONSdigital/go-ns/common"
+	goamz "github.com/ONSdigital/goamz/aws"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 type handlerError struct {
@@ -141,6 +144,13 @@ var (
 
 var defaultErrHandler = ErrHandler
 
+type BadTransport struct{}
+
+func (nowt BadTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	resp := &http.Response{}
+	return resp, nil
+}
+
 func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
@@ -219,6 +229,12 @@ func TestNew(t *testing.T) {
 		},
 	}
 
+	goamz.RetryingClient = &http.Client{
+		// force the goamz http call (to AWS to get auth details for an instance role)
+		// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
+		Transport: BadTransport{},
+	}
+
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
 			e, err := New(fixture.config, nil)
@@ -267,7 +283,10 @@ func TestStart(t *testing.T) {
 					}
 
 					e.Start(ctx)
-					c.So(producer.message, ShouldEqual, producedMsgBody)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					c.So(pMessage, ShouldEqual, producedMsgBody)
 				})
 			}
 
@@ -328,7 +347,10 @@ func TestStart(t *testing.T) {
 
 					go time.AfterFunc(time.Second*1, cancel)
 					e.Start(ctx)
-					So(producer.message, ShouldEqual, `{"ID":"200","Success":true}`)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					So(pMessage, ShouldEqual, `{"ID":"200","Success":true}`)
 				})
 			})
 		})
@@ -353,6 +375,7 @@ type mockConsumer struct {
 
 type mockProducer struct {
 	message string
+	mu      sync.Mutex
 }
 
 func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
@@ -377,7 +400,9 @@ func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMes
 }
 
 func (m *mockProducer) SendMessage(body string) error {
+	m.mu.Lock()
 	m.message = body
+	m.mu.Unlock()
 	return nil
 }
 
