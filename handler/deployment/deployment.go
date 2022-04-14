@@ -199,20 +199,31 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 }
 
 func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
-	ticker := time.Tick(time.Second * 1)
-	timeout := time.After(d.timeout)
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+	timeout := time.NewTimer(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
 
 	for {
 		select {
 		case <-ctx.Done():
+			// Ensure timer is stopped and its resources are freed
+			if !timeout.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-timeout.C
+			}
 			log.Error(ctx, "bailing on deployment status", errors.New("bailing on deployment status"), minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
-		case <-timeout:
+		case <-timeout.C:
 			return &TimeoutError{Action: "deployment"}
-		case <-ticker:
+		case <-ticker.C:
 			var deployments []api.Deployment
 			if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, jobID), &deployments); err != nil {
+				// Ensure timer is stopped and its resources are freed
+				if !timeout.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-timeout.C
+				}
 				return err
 			}
 			foundJobByIndex := false
@@ -231,11 +242,21 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 
 				switch deployment.Status {
 				case structs.DeploymentStatusSuccessful:
+					// Ensure timer is stopped and its resources are freed
+					if !timeout.Stop() {
+						// if the timer has been stopped then read from the channel
+						<-timeout.C
+					}
 					log.Info(ctx, "deployment success", logData)
 					return nil
 				case structs.DeploymentStatusFailed,
 					structs.DeploymentStatusCancelled:
 
+					// Ensure timer is stopped and its resources are freed
+					if !timeout.Stop() {
+						// if the timer has been stopped then read from the channel
+						<-timeout.C
+					}
 					log.Error(ctx, "deployment failed", errors.New("deployment failed"), logData)
 					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 				}
@@ -252,24 +273,40 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 }
 
 func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
-	ticker := time.Tick(time.Second * 1)
-	timeout := time.After(d.timeout)
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+	timeout := time.NewTimer(d.timeout)
 	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
 
 	for {
 		select {
 		case <-ctx.Done():
+			// Ensure timer is stopped and its resources are freed
+			if !timeout.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-timeout.C
+			}
 			log.Error(ctx, "bailing on deployment status", errors.New("bailing on deployment status"), minLogData)
 			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
-		case <-timeout:
+		case <-timeout.C:
 			return &TimeoutError{Action: "deployment"}
-		case <-ticker:
+		case <-ticker.C:
 			var allocations []api.AllocationListStub
 			if err := d.get(fmt.Sprintf(allocationsURL, d.endpoint, jobID), &allocations); err != nil {
+				// Ensure timer is stopped and its resources are freed
+				if !timeout.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-timeout.C
+				}
 				return err
 			}
 
 			if len(allocations) == 0 {
+				// Ensure timer is stopped and its resources are freed
+				if !timeout.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-timeout.C
+				}
 				log.Error(ctx, "deployment failed - no allocations", errors.New("deployment failed - no allocations"), minLogData)
 				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
 			}
@@ -295,6 +332,11 @@ func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationI
 				}
 
 				if len(desiredAllocations) == updatedAllocations {
+					// Ensure timer is stopped and its resources are freed
+					if !timeout.Stop() {
+						// if the timer has been stopped then read from the channel
+						<-timeout.C
+					}
 					log.Info(ctx, "deployment success", minLogData)
 					return nil
 				}
