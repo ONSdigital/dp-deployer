@@ -376,9 +376,9 @@ func (d *Deployment) jsonFormat(msg *engine.Message) ([]byte, error) {
 }
 
 const (
-	wPatchFrom = "web_cantabular"
+	wPatchFrom = "web-cantabular"
 	wPatchTo   = "web"
-	pPatchFrom = "publishing_cantabular"
+	pPatchFrom = "publishing-cantabular"
 	pPatchTo   = "publishing"
 )
 

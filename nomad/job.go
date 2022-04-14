@@ -29,12 +29,12 @@ func CreateJob(ctx context.Context, cfg *config.Configuration, name string, jobS
 		taskGroups = append(taskGroups, taskGroup2)
 	}
 	if jobStruct.PublishingCantabular != nil {
-		// TODO in stage 2 of new ASG for cantabular, "publishing" below needs changing to "publishing_cantabular"
+		// TODO in stage 2 of new ASG for cantabular, "publishing" below needs changing to "publishing-cantabular"
 		taskGroup3, _ := createTaskGroup(ctx, cfg, name, "publishing", jobStruct.Publishing, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup3)
 	}
 	if jobStruct.WebCantabular != nil {
-		// TODO in stage 2 of new ASG for cantabular, "web" below needs changing to "web_cantabular"
+		// TODO in stage 2 of new ASG for cantabular, "web" below needs changing to "web-cantabular"
 		taskGroup4, _ := createTaskGroup(ctx, cfg, name, "web", jobStruct.Web, jobStruct.Healthcheck, jobStruct.Revision)
 		taskGroups = append(taskGroups, taskGroup4)
 	}
@@ -76,7 +76,7 @@ func createUpdateStrategy(isJava bool) api.UpdateStrategy {
 func createTaskGroup(ctx context.Context, cfg *config.Configuration, name string, groupName string, details *message.Groups, healthcheck *message.Healthcheck,
 	revision string) (*api.TaskGroup, error) {
 
-	if groupName != "web" && groupName != "publishing" && groupName != "web_cantabular" && groupName != "publishing_cantabular" {
+	if groupName != "web" && groupName != "publishing" && groupName != "web-cantabular" && groupName != "publishing-cantabular" {
 		err := errors.New("not a valid group name")
 		log.Error(ctx, "not a valid group name", err, log.Data{"group_name": groupName})
 		return nil, err

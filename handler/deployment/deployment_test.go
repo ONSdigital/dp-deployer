@@ -893,7 +893,7 @@ var nomadJobNoPatchNeeded = `job "dp-cantabular-api-ext" {
 	}
   }`
 
-// the following contains fields of 'web_cantabular' or 'publishing_cantabular' for patching
+// the following contains fields of 'web-cantabular' or 'publishing-cantabular' for patching
 var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 	datacenters = ["eu-west-1"]
 	region      = "eu"
@@ -907,12 +907,12 @@ var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 	  auto_revert      = true
 	}
   
-	group "web_cantabular" {
+	group "web-cantabular" {
 	  count = "1"
   
 	  constraint {
 		attribute = "${node.class}"
-		value     = "web_cantabular"
+		value     = "web-cantabular"
 	  }
   
 	  restart {
@@ -944,7 +944,7 @@ var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 		service {
 		  name = "dp-cantabular-api-ext"
 		  port = "http"
-		  tags = ["web_cantabular"]
+		  tags = ["web-cantabular"]
 		}
   
 		resources {
@@ -967,12 +967,12 @@ var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 	  }
 	}
   
-	group "publishing_cantabular" {
+	group "publishing-cantabular" {
 	  count = "1"
   
 	  constraint {
 		attribute = "${node.class}"
-		value     = "publishing_cantabular"
+		value     = "publishing-cantabular"
 	  }
   
 	  restart {
@@ -1004,7 +1004,7 @@ var nomadJobPatchNeeded = `job "dp-cantabular-api-ext" {
 		service {
 		  name = "dp-cantabular-api-ext"
 		  port = "http"
-		  tags = ["publishing_cantabular"]
+		  tags = ["publishing-cantabular"]
 		}
   
 		resources {
