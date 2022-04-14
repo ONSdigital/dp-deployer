@@ -63,7 +63,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.6.4
-	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 )
 
 require (
