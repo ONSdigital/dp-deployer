@@ -44,7 +44,7 @@ replace (
 )
 
 require (
-	github.com/ONSdigital/dp-healthcheck v1.1.0
+	github.com/ONSdigital/dp-healthcheck v1.3.0
 	github.com/ONSdigital/dp-net v1.1.0
 	github.com/ONSdigital/dp-nomad v0.3.0
 	github.com/ONSdigital/dp-s3 v1.6.0
