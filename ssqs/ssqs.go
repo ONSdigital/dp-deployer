@@ -2,10 +2,8 @@
 package ssqs
 
 import (
-	"log"
 	"time"
 
-	"github.com/ONSdigital/dp-deployer/amazon"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -44,29 +42,6 @@ type Queue struct {
 
 // New creates and returns a consumer.
 func New(q *Queue) *Consumer {
-	if q.Region == "us-east-1" {
-		// set stuff up for localstack SQS
-
-		// Create a session instance.
-		ses, err := amazon.New(amazon.Config{
-			Address: "http://192.168.124.162:4566",
-			Region:  "us-east-1",
-			Profile: "aws",
-			ID:      "test",
-			Secret:  "test",
-		})
-		if err != nil {
-			log.Fatalln(err)
-		}
-		return &Consumer{
-			client:   sqs.New(ses),
-			finish:   make(chan struct{}, 1),
-			Errors:   make(chan error, 1),
-			Messages: make(chan Message, 1),
-			Queue:    q,
-		}
-
-	}
 	return &Consumer{
 		client:   DefaultClient(q),
 		finish:   make(chan struct{}, 1),
