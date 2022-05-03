@@ -7,7 +7,7 @@ replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.20
 
 replace (
 	github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-	github.com/hashicorp/consul => github.com/hashicorp/consul v1.11.4
+	github.com/hashicorp/consul => github.com/hashicorp/consul v1.11.5
 	github.com/spf13/viper => github.com/spf13/viper v1.8.1
 	github.com/ulikunitz/xz => github.com/ulikunitz/xz v0.5.10
 	k8s.io/api => k8s.io/api v0.0.0-20190325185214-7544f9db76f6
