@@ -5,3 +5,6 @@ build
 *.tar.gz
 dp-deployer.sh
 .idea/
+
+#VSCode
+.vscode
