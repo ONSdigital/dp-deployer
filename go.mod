@@ -55,7 +55,7 @@ require (
 	github.com/aws/aws-sdk-go v1.42.6
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/nomad v1.2.8
+	github.com/hashicorp/nomad v1.2.6
 	github.com/hashicorp/nomad/api v0.0.0-20210902134234-9ba1a2fba7d6
 	github.com/jarcoal/httpmock v1.0.5
 	github.com/kelseyhightower/envconfig v1.4.0
