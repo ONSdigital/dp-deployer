@@ -1,2 +1,9 @@
 CVE-2020-26160 # No upgrade path for github.com/dgrijalva/jwt-go. See: https://ossindex.sonatype.org/vulnerability/c16fb56d-9de6-4065-9fca-d2b4cfb13020?component-type=golang&component-name=github.com%2Fdgrijalva%2Fjwt-go&utm_source=nancy-client&utm_medium=integration&utm_content=0.0.0-dev
-
+# for coredns, all later versions still gave same error and some of the latest versions
+# created more audit failures
+sonatype-2022-0939 # pkg:golang/github.com/coredns/coredns@v1.1.2
+# the following have later versions of their code base pulled in but still failed,
+# so they have to be ignored for now
+CVE-2022-29153 # pkg:golang/github.com/hashicorp/consul@v1.12.2
+CVE-2022-24687 # pkg:golang/github.com/hashicorp/consul/sdk@v0.9.0
+sonatype-2019-0890 # pkg:golang/github.com/pkg/sftp@v1.10.1
