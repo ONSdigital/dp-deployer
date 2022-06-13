@@ -73,6 +73,10 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	if err != nil {
 		return err
 	}
+	// Make sure to close the body when done with it for S3 GetObject APIs or
+	// will leak connections.
+	defer b.Close()
+
 	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
 		return err
 	}

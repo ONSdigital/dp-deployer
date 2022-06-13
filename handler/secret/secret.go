@@ -62,6 +62,10 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			if err != nil {
 				return err
 			}
+			// Make sure to close the body when done with it for S3 GetObject APIs or
+			// will leak connections.
+			defer b.Close()
+
 			d, err := s.decryptMessage(b)
 			if err != nil {
 				return err
