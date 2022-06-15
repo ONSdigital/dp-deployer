@@ -5,6 +5,8 @@ go 1.18
 // This is to avoid vulnerability in v0.8.7 coming from github.com/hashicorp/nomad
 replace github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.8.20
 
+replace github.com/dgrijalva/jwt-go v3.2.0+incompatible => github.com/golang-jwt/jwt v3.2.2+incompatible
+
 replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.6.6
 	github.com/go-ldap/ldap/v3 => github.com/go-ldap/ldap/v3 v3.4.3
