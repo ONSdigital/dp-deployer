@@ -1,2 +1,13 @@
-CVE-2020-26160 # No upgrade path for github.com/dgrijalva/jwt-go. See: https://ossindex.sonatype.org/vulnerability/c16fb56d-9de6-4065-9fca-d2b4cfb13020?component-type=golang&component-name=github.com%2Fdgrijalva%2Fjwt-go&utm_source=nancy-client&utm_medium=integration&utm_content=0.0.0-dev
+# the go.mod file specifies the latest:
+# consul@v1.12.2
+# api@v1.13.0
+# sdk@v0.9.0
+# but the audit still complains about "Server-Side Request Forgery (SSRF)", that does not affect this app, so this exclusion exists
+CVE-2022-29153 # 7.5 HIGH # pkg:golang/github.com/hashicorp/consul@v1.12.2
 
+# the go.mod file specifies the latest sdk@v0.9.0, but audit still indicates problems, so this exclusion exists
+# "Uncontrolled Resource Consumption ('Resource Exhaustion')" ... i cant see in the code base where this would affect us.
+CVE-2022-24687 # 6.5 MEDIUM # pkg:golang/github.com/hashicorp/consul/sdk@v0.9.0
+
+# the go.mod file now specifies runc@1.1.3 which fixes this CVE, but the audit still fails, so this exclusion exists
+CVE-2022-29162 # 7.8 HIGH # pkg:golang/github.com/opencontainers/runc@v1.0.3
