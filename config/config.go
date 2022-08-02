@@ -21,10 +21,10 @@ type Configuration struct {
 	DeploymentTimeout          time.Duration `envconfig:"DEPLOYMENT_TIMEOUT"`
 	BindAddr                   string        `envconfig:"BIND_ADDR"`
 	HealthcheckInterval        time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
-	HealthcheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRTICAL_TIMEOUT"`
+	HealthcheckCriticalTimeout time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
 	PrivateKey                 string        `envconfig:"PRIVATE_KEY" json:"-"`
 	VaultAddr                  string        `envconfig:"VAULT_ADDR"`
-	VaultToken                 string        `envconfig:"VAULT_TOKEN"`
+	VaultToken                 string        `envconfig:"VAULT_TOKEN" json:"-"`
 	AWSRegion                  string        `envconfig:"AWS_REGION"`
 	SecretsBucketName          string        `envconfig:"SECRETS_BUCKET_NAME"`
 	DeploymentsBucketName      string        `envconfig:"DEPLOYMENTS_BUCKET_NAME"`
