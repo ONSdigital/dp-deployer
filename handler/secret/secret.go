@@ -60,6 +60,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 		default:
 			b, _, err := s.s3Client.Get(artifact)
 			if err != nil {
+				log.Error(ctx, "Secret-Handler, s.s3Client.Get(artifact) error", err)
 				return err
 			}
 			// Make sure to close the body when done with it for S3 GetObject APIs or
@@ -68,10 +69,12 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 
 			d, err := s.decryptMessage(b)
 			if err != nil {
+				log.Error(ctx, "Secret-Handler, s.decryptMessage(b) error", err)
 				return err
 			}
 			log.Info(ctx, "writing secret", log.Data{"artifact": artifact})
 			if err := s.write(pathFor(artifact), d); err != nil {
+				log.Error(ctx, "Secret-Handler, s.write(pathFor) error", err)
 				return err
 			}
 		}
