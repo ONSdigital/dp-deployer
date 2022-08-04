@@ -71,6 +71,7 @@ func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *no
 func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
+		log.Error(ctx, "Deployment-Handler, d.s3Client.Get() error", err)
 		return err
 	}
 	// Make sure to close the body when done with it for S3 GetObject APIs or
@@ -78,12 +79,15 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	defer b.Close()
 
 	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
+		log.Error(ctx, "Deployment-Handler, untargz.Extract() error", err)
 		return err
 	}
 	if err := d.plan(ctx, msg); err != nil {
+		log.Error(ctx, "Deployment-Handler, d.plan() error", err)
 		return err
 	}
 	if err := d.run(ctx, msg); err != nil {
+		log.Error(ctx, "Deployment-Handler, d.run() error", err)
 		return err
 	}
 	return nil
