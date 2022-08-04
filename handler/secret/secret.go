@@ -85,14 +85,17 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {
 	a, err := dearmorMessage(message)
 	if err != nil {
+		log.Error(context.Background(), "Secret-decryptMessage, dearmorMessage() error", err)
 		return nil, err
 	}
 	m, err := openpgp.ReadMessage(a.Body, s.entities, nil, nil)
 	if err != nil {
+		log.Error(context.Background(), "Secret-decryptMessage, openpgp.ReadMessage() error", err)
 		return nil, err
 	}
 	d, err := ioutil.ReadAll(m.UnverifiedBody)
 	if err != nil {
+		log.Error(context.Background(), "Secret-decryptMessage, ioutil.ReadAll() error", err)
 		return nil, err
 	}
 	return d, nil
@@ -101,9 +104,11 @@ func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {
 func (s *Secret) write(path string, secret []byte) error {
 	var j map[string]interface{}
 	if err := json.Unmarshal(secret, &j); err != nil {
+		log.Error(context.Background(), "Secret-write, json.Unmarshal() error", err)
 		return err
 	}
 	if err := s.vault.Write(fmt.Sprintf("secret/%s", path), j); err != nil {
+		log.Error(context.Background(), "Secret-write, s.vault.Write() error", err)
 		return err
 	}
 	return nil
@@ -128,6 +133,7 @@ func entityList(privateKey string) (openpgp.EntityList, error) {
 func dearmorMessage(reader io.Reader) (*armor.Block, error) {
 	b, err := armor.Decode(reader)
 	if err != nil {
+		log.Error(context.Background(), "Secret-dearmorMessage, armor.Decode() error", err)
 		return nil, err
 	}
 	return b, nil

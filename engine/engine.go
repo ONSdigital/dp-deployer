@@ -174,12 +174,14 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 
 		m, err := e.verifyMessage(rawMsg)
 		if err != nil {
+			log.Error(ctx, "handle(), e.verifyMessage(rawMsg) error", err)
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}
 
 		engMsg := Message{ID: rawMsg.ID}
 		if err := json.Unmarshal(m, &engMsg); err != nil {
+			log.Error(ctx, "handle(), json.Unmarshal() error", err)
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}
@@ -187,10 +189,12 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 		var handlerFunc HandlerFunc
 		var ok bool
 		if handlerFunc, ok = e.handlers[engMsg.Type]; !ok {
+			log.Error(ctx, "handle(), e.handlers[engMsg.Type] error", err)
 			e.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
 			return
 		}
 		if err := handlerFunc(ctx, &engMsg); err != nil {
+			log.Error(ctx, "handle(), handlerFunc() error", err)
 			e.postHandle(ctx, rawMsg, err)
 			return
 		}
