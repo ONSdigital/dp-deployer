@@ -58,6 +58,7 @@ func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
 			log.Error(ctx, "bailing on updating secrets", errors.New("bailing on updating secrets"))
 			return &AbortedError{ID: msg.ID}
 		default:
+			log.Info(ctx, "handling artifact", log.Data{"artifact": artifact})
 			b, _, err := s.s3Client.Get(artifact)
 			if err != nil {
 				log.Error(ctx, "Secret-Handler, s.s3Client.Get(artifact) error", err)
