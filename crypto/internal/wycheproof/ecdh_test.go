@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"testing"
 
-	"golang.org/x/crypto/cryptobyte"
-	casn1 "golang.org/x/crypto/cryptobyte/asn1"
+	"github.com/ONSdigital/dp-deployer/crypto/cryptobyte"
+	casn1 "github.com/ONSdigital/dp-deployer/crypto/cryptobyte/asn1"
 )
 
 func TestECDH(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"golang.org/x/crypto/ssh"
+	"github.com/ONSdigital/dp-deployer/crypto/ssh"
 	"golang.org/x/crypto/ssh/testdata"
 )
 

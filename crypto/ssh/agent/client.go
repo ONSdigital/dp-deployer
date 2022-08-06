@@ -26,8 +26,8 @@ import (
 	"math/big"
 	"sync"
 
-	"golang.org/x/crypto/ed25519"
-	"golang.org/x/crypto/ssh"
+	"github.com/ONSdigital/dp-deployer/crypto/ed25519"
+	"github.com/ONSdigital/dp-deployer/crypto/ssh"
 )
 
 // SignatureFlags represent additional flags that can be passed to the signature

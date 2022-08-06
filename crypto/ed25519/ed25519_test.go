@@ -5,10 +5,9 @@
 package ed25519_test
 
 import (
+	"crypto/ed25519"
 	ed25519std "crypto/ed25519"
 	"testing"
-
-	"golang.org/x/crypto/ed25519"
 )
 
 func TestTypeAlias(t *testing.T) {
