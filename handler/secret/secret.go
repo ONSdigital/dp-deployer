@@ -10,6 +10,10 @@ import (
 
 	"strings"
 
+	// "golang.org/x/crypto/openpgp"
+	// "golang.org/x/crypto/openpgp/armor"
+	// "golang.org/x/crypto/openpgp/packet"
+
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/armor"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/packet"
