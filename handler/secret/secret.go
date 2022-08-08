@@ -10,9 +10,9 @@ import (
 
 	"strings"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
-	"golang.org/x/crypto/openpgp/packet"
+	"github.com/ONSdigital/dp-deployer/crypto/openpgp"
+	"github.com/ONSdigital/dp-deployer/crypto/openpgp/armor"
+	"github.com/ONSdigital/dp-deployer/crypto/openpgp/packet"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -40,6 +40,7 @@ type Secret struct {
 func New(cfg *config.Configuration, vc VaultClient, secretsClient s3.Client) (*Secret, error) {
 	e, err := entityList(cfg.PrivateKey)
 	if err != nil {
+		log.Error(context.Background(), "New(): entityList() failed", err, log.Data{"cfg.PrivateKey": cfg.PrivateKey})
 		return nil, err
 	}
 
@@ -122,6 +123,7 @@ func pathFor(artifact string) string {
 func entityList(privateKey string) (openpgp.EntityList, error) {
 	b, err := dearmorMessage(strings.NewReader(privateKey))
 	if err != nil {
+		log.Error(context.Background(), "New(): entityList(): dearmorMessage() failed", err, log.Data{"privateKey": privateKey})
 		return nil, err
 	}
 	e, err := openpgp.ReadEntity(packet.NewReader(b.Body))
@@ -133,6 +135,7 @@ func entityList(privateKey string) (openpgp.EntityList, error) {
 
 func dearmorMessage(reader io.Reader) (*armor.Block, error) {
 	b, err := armor.Decode(reader)
+	log.Info(context.Background(), "dearmorMessage: armor.Block")
 	if err != nil {
 		log.Error(context.Background(), "Secret-dearmorMessage, armor.Decode() error", err)
 		return nil, err
