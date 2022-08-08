@@ -135,7 +135,7 @@ func entityList(privateKey string) (openpgp.EntityList, error) {
 
 func dearmorMessage(reader io.Reader) (*armor.Block, error) {
 	b, err := armor.Decode(reader)
-	log.Info(context.Background(), "dearmorMessage: armor.Block", log.Data{"block": *b})
+	log.Info(context.Background(), "dearmorMessage: armor.Block")
 	if err != nil {
 		log.Error(context.Background(), "Secret-dearmorMessage, armor.Decode() error", err)
 		return nil, err
