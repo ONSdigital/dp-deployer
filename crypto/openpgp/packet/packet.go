@@ -14,6 +14,7 @@ package packet // import "golang.org/x/crypto/openpgp/packet"
 
 import (
 	"bufio"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/des"
@@ -22,6 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/ONSdigital/dp-deployer/crypto/cast5"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/errors"
 )
@@ -360,8 +362,10 @@ func Read(r io.Reader) (p Packet, err error) {
 
 	switch tag {
 	case packetTypeEncryptedKey:
+		log.Info(context.Background(), "packet-Read(): packetTypeEncryptedKey")
 		p = new(EncryptedKey)
 	case packetTypeSignature:
+		log.Info(context.Background(), "packet-Read(): packetTypeSignature")
 		var version byte
 		// Detect signature version
 		if contents, version, err = peekVersion(contents); err != nil {
@@ -373,16 +377,20 @@ func Read(r io.Reader) (p Packet, err error) {
 			p = new(Signature)
 		}
 	case packetTypeSymmetricKeyEncrypted:
+		log.Info(context.Background(), "packet-Read(): packetTypeSymmetricKeyEncrypted")
 		p = new(SymmetricKeyEncrypted)
 	case packetTypeOnePassSignature:
+		log.Info(context.Background(), "packet-Read(): packetTypeOnePassSignature")
 		p = new(OnePassSignature)
 	case packetTypePrivateKey, packetTypePrivateSubkey:
+		log.Info(context.Background(), "packet-Read(): packetTypePrivateKey, packetTypePrivateSubkey")
 		pk := new(PrivateKey)
 		if tag == packetTypePrivateSubkey {
 			pk.IsSubkey = true
 		}
 		p = pk
 	case packetTypePublicKey, packetTypePublicSubkey:
+		log.Info(context.Background(), "packet-Read(): packetTypePublicKey, packetTypePublicSubkey")
 		var version byte
 		if contents, version, err = peekVersion(contents); err != nil {
 			return
@@ -394,20 +402,27 @@ func Read(r io.Reader) (p Packet, err error) {
 			p = &PublicKey{IsSubkey: isSubkey}
 		}
 	case packetTypeCompressed:
+		log.Info(context.Background(), "packet-Read(): packetTypeCompressed")
 		p = new(Compressed)
 	case packetTypeSymmetricallyEncrypted:
+		log.Info(context.Background(), "packet-Read(): packetTypeSymmetricallyEncrypted")
 		p = new(SymmetricallyEncrypted)
 	case packetTypeLiteralData:
+		log.Info(context.Background(), "packet-Read(): packetTypeLiteralData")
 		p = new(LiteralData)
 	case packetTypeUserId:
+		log.Info(context.Background(), "packet-Read(): packetTypeUserId")
 		p = new(UserId)
 	case packetTypeUserAttribute:
+		log.Info(context.Background(), "packet-Read(): packetTypeUserAttribute")
 		p = new(UserAttribute)
 	case packetTypeSymmetricallyEncryptedMDC:
+		log.Info(context.Background(), "packet-Read(): packetTypeSymmetricallyEncryptedMDC")
 		se := new(SymmetricallyEncrypted)
 		se.MDC = true
 		p = se
 	default:
+		log.Info(context.Background(), "packet-Read(): default")
 		err = errors.UnknownPacketTypeError(tag)
 	}
 	if p != nil {

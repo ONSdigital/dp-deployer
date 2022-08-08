@@ -5,8 +5,10 @@
 package packet
 
 import (
+	"context"
 	"io"
 
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/errors"
 )
 
@@ -31,22 +33,28 @@ func (r *Reader) Next() (p Packet, err error) {
 	if len(r.q) > 0 {
 		p = r.q[len(r.q)-1]
 		r.q = r.q[:len(r.q)-1]
+		log.Info(context.Background(), "reader-Next(): len(r.q) > 0")
 		return
 	}
 
 	for len(r.readers) > 0 {
 		p, err = Read(r.readers[len(r.readers)-1])
 		if err == nil {
+			log.Info(context.Background(), "reader-Next(): err == nil")
 			return
 		}
 		if err == io.EOF {
+			log.Info(context.Background(), "reader-Next(): err == io.EOF")
 			r.readers = r.readers[:len(r.readers)-1]
 			continue
 		}
 		if _, ok := err.(errors.UnknownPacketTypeError); !ok {
+			log.Error(context.Background(), "reader-Next-packets.UnknownPacketTypeError error", err)
 			return nil, err
 		}
 	}
+
+	log.Error(context.Background(), "reader-Next-packets.io.EOF error", err)
 
 	return nil, io.EOF
 }

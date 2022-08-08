@@ -12,12 +12,14 @@
 package openpgp // import "golang.org/x/crypto/openpgp"
 
 import (
+	"context"
 	"crypto"
 	_ "crypto/sha256"
 	"hash"
 	"io"
 	"strconv"
 
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/armor"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/errors"
 	"github.com/ONSdigital/dp-deployer/crypto/openpgp/packet"
@@ -108,14 +110,19 @@ ParsePackets:
 	for {
 		p, err = packets.Next()
 		if err != nil {
+			log.Error(context.Background(), "read-ReadMessage-packets.Next error", err)
+
 			return nil, err
 		}
 		switch p := p.(type) {
 		case *packet.SymmetricKeyEncrypted:
+			log.Info(context.Background(), "*packet.SymmetricKeyEncrypted")
+
 			// This packet contains the decryption key encrypted with a passphrase.
 			md.IsSymmetricallyEncrypted = true
 			symKeys = append(symKeys, p)
 		case *packet.EncryptedKey:
+			log.Info(context.Background(), "*packet.EncryptedKey")
 			// This packet contains the decryption key encrypted to a public key.
 			md.EncryptedToKeyIds = append(md.EncryptedToKeyIds, p.KeyId)
 			switch p.Algo {
@@ -134,14 +141,17 @@ ParsePackets:
 				pubKeys = append(pubKeys, keyEnvelopePair{k, p})
 			}
 		case *packet.SymmetricallyEncrypted:
+			log.Info(context.Background(), "*packet.SymmetricallyEncrypted")
 			se = p
 			break ParsePackets
 		case *packet.Compressed, *packet.LiteralData, *packet.OnePassSignature:
+			log.Info(context.Background(), "*packet.Compressed, *packet.LiteralData, *packet.OnePassSignature")
 			// This message isn't encrypted.
 			if len(symKeys) != 0 || len(pubKeys) != 0 {
 				return nil, errors.StructuralError("key material not followed by encrypted message")
 			}
 			packets.Unread(p)
+			log.Info(context.Background(), "calling: readSignedMessage()")
 			return readSignedMessage(packets, nil, keyring)
 		}
 	}
@@ -160,6 +170,7 @@ FindKey:
 
 		for _, pk := range pubKeys {
 			if pk.key.PrivateKey == nil {
+				log.Info(context.Background(), "pk.key.PrivateKey == nil")
 				continue
 			}
 			if !pk.key.PrivateKey.Encrypted {
@@ -167,31 +178,38 @@ FindKey:
 					pk.encryptedKey.Decrypt(pk.key.PrivateKey, config)
 				}
 				if len(pk.encryptedKey.Key) == 0 {
+					log.Info(context.Background(), "len(pk.encryptedKey.Key) == 0")
 					continue
 				}
 				decrypted, err = se.Decrypt(pk.encryptedKey.CipherFunc, pk.encryptedKey.Key)
 				if err != nil && err != errors.ErrKeyIncorrect {
+					log.Error(context.Background(), "read-ReadMessage-se.Decrypt error", err)
 					return nil, err
 				}
 				if decrypted != nil {
 					md.DecryptedWith = pk.key
+					log.Info(context.Background(), "md.DecryptedWith = pk.key")
 					break FindKey
 				}
 			} else {
 				fpr := string(pk.key.PublicKey.Fingerprint[:])
 				if v := candidateFingerprints[fpr]; v {
+					log.Info(context.Background(), "v := candidateFingerprints[fpr]; v")
 					continue
 				}
+				log.Info(context.Background(), "append(candidates, pk.key)")
 				candidates = append(candidates, pk.key)
 				candidateFingerprints[fpr] = true
 			}
 		}
 
 		if len(candidates) == 0 && len(symKeys) == 0 {
+			log.Info(context.Background(), "len(candidates) == 0 && len(symKeys) == 0 error")
 			return nil, errors.ErrKeyIncorrect
 		}
 
 		if prompt == nil {
+			log.Info(context.Background(), "prompt == nil")
 			return nil, errors.ErrKeyIncorrect
 		}
 
@@ -218,8 +236,11 @@ FindKey:
 		}
 	}
 
+	log.Info(context.Background(), "A key has been Found")
+
 	md.decrypted = decrypted
 	if err := packets.Push(decrypted); err != nil {
+		log.Error(context.Background(), "read-ReadMessage-packets.Push(decrypted) error", err)
 		return nil, err
 	}
 	return readSignedMessage(packets, md, keyring)
@@ -230,6 +251,7 @@ FindKey:
 // used.
 func readSignedMessage(packets *packet.Reader, mdin *MessageDetails, keyring KeyRing) (md *MessageDetails, err error) {
 	if mdin == nil {
+		log.Info(context.Background(), "mdin = new(MessageDetails)")
 		mdin = new(MessageDetails)
 	}
 	md = mdin
@@ -241,20 +263,26 @@ FindLiteralData:
 	for {
 		p, err = packets.Next()
 		if err != nil {
+			log.Error(context.Background(), "read-readSignedMessage-packets.Next() error", err)
 			return nil, err
 		}
 		switch p := p.(type) {
 		case *packet.Compressed:
+			log.Info(context.Background(), "readSignedMessage: *packet.Compressed")
 			if err := packets.Push(p.Body); err != nil {
+				log.Error(context.Background(), "read-readSignedMessage-packets.Push() error", err)
 				return nil, err
 			}
 		case *packet.OnePassSignature:
+			log.Info(context.Background(), "readSignedMessage: *packet.OnePassSignature")
 			if !p.IsLast {
+				log.Error(context.Background(), "read-readSignedMessage-nested signatures error", err)
 				return nil, errors.UnsupportedError("nested signatures")
 			}
 
 			h, wrappedHash, err = hashForSignature(p.Hash, p.SigType)
 			if err != nil {
+				log.Error(context.Background(), "read-readSignedMessage-hashForSignature() error", err)
 				md = nil
 				return
 			}
@@ -263,19 +291,24 @@ FindLiteralData:
 			md.SignedByKeyId = p.KeyId
 			keys := keyring.KeysByIdUsage(p.KeyId, packet.KeyFlagSign)
 			if len(keys) > 0 {
+				log.Info(context.Background(), "md.SignedBy = &keys[0]")
 				md.SignedBy = &keys[0]
 			}
 		case *packet.LiteralData:
+			log.Info(context.Background(), "readSignedMessage: *packet.LiteralData")
 			md.LiteralData = p
 			break FindLiteralData
 		}
 	}
 
 	if md.SignedBy != nil {
+		log.Info(context.Background(), "readSignedMessage: &signatureCheckReader{packets, h, wrappedHash, md}")
 		md.UnverifiedBody = &signatureCheckReader{packets, h, wrappedHash, md}
 	} else if md.decrypted != nil {
+		log.Info(context.Background(), "readSignedMessage: checkReader{md}")
 		md.UnverifiedBody = checkReader{md}
 	} else {
+		log.Info(context.Background(), "readSignedMessage: md.LiteralData.Body")
 		md.UnverifiedBody = md.LiteralData.Body
 	}
 
@@ -295,8 +328,10 @@ func hashForSignature(hashId crypto.Hash, sigType packet.SignatureType) (hash.Ha
 
 	switch sigType {
 	case packet.SigTypeBinary:
+		log.Info(context.Background(), "hashForSignature: SigTypeBinary")
 		return h, h, nil
 	case packet.SigTypeText:
+		log.Info(context.Background(), "hashForSignature: SigTypeText")
 		return h, NewCanonicalTextHash(h), nil
 	}
 
