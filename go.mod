@@ -73,9 +73,6 @@ require (
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.7.2
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
-	golang.org/x/sys v0.0.0-20220517195934-5e4e11fc645e
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
 require (
@@ -136,6 +133,8 @@ require (
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
 	go.uber.org/atomic v1.9.0 // indirect
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
+	golang.org/x/sys v0.0.0-20220517195934-5e4e11fc645e // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	google.golang.org/genproto v0.0.0-20220314164441-57ef72a4c106 // indirect

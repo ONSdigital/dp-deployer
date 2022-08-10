@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ONSdigital/dp-deployer/crypto/openpgp"
-	"github.com/ONSdigital/dp-deployer/crypto/openpgp/clearsign"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 
 	"github.com/cenkalti/backoff"
 
