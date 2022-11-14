@@ -686,6 +686,7 @@ func withEnv(f func()) {
 
 // DefaultClient is a dp-net specific http client with sensible timeouts,
 // exponential backoff, and a contextual dialer.
+// (this is defined here as its been removed from dp-net lib)
 var DefaultClient = &dpnethttp.Client{
 	MaxRetries: 3,
 	RetryTime:  20 * time.Millisecond,
