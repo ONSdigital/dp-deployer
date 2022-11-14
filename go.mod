@@ -2,11 +2,6 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.19
 
-// nancy reports a false-positive for a vulnerability in the module graph that is not used by our module
-// this will replace the unused module in the graph so nancy no longer reports the vulnerability
-// this can be removed if we use govulncheck instead of nancy for auditing
-replace github.com/go-ldap/ldap/v3 v3.1.10 => github.com/go-ldap/ldap/v3 v3.4.3
-
 require (
 	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-net v1.5.0
