@@ -53,7 +53,7 @@ func Get() (*Configuration, error) {
 		NomadToken:                 "",
 		NomadCACert:                "",
 		NomadTLSSkipVerify:         false,
-		DeploymentTimeout:          time.Second * 60 * 30,
+		DeploymentTimeout:          time.Second * 60 * 20,
 		BindAddr:                   ":24300",
 		HealthcheckInterval:        time.Second * 30,
 		HealthcheckCriticalTimeout: time.Second * 10,
