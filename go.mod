@@ -4,8 +4,6 @@ go 1.19
 
 replace github.com/go-ldap/ldap/v3 => github.com/go-ldap/ldap/v3 v3.4.3
 
-replace github.com/hashicorp/consul => github.com/hashicorp/consul v1.13.3
-
 require (
 	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-net v1.5.0
