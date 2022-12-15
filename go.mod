@@ -2,6 +2,9 @@ module github.com/ONSdigital/dp-deployer
 
 go 1.19
 
+// This, to fix: [CVE-2022-23471] CWE-400: Uncontrolled Resource Consumption ('Resource Exhaustion')
+replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.12
+
 require (
 	github.com/ONSdigital/dp-healthcheck v1.5.0
 	github.com/ONSdigital/dp-net v1.5.0
@@ -11,7 +14,7 @@ require (
 	github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e
 	github.com/ONSdigital/goamz v0.0.0-20211118152127-9b03aca7c244
 	github.com/ONSdigital/log.go/v2 v2.3.0
-	github.com/aws/aws-sdk-go v1.44.84
+	github.com/aws/aws-sdk-go v1.44.126
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/nomad v1.4.2
@@ -61,10 +64,10 @@ require (
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-3 // indirect
-	github.com/hashicorp/memberlist v0.4.0 // indirect
+	github.com/hashicorp/memberlist v0.5.0 // indirect
 	github.com/hashicorp/raft v1.3.11 // indirect
 	github.com/hashicorp/raft-autopilot v0.1.6 // indirect
-	github.com/hashicorp/serf v0.10.0 // indirect
+	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/hashicorp/vault/api v1.8.1 // indirect
 	github.com/hashicorp/vault/sdk v0.6.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87 // indirect
