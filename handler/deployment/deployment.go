@@ -267,6 +267,8 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 					}
 					log.Error(ctx, "deployment failed", errors.New("deployment failed"), logData)
 					return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+				default:
+					log.Info(ctx, fmt.Sprintf("Unhandled deployment.Status: %s", deployment.Status))
 				}
 				foundJobByIndex = true
 				break
