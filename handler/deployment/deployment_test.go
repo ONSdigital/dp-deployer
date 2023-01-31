@@ -23,10 +23,11 @@ import (
 const nomadURL = "http://localhost:4646"
 
 var (
-	jobSuccess            = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
-	serviceJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "service", "Version": 2}`
-	systemJobInfoSuccess  = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
-	batchJobInfoSuccess   = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	jobSuccess             = `{"EvalID": "12345", "ID": "54321", "JobModifyIndex": 99}`
+	serviceJobInfoSuccess  = `{"ID": "54321", "Name": "test", "Type": "service", "Version": 2}`
+	systemJobInfoSuccess   = `{"ID": "54321", "Name": "test", "Type": "system", "Version": 2}`
+	batchJobInfoSuccess    = `{"ID": "54321", "Name": "test", "Type": "batch", "Version": 2}`
+	periodicJobInfoSuccess = `{"ID": "54321", "Name": "test", "Type": "batch", "Version": 2, "Periodic": {"Enabled": true}}`
 
 	otherDeployment      = `{"JobSpecModifyIndex": 1, "ID": "54321", "Status": "failed"}`
 	yetAnotherDeployment = `{"JobSpecModifyIndex": 2, "ID": "54321", "Status": "failed"}`
@@ -405,6 +406,16 @@ func TestRun(t *testing.T) {
 				So(err, ShouldBeNil)
 				cancel()
 			})
+
+			Convey("successful periodic batch deployments handled correctly", func() {
+				serviceName := "test"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, periodicJobInfoSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				So(err, ShouldBeNil)
+				cancel()
+			})
 		})
 	})
 }
@@ -672,6 +683,17 @@ func TestRunNew(t *testing.T) {
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, jobName), httpmock.NewStringResponder(200, allocationsStopIsStopped))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("successful periodic batch deployments without an allocation handled correctly", func() {
+				jobType := "batch"
+				trueVal := true
+				periodic := api.PeriodicConfig{Enabled: &trueVal}
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.runNew(ctx, api.Job{ID: &jobID, Name: &jobName, Type: &jobType, Version: &jobVersion, Periodic: &periodic})
 				So(err, ShouldBeNil)
 				cancel()
 			})

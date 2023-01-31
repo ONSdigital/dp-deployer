@@ -175,11 +175,17 @@ func (d *Deployment) deploymentSuccessCheck(ctx context.Context, correlationID, 
 	if err := d.get(fmt.Sprintf(infoURL, d.endpoint, jobID), &jobInfo); err != nil {
 		return err
 	}
-	if *jobInfo.Type == api.JobTypeSystem || *jobInfo.Type == api.JobTypeBatch {
+
+	switch *jobInfo.Type {
+	case api.JobTypeSystem:
 		if err := d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, *jobInfo.Version); err != nil {
 			return err
 		}
-	} else {
+	case api.JobTypeBatch:
+		if err := d.successCheckForBatchJobs(ctx, correlationID, evaluationID, jobID, *jobInfo.Version, jobInfo.Periodic != nil); err != nil {
+			return err
+		}
+	default:
 		if err := d.successCheckByDeployment(ctx, correlationID, evaluationID, jobID, jobSpecModifyIndex); err != nil {
 			return err
 		}
@@ -194,16 +200,33 @@ func (d *Deployment) runNew(ctx context.Context, job api.Job) error {
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), job.Payload, &res); err != nil {
 		return err
 	}
-	if *job.Type == api.JobTypeSystem || *job.Type == api.JobTypeBatch {
+
+	switch *job.Type {
+	case api.JobTypeSystem:
 		if err := d.successCheckByAllocations(ctx, *job.Name, res.EvalID, *job.Name, *job.Version); err != nil {
 			return err
 		}
-	} else {
+	case api.JobTypeBatch:
+		if err := d.successCheckForBatchJobs(ctx, *job.Name, res.EvalID, *job.Name, *job.Version, job.Periodic != nil); err != nil {
+			return err
+		}
+	default:
 		if err := d.successCheckByDeployment(ctx, *job.Name, res.EvalID, *job.Name, res.JobModifyIndex); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (d *Deployment) successCheckForBatchJobs(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64, periodic bool) error {
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
+	if periodic {
+		log.Info(ctx, "deployment assumed successful - periodic batch jobs don't run immediately", minLogData)
+		return nil
+	}
+	// Non-periodic batch jobs run immediately so check for a running allocation
+	log.Warn(ctx, "non periodic batch job may have a short-lived allocation so incorrectly fail subsequent status check", minLogData)
+	return d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, jobVersion)
 }
 
 func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
