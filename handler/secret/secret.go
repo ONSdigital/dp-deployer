@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-
 	"strings"
 
 	"golang.org/x/crypto/openpgp"
@@ -94,9 +92,9 @@ func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {
 		log.Error(context.Background(), "Secret-decryptMessage, openpgp.ReadMessage() error [did you use '--openpgp' flag to encrypt secrets]", err)
 		return nil, err
 	}
-	d, err := ioutil.ReadAll(m.UnverifiedBody)
+	d, err := io.ReadAll(m.UnverifiedBody)
 	if err != nil {
-		log.Error(context.Background(), "Secret-decryptMessage, ioutil.ReadAll() error", err)
+		log.Error(context.Background(), "Secret-decryptMessage, io.ReadAll() error", err)
 		return nil, err
 	}
 	return d, nil

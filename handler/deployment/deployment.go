@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -410,7 +410,7 @@ func (d *Deployment) doNomadReq(req *http.Request, v interface{}) error {
 func unmarshalAPIResponse(r *http.Response, v interface{}) error {
 	defer r.Body.Close()
 
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
