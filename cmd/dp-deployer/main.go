@@ -52,7 +52,7 @@ func main() {
 
 	// Create S3 secrets client
 	var secretsClient *s3client.S3
-	secretsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName, false)
+	secretsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.SecretsBucketName)
 	if err != nil {
 		log.Fatal(ctx, "error creating S3 secrets client", err)
 		os.Exit(1)
@@ -60,7 +60,7 @@ func main() {
 
 	// Create S3 deployments client
 	var deploymentsClient *s3client.S3
-	deploymentsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName, false)
+	deploymentsClient, err = s3client.NewClient(cfg.AWSRegion, cfg.DeploymentsBucketName)
 	if err != nil {
 		log.Fatal(ctx, "error creating S3 deployments client", err)
 		os.Exit(1)

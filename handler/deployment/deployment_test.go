@@ -14,7 +14,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/s3"
-	dpnethttp "github.com/ONSdigital/dp-net/http"
+	dpnethttp "github.com/ONSdigital/dp-net/v2/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/jarcoal/httpmock"
 	. "github.com/smartystreets/goconvey/convey"
