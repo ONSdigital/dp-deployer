@@ -1,16 +1,12 @@
 # the go.mod file specifies the latest:
-# consul@v1.12.2
-# api@v1.13.0
-# sdk@v0.9.0
+# consul@v1.16.1
 # but the audit still complains about "Server-Side Request Forgery (SSRF)", that does not affect this app, so this exclusion exists
 CVE-2022-29153 # 7.5 HIGH # pkg:golang/github.com/hashicorp/consul@v1.12.2
 
-# the go.mod file specifies the latest sdk@v0.9.0, but audit still indicates problems, so this exclusion exists
-# "Uncontrolled Resource Consumption ('Resource Exhaustion')" ... i cant see in the code base where this would affect us.
-CVE-2022-24687 # 6.5 MEDIUM # pkg:golang/github.com/hashicorp/consul/sdk@v0.9.0
-
-# the audit fails without this exclusion:
-CVE-2021-41803 # CWE-862: Missing Authorization : pkg:golang/github.com/hashicorp/consul/sdk@v0.11.0
-
-# nancy reports a false-positive for a vulnerability in the module graph that is not actually used by our module
-sonatype-2020-1055 # pkg:golang/github.com/go-ldap/ldap/v3@v3.1.10
+# the following 5 are for pkg:golang/github.com/hashicorp/nomad@v1.3.1
+# trying to use a version above 1.4.2 breaks the unit tests and build
+CVE-2022-41606 # CWE-400: Uncontrolled Resource Consumption ('Resource Exhaustion')
+CVE-2023-0821 # CWE-Other
+CVE-2023-3300 # CWE-862: Missing Authorization
+CVE-2022-3867 # CWE-613: Insufficient Session Expiration
+CVE-2023-3072 # CWE-862: Missing Authorization
