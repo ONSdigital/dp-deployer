@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -14,7 +13,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
 	"github.com/ONSdigital/dp-deployer/s3"
-	dpnethttp "github.com/ONSdigital/dp-net/http"
+	dpnethttp "github.com/ONSdigital/dp-net/v2/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/jarcoal/httpmock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -706,33 +705,13 @@ func withEnv(f func()) {
 	f()
 }
 
-// DefaultClient is a dp-net specific http client with sensible timeouts,
-// exponential backoff, and a contextual dialer.
-// (this is defined here as its been removed from dp-net lib)
-var DefaultClient = &dpnethttp.Client{
-	MaxRetries: 3,
-	RetryTime:  20 * time.Millisecond,
-
-	HTTPClient: &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 5 * time.Second,
-			}).DialContext,
-			TLSHandshakeTimeout: 5 * time.Second,
-			MaxIdleConns:        10,
-			IdleConnTimeout:     30 * time.Second,
-		},
-	},
-}
-
 func withMocks(f func()) {
 
 	// Activate() changes http.DefaultClient (see later)
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
-	myClient := DefaultClient
+	myClient := dpnethttp.DefaultClient
 	// use the httpmock'ed http.DefaultClient in our dp-net http client
 	myClient.HTTPClient = http.DefaultClient
 	myClient.MaxRetries = 1
