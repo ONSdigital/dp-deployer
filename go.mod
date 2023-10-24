@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-deployer
 
-go 1.19
+go 1.21
 
 // This, to fix: [CVE-2022-23471] CWE-400: Uncontrolled Resource Consumption ('Resource Exhaustion')
 replace github.com/containerd/containerd => github.com/containerd/containerd v1.6.23
@@ -33,7 +33,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.8.0
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.14.0
 )
 
 require (
@@ -87,9 +87,9 @@ require (
 	github.com/smartystreets/assertions v1.13.1 // indirect
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
