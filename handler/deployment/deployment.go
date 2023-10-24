@@ -224,9 +224,83 @@ func (d *Deployment) successCheckForBatchJobs(ctx context.Context, correlationID
 		log.Info(ctx, "deployment assumed successful - periodic batch jobs don't run immediately", minLogData)
 		return nil
 	}
-	// Non-periodic batch jobs run immediately so check for a running allocation
+	// Non-periodic batch jobs run immediately so check for a complete allocation
 	log.Warn(ctx, "non periodic batch job may have a short-lived allocation so incorrectly fail subsequent status check", minLogData)
-	return d.successCheckByAllocations(ctx, correlationID, evaluationID, jobID, jobVersion)
+	return d.successCheckByAllocationsBatch(ctx, correlationID, evaluationID, jobID, jobVersion)
+}
+
+func (d *Deployment) successCheckByAllocationsBatch(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+	timeout := time.NewTimer(d.timeout)
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_version": jobVersion}
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Ensure timer is stopped and its resources are freed
+			if !timeout.Stop() {
+				// if the timer has been stopped then read from the channel
+				<-timeout.C
+			}
+			log.Error(ctx, "bailing on batch deployment status", errors.New("bailing on batch deployment status"), minLogData)
+			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+		case <-timeout.C:
+			return &TimeoutError{Action: "deployment"}
+		case <-ticker.C:
+			var allocations []api.AllocationListStub
+			if err := d.get(fmt.Sprintf(allocationsURL, d.endpoint, jobID), &allocations); err != nil {
+				// Ensure timer is stopped and its resources are freed
+				if !timeout.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-timeout.C
+				}
+				return err
+			}
+
+			if len(allocations) == 0 {
+				// Ensure timer is stopped and its resources are freed
+				if !timeout.Stop() {
+					// if the timer has been stopped then read from the channel
+					<-timeout.C
+				}
+				log.Error(ctx, "batch deployment failed - no allocations", errors.New("batch deployment failed - no allocations"), minLogData)
+				return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+			}
+
+			desiredStopIsRunning := false
+			var desiredAllocations []api.AllocationListStub
+			for _, allocation := range allocations {
+				if allocation.EvalID == evaluationID && allocation.DesiredStatus == structs.AllocDesiredStatusRun {
+					desiredAllocations = append(desiredAllocations, allocation)
+				} else if allocation.DesiredStatus != structs.AllocDesiredStatusRun &&
+					allocation.ClientStatus == structs.AllocClientStatusRunning {
+					desiredStopIsRunning = true
+					break
+				}
+			}
+
+			if !desiredStopIsRunning {
+				completedAllocations := 0
+				for _, allocation := range desiredAllocations {
+					if allocation.JobVersion == jobVersion && allocation.ClientStatus == structs.AllocClientStatusComplete {
+						completedAllocations += 1
+					}
+				}
+
+				if len(desiredAllocations) == completedAllocations {
+					// Ensure timer is stopped and its resources are freed
+					if !timeout.Stop() {
+						// if the timer has been stopped then read from the channel
+						<-timeout.C
+					}
+					log.Info(ctx, "batch deployment success", minLogData)
+					return nil
+				}
+			}
+			log.Warn(ctx, "batch deployment incomplete - will re-test", minLogData)
+		}
+	}
 }
 
 func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {

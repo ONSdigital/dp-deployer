@@ -39,11 +39,12 @@ var (
 	anAllocation             = `{"ID": "54321", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
 	anotherAllocation        = `{"ID": "54322", "JobVersion": 2, "ClientStatus": "running", "DesiredStatus": "run"}`
 	allocationsSuccess       = `[` + anAllocation + `, ` + anotherAllocation + `]`
-	allocationsPending       = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
-	allocationsOldVersion    = `[{"ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
-	allocationsError         = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
-	allocationsStopIsRunning = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "stop"}]`
-	allocationsStopIsStopped = `[` + anAllocation + `, {"ID": "54322", "JobVersion": 1, "ClientStatus": "complete", "DesiredStatus": "stop"}]`
+	batchAllocationsSuccess  = `[ {"EvalID": "12345","ID": "54321", "JobVersion": 2, "ClientStatus": "complete", "DesiredStatus": "run"}` + `]`
+	allocationsPending       = `[` + anAllocation + `, {"EvalID": "12345","ID": "54322", "JobVersion": 2, "ClientStatus": "pending", "DesiredStatus": "run"}]`
+	allocationsOldVersion    = `[{"EvalID": "12345","ID": "54321", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "run"}, ` + anotherAllocation + `]`
+	allocationsError         = `[` + anAllocation + `, {"EvalID": "12345","ID": "54322", "JobVersion": 2, "ClientStatus": "failed", "DesiredStatus": "run"}]`
+	allocationsStopIsRunning = `[` + anAllocation + `, {"EvalID": "12345","ID": "54322", "JobVersion": 1, "ClientStatus": "running", "DesiredStatus": "stop"}]`
+	allocationsStopIsStopped = `[` + anAllocation + `, {"EvalID": "12345","ID": "54322", "JobVersion": 1, "ClientStatus": "complete", "DesiredStatus": "stop"}]`
 
 	planErrors   = `{"FailedTGAllocs": { "test": {} } }`
 	planSuccess  = `{}`
@@ -300,6 +301,16 @@ func TestRun(t *testing.T) {
 				cancel()
 			})
 
+		})
+	})
+}
+
+func TestRun_Batch(t *testing.T) {
+	withMocks(func() {
+		Convey("run functions as expected", t, func() {
+
+			ctx, cancel := context.WithCancel(context.Background())
+
 			Convey("batch allocations api errors handled correctly", func() {
 				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
@@ -330,7 +341,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, batchJobInfoSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsPending))
 				dep := &Deployment{endpoint: nomadURL, timeout: shortTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				err := dep.run(ctx, &engine.Message{ID: "54322", Service: serviceName})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "timed out waiting for action to complete")
 				cancel()
@@ -355,19 +366,7 @@ func TestRun(t *testing.T) {
 				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsError))
 				time.AfterFunc(time.Second*2, cancel)
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
-			})
-
-			Convey("batch deployment old version persists handled correctly", func() {
-				serviceName := "test"
-				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
-				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, batchJobInfoSuccess))
-				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsOldVersion))
-				time.AfterFunc(time.Second*2, cancel)
-				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
-				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
+				err := dep.run(ctx, &engine.Message{ID: "54322", Service: "test"})
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "aborted monitoring deployment")
 			})
@@ -388,7 +387,7 @@ func TestRun(t *testing.T) {
 				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
 				httpmock.RegisterResponder("GET", fmt.Sprintf(infoURL, nomadURL, serviceName), httpmock.NewStringResponder(200, batchJobInfoSuccess))
-				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, allocationsSuccess))
+				httpmock.RegisterResponder("GET", fmt.Sprintf(allocationsURL, nomadURL, serviceName), httpmock.NewStringResponder(200, batchAllocationsSuccess))
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldBeNil)
@@ -415,6 +414,7 @@ func TestRun(t *testing.T) {
 				So(err, ShouldBeNil)
 				cancel()
 			})
+
 		})
 	})
 }
