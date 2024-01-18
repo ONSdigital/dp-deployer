@@ -23,17 +23,17 @@ require (
 	github.com/ONSdigital/go-ns v0.0.0-20210831102424-ebdecc20fe9e
 	github.com/ONSdigital/goamz v0.0.0-20211118152127-9b03aca7c244
 	github.com/ONSdigital/log.go/v2 v2.4.0
-	github.com/aws/aws-sdk-go v1.44.184
+	github.com/aws/aws-sdk-go v1.44.289
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.0
-	github.com/hashicorp/nomad v1.3.1
-	github.com/hashicorp/nomad/api v0.0.0-20230103221135-ce00d683f9be
+	github.com/hashicorp/nomad v0.12.10
+	github.com/hashicorp/nomad/api v0.0.0-20210128170732-239be4e591fe
 	github.com/jarcoal/httpmock v1.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.8.0
-	golang.org/x/crypto v0.14.0
+	golang.org/x/crypto v0.18.0
 )
 
 require (
@@ -47,7 +47,7 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/hashicorp/consul/api v1.18.0 // indirect
+	github.com/hashicorp/consul/api v1.24.0 // indirect
 	github.com/hashicorp/cronexpr v1.1.2 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -86,12 +86,13 @@ require (
 	github.com/shoenig/test v0.6.0 // indirect
 	github.com/smartystreets/assertions v1.13.1 // indirect
 	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
-	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
+	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.7.0 // indirect
+	golang.org/x/tools v0.9.1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 	google.golang.org/grpc v1.57.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
