@@ -76,3 +76,25 @@ CVE-2020-8562 # CWE-367: Time-of-check Time-of-use (TOCTOU) Race Condition
 CVE-2021-25740 # CWE-610: Externally Controlled Reference to a Resource in Another Sphere
 CVE-2021-25743 # CWE-150: Improper Neutralization of Escape, Meta, or Control Sequences
 CVE-2018-1002102 # CWE-601: URL Redirection to Untrusted Site ('Open Redirect')
+CVE-2023-28452 # CWE-noinfo :An issue was discovered in CoreDNS through
+CVE-2023-30464 # CWE-290: Authentication Bypass by Spoofing
+CVE-2024-0874 # CWE-524: Information Exposure Through Caching
+CVE-2024-38513 # CWE-384: Session Fixation
+CVE-2024-25124 # CWE-346: Origin Validation Error
+CVE-2024-37298 # CWE-770: Allocation of Resources Without Limits or Throttling
+CVE-2024-3817 # CWE-88: Argument Injection or Modification
+CVE-2024-6257 # CWE-77: Improper Neutralization of Special Elements used in a Command ('Command Injection')
+CVE-2024-6104 # CWE-532: Information Exposure Through Log Files
+CVE-2024-1329 # CWE-59: Improper Link Resolution Before File Access ('Link Following')
+CVE-2024-7625 # CWE-610: Externally Controlled Reference to a Resource in Another Sphere
+CVE-2024-6717 # CWE-610: Externally Controlled Reference to a Resource in Another Sphere
+CVE-2024-2660 # CWE-636: Not Failing Securely ('Failing Open')
+CVE-2024-2048 # CWE-295: Improper Certificate Validation
+CVE-2024-27304 # CWE-190: Integer Overflow or Wraparound
+CVE-2024-27289 # CWE-89: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')
+CVE-2024-21626 # CWE-403: Exposure of File Descriptor to Unintended Control Sphere ('File Descriptor Leak')
+CVE-2024-45310 # CWE-363: Race Condition Enabling Link Following 
+CVE-2023-49559 # CWE-400: Uncontrolled Resource Consumption ('Resource Exhaustion')
+CVE-2024-24786 # CWE-835: Loop with Unreachable Exit Condition ('Infinite Loop')
+CVE-2024-5321 # CWE-276: Incorrect Default Permissions
+CVE-2024-3177 # CWE-20: Improper Input Validation
