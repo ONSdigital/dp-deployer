@@ -12,12 +12,14 @@ CVE-2021-32574	# CWE-295: Improper Certificate Validation[0m
 CVE-2021-37218	# CWE-295: Improper Certificate Validation[0m
 CVE-2021-37219	# CWE-295: Improper Certificate Validation[0m
 CVE-2021-41103	# CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')[0m
+CVE-2021-42576	# CWE-Other[0m
 CVE-2022-21698	# CWE-400: Uncontrolled Resource Consumption ('Resource Exhaustion')[0m
 CVE-2022-23648	# CWE-200: Information Exposure[0m
 CVE-2022-24683	# CWE-noinfo[0m
 CVE-2022-24685	# CWE-770: Allocation of Resources Without Limits or Throttling[0m
 CVE-2022-29153	# CWE-918: Server-Side Request Forgery (SSRF)[0m
 CVE-2022-29162	# CWE-276: Incorrect Default Permissions[0m
+CVE-2022-30324	# CWE-noinfo[0m
 CVE-2022-3172	# CWE-918: Server-Side Request Forgery (SSRF)[0m
 CVE-2022-3294	# CWE-20: Improper Input Validation[0m
 CVE-2022-38149	# CWE-532: Information Exposure Through Log Files[0m
