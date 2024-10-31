@@ -27,6 +27,8 @@ github.com/ONSdigital/go-ns v0.0.0-20241030091535-cc1b11756418 h1:nfuYT8uFOy3GMx
 github.com/ONSdigital/go-ns v0.0.0-20241030091535-cc1b11756418/go.mod h1:c5/hQKpUJazcpdFxbTfVDKsv9bXEFr568QYxifzbAQg=
 github.com/ONSdigital/goamz v0.0.0-20241029170214-50fc762bbb99 h1:hFf7HqIWYtJqsPR4HQ0v8jwYbWAxQ8XagMluBSI5CVo=
 github.com/ONSdigital/goamz v0.0.0-20241029170214-50fc762bbb99/go.mod h1:ZiA9nvPeQMNTmF0MUnmtBoYSGOOi16/4gB+5YKJgtGM=
+github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a h1:F4IZnd2HpkBdYs0yDdQN7+GLRm2wsv1NbiAK7xgTD1w=
+github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a/go.mod h1:ZiA9nvPeQMNTmF0MUnmtBoYSGOOi16/4gB+5YKJgtGM=
 github.com/ONSdigital/log.go v1.0.0/go.mod h1:UnGu9Q14gNC+kz0DOkdnLYGoqugCvnokHBRBxFRpVoQ=
 github.com/ONSdigital/log.go v1.0.1-0.20200805084515-ee61165ea36a/go.mod h1:dDnQATFXCBOknvj6ZQuKfmDhbOWf3e8mtV+dPEfWJqs=
 github.com/ONSdigital/log.go v1.0.1-0.20200805145532-1f25087a0744/go.mod h1:y4E9MYC+cV9VfjRD0UBGj8PA7H3wABqQi87/ejrDhYc=

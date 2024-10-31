@@ -9,7 +9,7 @@ require (
 	github.com/ONSdigital/dp-s3 v1.10.0
 	github.com/ONSdigital/dp-vault v1.3.1
 	github.com/ONSdigital/go-ns v0.0.0-20241030091535-cc1b11756418
-	github.com/ONSdigital/goamz v0.0.0-20241029170214-50fc762bbb99
+	github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a
 	github.com/ONSdigital/log.go/v2 v2.4.3
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/cenkalti/backoff v2.2.1+incompatible
@@ -37,6 +37,7 @@ require (
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8 // indirect
 	github.com/gojuno/minimock/v3 v3.4.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
