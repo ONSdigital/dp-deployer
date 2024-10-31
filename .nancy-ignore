@@ -1,3 +1,4 @@
+CVE-2018-1002102	# CWE-601: URL Redirection to Untrusted Site ('Open Redirect')[0m
 CVE-2019-1002101	# CWE-59: Improper Link Resolution Before File Access ('Link Following')[0m
 CVE-2019-11243	# CWE-212: Improper Cross-boundary Removal of Sensitive Data[0m
 CVE-2019-11244	# CWE-732: Incorrect Permission Assignment for Critical Resource[0m
@@ -24,7 +25,9 @@ CVE-2020-8566	# CWE-532: Information Exposure Through Log Files[0m
 CVE-2021-21334	# CWE-668: Exposure of Resource to Wrong Sphere[0m
 CVE-2021-25735	# CWE-372: Incomplete Internal State Distinction[0m
 CVE-2021-25736	# CWE-noinfo[0m
+CVE-2021-25740	# CWE-610: Externally Controlled Reference to a Resource in Another Sphere[0m
 CVE-2021-25741	# CWE-552: Files or Directories Accessible to External Parties[0m
+CVE-2021-25743	# CWE-150: Improper Neutralization of Escape, Meta, or Control Sequences[0m
 CVE-2021-29482	# CWE-835: Loop with Unreachable Exit Condition ('Infinite Loop')[0m
 CVE-2021-30465	# CWE-362: Concurrent Execution using Shared Resource with Improper Synchronization ('Race Condition')[0m
 CVE-2021-3121	# CWE-129: Improper Validation of Array Index[0m
@@ -63,6 +66,7 @@ CVE-2023-25809	# CWE-281: Improper Preservation of Permissions[0m
 CVE-2023-2727	# CWE-20: Improper Input Validation[0m
 CVE-2023-28452	# CWE-noinfo[0m
 CVE-2023-30464	# CWE-290: Authentication Bypass by Spoofing[0m
+CVE-2023-3072	# CWE-266: Incorrect Privilege Assignment[0m
 CVE-2023-3300	# CWE-266: Incorrect Privilege Assignment[0m
 CVE-2023-3893	# CWE-20: Improper Input Validation[0m
 CVE-2023-3955	# CWE-20: Improper Input Validation[0m
@@ -72,6 +76,7 @@ CVE-2024-0874	# CWE-524: Information Exposure Through Caching[0m
 CVE-2024-1329	# CWE-59: Improper Link Resolution Before File Access ('Link Following')[0m
 CVE-2024-21626	# CWE-403: Exposure of File Descriptor to Unintended Control Sphere ('File Descriptor Leak')[0m
 CVE-2024-2660	# CWE-636: Not Failing Securely ('Failing Open')[0m
+CVE-2024-3177	# CWE-20: Improper Input Validation[0m
 CVE-2024-45310	# CWE-363: Race Condition Enabling Link Following[0m
 CVE-2024-5321	# CWE-276: Incorrect Default Permissions[0m
 CVE-2024-6717	# CWE-610: Externally Controlled Reference to a Resource in Another Sphere[0m
