@@ -14,11 +14,17 @@ func createTask(cfg *config.Configuration, name string, details *message.Groups,
 
 	portMap["http"] = "${NOMAD_PORT_http}"
 	config["command"] = "${NOMAD_TASK_DIR}/start-task"
+	if len(details.CommandLineArgs) == 0 {
+		config["args"] = "./" + name
+	}
+
 	config["args"] = details.CommandLineArgs
 	config["image"] = cfg.ECR_URL + ":concourse-" + revision
 	config["port_map"] = portMap
 	config["volumes"] = details.Volumes
-	config["userns_mode"] = details.UsernsMode
+	if details.UsernsMode {
+		config["userns_mode"] = "host"
+	}
 
 	resources := createResources(details)
 	restartPolicy := createRestartPolicy()
