@@ -16,7 +16,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
-	"github.com/ONSdigital/go-ns/common"
+	"github.com/ONSdigital/dp-net/request"
 	goamz "github.com/ONSdigital/goamz/aws"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -296,7 +296,7 @@ func TestStart(t *testing.T) {
 
 					ErrHandler = func(ctx context.Context, event string, err error) {
 						cancel()
-						c.So(common.GetRequestId(ctx), ShouldEqual, producedMsgID)
+						c.So(request.GetRequestId(ctx), ShouldEqual, producedMsgID)
 						c.So(err.Error(), ShouldEqual, engineErr)
 					}
 

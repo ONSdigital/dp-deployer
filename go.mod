@@ -8,7 +8,6 @@ require (
 	github.com/ONSdigital/dp-nomad v0.4.1
 	github.com/ONSdigital/dp-s3 v1.10.0
 	github.com/ONSdigital/dp-vault v1.3.1
-	github.com/ONSdigital/go-ns v0.0.0-20241030091535-cc1b11756418
 	github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a
 	github.com/ONSdigital/log.go/v2 v2.4.3
 	github.com/aws/aws-sdk-go v1.55.5
@@ -24,8 +23,11 @@ require (
 	golang.org/x/crypto v0.28.0
 )
 
+require github.com/ONSdigital/dp-api-clients-go v1.43.0 // indirect
+
 require (
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.261.0 // indirect
+	github.com/ONSdigital/dp-net v1.5.0
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect

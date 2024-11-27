@@ -15,7 +15,7 @@ import (
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
-	"github.com/ONSdigital/go-ns/server"
+	"github.com/ONSdigital/dp-net/http"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -121,7 +121,7 @@ func main() {
 	}()
 
 	// Create and start http server for healthcheck
-	httpServer := server.New(cfg.BindAddr, r)
+	httpServer := http.NewServer(cfg.BindAddr, r)
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
 			log.Error(ctx, "error starting http server", err)

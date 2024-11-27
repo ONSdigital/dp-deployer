@@ -15,7 +15,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
-	"github.com/ONSdigital/go-ns/common"
+	"github.com/ONSdigital/dp-net/request"
 	"github.com/ONSdigital/goamz/aws"
 	"github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
@@ -157,7 +157,7 @@ func (q *Queue) run(ctx context.Context) {
 		case err := <-q.consumer.Errors:
 			ErrHandler(ctx, "received consumer error", err)
 		case msg := <-q.consumer.Messages:
-			reqCtx := common.WithRequestId(ctx, msg.ID)
+			reqCtx := request.WithRequestId(ctx, msg.ID)
 			q.handle(reqCtx, &msg)
 		case <-ctx.Done():
 			return

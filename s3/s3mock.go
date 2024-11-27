@@ -18,19 +18,19 @@ var _ Client = &ClientMock{}
 
 // ClientMock is a mock implementation of Client.
 //
-//     func TestSomethingThatUsesClient(t *testing.T) {
+//	    func TestSomethingThatUsesClient(t *testing.T) {
 //
-//         // make and configure a mocked Client
-//         mockedClient := &ClientMock{
-//             GetFunc: func(key string) (io.ReadCloser, *int64, error) {
-// 	               panic("mock out the Get method")
-//             },
-//         }
+//	        // make and configure a mocked Client
+//	        mockedClient := &ClientMock{
+//	            GetFunc: func(key string) (io.ReadCloser, *int64, error) {
+//		               panic("mock out the Get method")
+//	            },
+//	        }
 //
-//         // use mockedClient in code that requires Client
-//         // and then make assertions.
+//	        // use mockedClient in code that requires Client
+//	        // and then make assertions.
 //
-//     }
+//	    }
 type ClientMock struct {
 	// GetFunc mocks the Get method.
 	GetFunc func(key string) (io.ReadCloser, *int64, error)
@@ -63,7 +63,8 @@ func (mock *ClientMock) Get(key string) (io.ReadCloser, *int64, error) {
 
 // GetCalls gets all the calls that were made to Get.
 // Check the length with:
-//     len(mockedClient.GetCalls())
+//
+//	len(mockedClient.GetCalls())
 func (mock *ClientMock) GetCalls() []struct {
 	Key string
 } {

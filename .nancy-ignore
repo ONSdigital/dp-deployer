@@ -8,3 +8,6 @@ CVE-2024-45310	# CWE-363: Race Condition Enabling Link Following
 CVE-2024-6257	# CWE-77: Improper Neutralization of Special Elements used in a Command ('Command Injection')
 CVE-2024-6717	# CWE-610: Externally Controlled Reference to a Resource in Another Sphere
 CVE-2024-7625	# CWE-610: Externally Controlled Reference to a Resource in Another Sphere
+CVE-2024-10975  # CWE-863: Incorrect Authorization
+CVE-2024-10086  # CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
+CVE-2024-51744  # CWE-755: Improper Handling of Exceptional Conditions

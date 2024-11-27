@@ -17,19 +17,19 @@ var _ VaultClient = &VaultClientMock{}
 
 // VaultClientMock is a mock implementation of VaultClient.
 //
-//     func TestSomethingThatUsesVaultClient(t *testing.T) {
+//	    func TestSomethingThatUsesVaultClient(t *testing.T) {
 //
-//         // make and configure a mocked VaultClient
-//         mockedVaultClient := &VaultClientMock{
-//             WriteFunc: func(path string, data map[string]interface{}) error {
-// 	               panic("mock out the Write method")
-//             },
-//         }
+//	        // make and configure a mocked VaultClient
+//	        mockedVaultClient := &VaultClientMock{
+//	            WriteFunc: func(path string, data map[string]interface{}) error {
+//		               panic("mock out the Write method")
+//	            },
+//	        }
 //
-//         // use mockedVaultClient in code that requires VaultClient
-//         // and then make assertions.
+//	        // use mockedVaultClient in code that requires VaultClient
+//	        // and then make assertions.
 //
-//     }
+//	    }
 type VaultClientMock struct {
 	// WriteFunc mocks the Write method.
 	WriteFunc func(path string, data map[string]interface{}) error
@@ -66,7 +66,8 @@ func (mock *VaultClientMock) Write(path string, data map[string]interface{}) err
 
 // WriteCalls gets all the calls that were made to Write.
 // Check the length with:
-//     len(mockedVaultClient.WriteCalls())
+//
+//	len(mockedVaultClient.WriteCalls())
 func (mock *VaultClientMock) WriteCalls() []struct {
 	Path string
 	Data map[string]interface{}
