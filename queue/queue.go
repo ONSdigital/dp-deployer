@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -16,16 +17,16 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	"github.com/ONSdigital/goamz/aws"
-	"github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/cenkalti/backoff"
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
 const maxConcurrentHandlers = 50
 
-var sendMessage func(string) error
+var sendMessage func(context.Context, string) error
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -50,7 +51,7 @@ type Queue struct {
 	consumer  *ssqs.Consumer
 	keyring   openpgp.EntityList
 	handlers  HandlerFunc
-	producer  *sqs.SQS
+	producer  *sqs.Client
 	semaphore chan struct{}
 	wg        sync.WaitGroup
 }
@@ -79,7 +80,7 @@ type responseError struct {
 }
 
 // New returns a new queue.
-func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
+func New(ctx context.Context, cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
@@ -98,7 +99,7 @@ func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 		return nil, err
 	}
 
-	a, err := aws.GetAuth("", "", "", time.Time{})
+	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +114,12 @@ func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
-		producer:  sqs.New(a, aws.Regions[cfg.AWSRegion]),
+		producer:  sqs.NewFromConfig(awsConfig),
 		consumer: ssqs.New(&ssqs.Queue{
 			Name:              cfg.ConsumerQueueNew,
 			Region:            cfg.AWSRegion,
 			URL:               cfg.ConsumerQueueURLNew,
-			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
+			VisibilityTimeout: int32((time.Minute * 30).Seconds()),
 		}),
 	}
 
@@ -138,7 +139,7 @@ func (q *Queue) Start(ctx context.Context) {
 	q.wg.Add(1)
 	go func() {
 		defer q.wg.Done()
-		q.consumer.Start()
+		q.consumer.Start(ctx)
 	}()
 	q.run(ctx)
 }
@@ -209,41 +210,43 @@ func (q *Queue) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 	}
 
 	backoff.RetryNotify(
-		q.reply(result),
+		q.reply(ctx, result),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
 	backoff.RetryNotify(
-		q.delete(msg),
+		q.delete(ctx, msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },
 	)
 }
 
-func (q *Queue) delete(msg *ssqs.Message) func() error {
-	return func() error { return q.consumer.Delete(msg) }
+func (q *Queue) delete(ctx context.Context, msg *ssqs.Message) func() error {
+	return func() error { return q.consumer.Delete(ctx, msg) }
 }
 
-func (q *Queue) reply(res *response) func() error {
+func (q *Queue) reply(ctx context.Context, res *response) func() error {
 	return func() error {
 		j, err := json.Marshal(res)
 		if err != nil {
 			return err
 		}
-		if err := sendMessage(string(j)); err != nil {
+		if err := sendMessage(ctx, string(j)); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-func (q *Queue) sendMessage(body string) error {
-	pq, err := q.producer.GetQueue(q.config.ProducerQueue)
+func (q *Queue) sendMessage(ctx context.Context, body string) error {
+	msgRes, err := q.producer.SendMessage(ctx, &sqs.SendMessageInput{
+		MessageBody: &body,
+	})
 	if err != nil {
 		return err
 	}
-	if _, err := pq.SendMessage(body); err != nil {
-		return err
+	if msgRes == nil {
+		return errors.New("msgRes was nil")
 	}
 	return nil
 }
