@@ -12,10 +12,10 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-deployer/queue"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-net/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
-	"github.com/ONSdigital/dp-net/http"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -81,7 +81,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	e, err := engine.New(cfg, oldHandler)
+	e, err := engine.New(ctx, cfg, oldHandler)
 	if err != nil {
 		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)
@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	q, err := queue.New(cfg, h)
+	q, err := queue.New(ctx, cfg, h)
 	if err != nil {
 		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)

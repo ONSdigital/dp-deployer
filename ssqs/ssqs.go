@@ -2,22 +2,21 @@
 package ssqs
 
 import (
+	"context"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 // DefaultClient returns a new SQS client.
-var DefaultClient = func(q *Queue) sqsiface.SQSAPI {
-	return sqs.New(session.New(), &aws.Config{Region: &q.Region})
+var DefaultClient = func(q *Queue) *sqs.Client {
+	return sqs.NewFromConfig(aws.NewConfig().Copy()) //session.New(), &aws.Config{Region: &q.Region})
 }
 
 // Consumer represents a consumer.
 type Consumer struct {
-	client   sqsiface.SQSAPI
+	client   *sqs.Client
 	finish   chan struct{}
 	Errors   chan error
 	Messages chan Message
@@ -34,10 +33,10 @@ type Message struct {
 // Queue represents a consumers queue.
 type Queue struct {
 	Name              string
-	PollDuration      int64
+	PollDuration      int32
 	Region            string
 	URL               string
-	VisibilityTimeout int64
+	VisibilityTimeout int32
 }
 
 // New creates and returns a consumer.
@@ -57,25 +56,25 @@ func (c *Consumer) Close() {
 }
 
 // Delete deletes a message from the queue.
-func (c *Consumer) Delete(m *Message) error {
+func (c *Consumer) Delete(ctx context.Context, m *Message) error {
 	input := &sqs.DeleteMessageInput{
 		QueueUrl:      &c.Queue.URL,
 		ReceiptHandle: &m.Receipt,
 	}
 
-	if _, err := c.client.DeleteMessage(input); err != nil {
+	if _, err := c.client.DeleteMessage(ctx, input); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Start starts a consumer.
-func (c *Consumer) Start() {
+func (c *Consumer) Start(ctx context.Context) {
 	input := &sqs.ReceiveMessageInput{
-		AttributeNames:    []*string{&c.Queue.Name},
+		// AttributeNames:    []*string{&c.Queue.Name},
 		QueueUrl:          &c.Queue.URL,
-		VisibilityTimeout: &c.Queue.VisibilityTimeout,
-		WaitTimeSeconds:   &c.Queue.PollDuration,
+		VisibilityTimeout: c.Queue.VisibilityTimeout,
+		WaitTimeSeconds:   c.Queue.PollDuration,
 	}
 
 	for {
@@ -83,13 +82,13 @@ func (c *Consumer) Start() {
 		case <-c.finish:
 			return
 		default:
-			c.receive(input)
+			c.receive(ctx, input)
 		}
 	}
 }
 
-func (c *Consumer) receive(input *sqs.ReceiveMessageInput) {
-	r, err := c.client.ReceiveMessage(input)
+func (c *Consumer) receive(ctx context.Context, input *sqs.ReceiveMessageInput) {
+	r, err := c.client.ReceiveMessage(ctx, input)
 	if err != nil {
 		c.Errors <- err
 		return
