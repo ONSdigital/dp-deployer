@@ -16,7 +16,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	goamz "github.com/ONSdigital/goamz/aws"
+	// goamz "github.com/ONSdigital/goamz/aws"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -229,15 +229,15 @@ func TestNew(t *testing.T) {
 		},
 	}
 
-	goamz.RetryingClient = &http.Client{
-		// force the goamz http call (to AWS to get auth details for an instance role)
-		// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-		Transport: BadTransport{},
-	}
+	// goamz.RetryingClient = &http.Client{
+	// 	// force the goamz http call (to AWS to get auth details for an instance role)
+	// 	// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
+	// 	Transport: BadTransport{},
+	// }
 
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
-			e, err := New(fixture.config, nil)
+			e, err := New(ctx, fixture.config, nil)
 			So(e, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			if fixture.isPrefix {
@@ -258,7 +258,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			}
 
-			e, err := New(config, nil)
+			e, err := New(ctx, config, nil)
 			So(err, ShouldBeNil)
 			So(e, ShouldNotBeNil)
 		})
@@ -272,7 +272,7 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(e, ShouldNotBeNil)
 
@@ -337,7 +337,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 

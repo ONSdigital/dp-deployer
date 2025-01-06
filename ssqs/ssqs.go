@@ -3,6 +3,7 @@ package ssqs
 
 import (
 	"time"
+	"context"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -57,20 +58,20 @@ func (c *Consumer) Close() {
 }
 
 // Delete deletes a message from the queue.
-func (c *Consumer) Delete(m *Message) error {
+func (c *Consumer) Delete(ctx context.Context, m *Message) error {
 	input := &sqs.DeleteMessageInput{
 		QueueUrl:      &c.Queue.URL,
 		ReceiptHandle: &m.Receipt,
 	}
 
-	if _, err := c.client.DeleteMessage(input); err != nil {
+	if _, err := c.client.DeleteMessageWithContext(ctx,input); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Start starts a consumer.
-func (c *Consumer) Start() {
+func (c *Consumer) Start(ctx context.Context) {
 	input := &sqs.ReceiveMessageInput{
 		AttributeNames:    []*string{&c.Queue.Name},
 		QueueUrl:          &c.Queue.URL,
@@ -83,13 +84,13 @@ func (c *Consumer) Start() {
 		case <-c.finish:
 			return
 		default:
-			c.receive(input)
+			c.receive(ctx,input)
 		}
 	}
 }
 
-func (c *Consumer) receive(input *sqs.ReceiveMessageInput) {
-	r, err := c.client.ReceiveMessage(input)
+func (c *Consumer) receive(ctx context.Context,input *sqs.ReceiveMessageInput) {
+	r, err := c.client.ReceiveMessageWithContext(ctx,input)
 	if err != nil {
 		c.Errors <- err
 		return

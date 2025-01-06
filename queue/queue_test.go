@@ -239,7 +239,7 @@ func TestNew(t *testing.T) {
 
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
-			q, err := New(fixture.config, nil)
+			q, err := New(ctx, fixture.config, nil)
 			So(q, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			if fixture.isPrefix {
@@ -260,7 +260,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:     publicKey,
 			}
 
-			q, err := New(cfg, handlerFuncMock)
+			q, err := New(ctx, cfg, handlerFuncMock)
 			So(err, ShouldBeNil)
 			So(q, ShouldNotBeNil)
 		})
@@ -274,7 +274,7 @@ func TestNew(t *testing.T) {
 				VerificationKey:     publicKey,
 			}
 
-			q, err := New(cfg, nil)
+			q, err := New(ctx, cfg, nil)
 			So(q, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldContainSubstring, "missing handler for message")
@@ -348,7 +348,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlerFuncMock)
+					q, err := New(ctx, &config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlerFuncMock)
 					So(q, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
