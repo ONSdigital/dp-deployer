@@ -103,7 +103,7 @@ func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFun
 	}
 
 	// a, err := aws.GetAuth("", "", "", time.Time{})
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
+	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (e *Engine) Start(ctx context.Context) {
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
-		e.consumer.Start(ctx)
+		e.consumer.Start()
 	}()
 	e.run(ctx)
 }
@@ -225,14 +225,14 @@ func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
 	backoff.RetryNotify(
-		e.delete(ctx,msg),
+		e.delete(msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },
 	)
 }
 
-func (e *Engine) delete(ctx context.Context, msg *ssqs.Message) func() error {
-	return func() error { return e.consumer.Delete(ctx,msg) }
+func (e *Engine) delete(msg *ssqs.Message) func() error {
+	return func() error { return e.consumer.Delete(msg) }
 }
 
 func (e *Engine) reply(ctx context.Context, res *response) func() error {

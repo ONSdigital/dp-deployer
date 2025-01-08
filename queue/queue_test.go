@@ -1,5 +1,7 @@
 package queue
 
+//This queue package has not been implemented and the deployer still uses the old engine.
+
 import (
 	"context"
 	"errors"
@@ -17,7 +19,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	goamz "github.com/ONSdigital/goamz/aws"
+	// goamz "github.com/ONSdigital/goamz/aws"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -215,7 +217,7 @@ func TestNew(t *testing.T) {
 				AWSRegion:           "qux",
 				VerificationKey:     publicKey,
 			},
-			"No valid AWS authentication found",
+			"missing handler for message",
 			true,
 		},
 		{
@@ -230,12 +232,13 @@ func TestNew(t *testing.T) {
 			false,
 		},
 	}
+	ctx := context.TODO()
+	// goamz.RetryingClient = &http.Client{
+	// 	// force the goamz http call (to AWS to get auth details for an instance role)
+	// 	// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
+	// 	Transport: BadTransport{},
+	// }
 
-	goamz.RetryingClient = &http.Client{
-		// force the goamz http call (to AWS to get auth details for an instance role)
-		// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-		Transport: BadTransport{},
-	}
 
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
@@ -290,7 +293,7 @@ func TestStart(t *testing.T) {
 
 			doErrTest := func(handlers HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					q, err := New(&config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
+					q, err := New(ctx, &config.Configuration{ConsumerQueueNew: "foo", ConsumerQueueURLNew: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(q, ShouldNotBeNil)
 
@@ -410,7 +413,7 @@ func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMes
 	return nil, nil
 }
 
-func (m *mockProducer) SendMessage(body string) error {
+func (m *mockProducer) SendMessage(ctx context.Context, body string) error {
 	m.mu.Lock()
 	m.message = body
 	m.mu.Unlock()

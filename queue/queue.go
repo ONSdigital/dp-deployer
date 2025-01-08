@@ -1,4 +1,5 @@
 // Package queue provides functionality for creating and running an engine.
+//This queue package has not been implemented and the deployer still uses the old engine.
 package queue
 
 import (
@@ -102,7 +103,7 @@ func New(ctx context.Context,cfg *config.Configuration, hs HandlerFunc) (*Queue,
 	}
 
 	// a, err := aws.GetAuth("", "", "", time.Time{})
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx)
+	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func (q *Queue) Start(ctx context.Context) {
 	q.wg.Add(1)
 	go func() {
 		defer q.wg.Done()
-		q.consumer.Start(ctx)
+		q.consumer.Start()
 	}()
 	q.run(ctx)
 }
@@ -218,14 +219,14 @@ func (q *Queue) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
 	backoff.RetryNotify(
-		q.delete(ctx, msg),
+		q.delete(msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },
 	)
 }
 
-func (q *Queue) delete(ctx context.Context,msg *ssqs.Message) func() error {
-	return func() error { return q.consumer.Delete(ctx, msg) }
+func (q *Queue) delete(msg *ssqs.Message) func() error {
+	return func() error { return q.consumer.Delete(msg) }
 }
 
 func (q *Queue) reply(ctx context.Context,res *response) func() error {

@@ -95,7 +95,7 @@ func main() {
 
 	q, err := queue.New(ctx,cfg,h)
 	if err != nil {
-		log.Fatal(ctx, "failed to create engine", err)
+		log.Fatal(ctx, "failed to create queue", err)
 		os.Exit(1)
 	}
 
