@@ -1,5 +1,5 @@
 job "dp-deployer" {
-  datacenters = ["eu-west-1"]
+  datacenters = ["eu-west-2"]
   region      = "eu"
   type        = "service"
 
@@ -22,7 +22,7 @@ job "dp-deployer" {
       driver = "docker"
 
       artifact {
-        source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-deployer/{{REVISION}}.tar.gz"
+        source = "s3::https://s3-eu-west-2.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-deployer/{{PROFILE}}/{{RELEASE}}.tar.gz"
       }
 
       config {

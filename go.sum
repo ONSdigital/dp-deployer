@@ -29,8 +29,6 @@ github.com/ONSdigital/dp-s3 v1.10.0/go.mod h1:Ed4EkN88c4YmJNxuyAYrVv8tzc6al9g4F6
 github.com/ONSdigital/dp-vault v1.3.1 h1:fu56wh7FucMO9xAX4hhzlKZU6Foumd14+el7PduZNFw=
 github.com/ONSdigital/dp-vault v1.3.1/go.mod h1:7eRXvFRROZ34oMMTvRZMy/WKUSHLQTj6ocBEqo021KY=
 github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58/go.mod h1:iWos35il+NjbvDEqwtB736pyHru0MPFE/LqcwkV1wDc=
-github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a h1:F4IZnd2HpkBdYs0yDdQN7+GLRm2wsv1NbiAK7xgTD1w=
-github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a/go.mod h1:ZiA9nvPeQMNTmF0MUnmtBoYSGOOi16/4gB+5YKJgtGM=
 github.com/ONSdigital/log.go v1.0.0/go.mod h1:UnGu9Q14gNC+kz0DOkdnLYGoqugCvnokHBRBxFRpVoQ=
 github.com/ONSdigital/log.go v1.0.1-0.20200805084515-ee61165ea36a/go.mod h1:dDnQATFXCBOknvj6ZQuKfmDhbOWf3e8mtV+dPEfWJqs=
 github.com/ONSdigital/log.go v1.0.1-0.20200805145532-1f25087a0744/go.mod h1:y4E9MYC+cV9VfjRD0UBGj8PA7H3wABqQi87/ejrDhYc=
@@ -131,8 +129,6 @@ github.com/go-ole/go-ole v1.3.0/go.mod h1:5LS6F96DhAwUc7C+1HLexzMXY1xGRSryjyPPKW
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/go-test/deep v1.0.8 h1:TDsG77qcSprGbC6vTN8OuXp5g+J+b5Pcguhf7Zt61VM=
 github.com/go-test/deep v1.0.8/go.mod h1:5C2ZWiW0ErCdrYzpqxLbTX7MG14M9iiw8DgHncVwcsE=
-github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8 h1:G1U0vew/vA/1/hBmf1XNeyIzJJbPFVv+kb+HPl6rj6c=
-github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8/go.mod h1:/Ya1YZsqLQp17bDgHdyE9/XBR1uIH1HKasTvLxcoM/A=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/gojuno/minimock/v3 v3.0.4/go.mod h1:HqeqnwV8mAABn3pO5hqF+RE7gjA0jsN8cbbSogoGrzI=
 github.com/gojuno/minimock/v3 v3.0.6/go.mod h1:v61ZjAKHr+WnEkND63nQPCZ/DTfQgJdvbCi3IuoMblY=
@@ -384,8 +380,6 @@ github.com/tklauser/go-sysconf v0.3.14/go.mod h1:1ym4lWMLUOhuBOPGtRcJm7tEGX4SCYN
 github.com/tklauser/numcpus v0.9.0 h1:lmyCHtANi8aRUgkckBgoDk1nHCux3n2cgkJLXdQGPDo=
 github.com/tklauser/numcpus v0.9.0/go.mod h1:SN6Nq1O3VychhC1npsWostA+oW+VOQTxZrS604NSRyI=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
-github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec h1:DGmKwyZwEB8dI7tbLt/I/gQuP559o/0FrAkHKlQM/Ks=
-github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec/go.mod h1:owBmyHYMLkxyrugmfwE/DLJyW8Ro9mkphwuVErQ0iUw=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=

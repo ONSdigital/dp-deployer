@@ -1,0 +1,7 @@
+FROM onsdigital/dp-concourse-tools-ubuntu-20:ubuntu20.4-rc.1
+
+WORKDIR /app/
+
+ADD build/linux-amd64/dp-deployer .
+
+CMD ./dp-deployer

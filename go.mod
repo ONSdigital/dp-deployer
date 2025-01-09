@@ -8,7 +8,6 @@ require (
 	github.com/ONSdigital/dp-nomad v0.4.1
 	github.com/ONSdigital/dp-s3 v1.10.0
 	github.com/ONSdigital/dp-vault v1.3.1
-	github.com/ONSdigital/goamz v0.0.0-20241031133603-b2103601737a
 	github.com/ONSdigital/log.go/v2 v2.4.3
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
@@ -55,7 +54,6 @@ require (
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/goamz/goamz v0.0.0-20180131231218-8b901b531db8 // indirect
 	github.com/gojuno/minimock/v3 v3.4.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
@@ -119,7 +117,6 @@ require (
 	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.9.0 // indirect
-	github.com/vaughan0/go-ini v0.0.0-20130923145212-a98ad7ee00ec // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zclconf/go-cty v1.15.0 // indirect
 	go.opentelemetry.io/otel v1.31.0 // indirect
