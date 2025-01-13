@@ -9,16 +9,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
+	// "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
-
+	sqsv1 "github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
 	// goamz "github.com/ONSdigital/goamz/aws"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 )
 
 type handlerError struct {
@@ -116,29 +118,36 @@ YH0=
 =v09o
 -----END PGP SIGNATURE-----`
 
+
+	type SqsMessage struct{
+		MessageId    string
+		// ReceiptHandle aws.String(""),
+		Body         string
+	}
+
 var (
-	emptyMessage = &sqs.Message{
-		MessageId:     aws.String("100"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(emptyMessageBody),
+	emptyMessage = &SqsMessage{
+		MessageId:    "100",
+		// ReceiptHandle: aws.String(""),
+		Body:       emptyMessageBody,
 	}
 
-	validMessage = &sqs.Message{
-		MessageId:     aws.String("200"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(validMessageBody),
+	validMessage = &SqsMessage{
+		MessageId:  "200",
+		// ReceiptHandle: aws.String(""),
+		Body:          validMessageBody,
 	}
 
-	invalidMessage = &sqs.Message{
-		MessageId:     aws.String("400"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(invalidMessageBody),
+	invalidMessage = &SqsMessage{
+		MessageId:     "400",
+		// ReceiptHandle: aws.String(""),
+		Body:        invalidMessageBody,
 	}
 
-	unsignedMessage = &sqs.Message{
-		MessageId:     aws.String("300"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(`{"type": "test"}`),
+	unsignedMessage = &SqsMessage{
+		MessageId:    "300",
+		// ReceiptHandle: aws.String(""),
+		Body:          `{"type": "test"}`,
 	}
 )
 
@@ -158,11 +167,13 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
+		configfunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)
 		config   *config.Configuration
 		errMsg   string
 		isPrefix bool
 	}{
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueue:    "",
 				ConsumerQueueURL: "foo",
@@ -173,7 +184,8 @@ func TestNew(t *testing.T) {
 			"missing consumer queue name",
 			false,
 		},
-		{
+		{    
+			nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
@@ -185,6 +197,7 @@ func TestNew(t *testing.T) {
 			false,
 		},
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -195,7 +208,7 @@ func TestNew(t *testing.T) {
 			"missing producer queue name",
 			false,
 		},
-		{
+		{   nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -206,18 +219,22 @@ func TestNew(t *testing.T) {
 			"missing queue region",
 			false,
 		},
-		// {
-		// 	&config.Configuration{
-		// 		ConsumerQueue:    "foo",
-		// 		ConsumerQueueURL: "bar",
-		// 		ProducerQueue:    "baz",
-		// 		AWSRegion:        "qux",
-		// 		VerificationKey:  publicKey,
-		// 	},
-		// 	"No valid AWS authentication found",
-		// 	true,
-		// },
-		{
+		{   
+			func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error){
+				 return aws.Config{}, errors.New("authentication failed")
+				},
+			&config.Configuration{
+				ConsumerQueue:    "foo",
+				ConsumerQueueURL: "bar",
+				ProducerQueue:    "baz",
+				AWSRegion:        "qux",
+				VerificationKey:  publicKey,
+			},
+			"authentication failed",
+			true,
+		},
+		{   
+			nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -231,13 +248,11 @@ func TestNew(t *testing.T) {
 	}
 	ctx := context.TODO()
 
-	// goamz.RetryingClient = &http.Client{
-	// 	// force the goamz http call (to AWS to get auth details for an instance role)
-	// 	// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-	// 	Transport: BadTransport{},
-	// }
-
-	for _, fixture := range fixtures {
+	for _, fixture := range fixtures { 
+		origconfigfunc := loadDefaultConfigFunc
+		if fixture.configfunc !=nil {
+			loadDefaultConfigFunc=fixture.configfunc
+		}
 		Convey("an error is returned with invalid configuration", t, func() {
 			e, err := New(ctx, fixture.config, nil)
 			So(e, ShouldBeNil)
@@ -248,6 +263,7 @@ func TestNew(t *testing.T) {
 				So(err.Error(), ShouldEqual, fixture.errMsg)
 			}
 		})
+		loadDefaultConfigFunc=origconfigfunc
 	}
 
 	withEnv(func() {
@@ -272,7 +288,7 @@ func TestStart(t *testing.T) {
 		Convey("start functions as expected", t, func(c C) {
 			ctx, cancel := context.WithCancel(context.Background())
 
-			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
+			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *SqsMessage, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
 					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
@@ -371,12 +387,13 @@ type mockConsumer struct {
 	exhausted bool
 	sqsiface.SQSAPI
 	errorable bool
-	message   *sqs.Message
+	message   *SqsMessage
 	mu        sync.Mutex
 }
 
 type mockProducer struct {
 	message string
+	url     string
 	mu      sync.Mutex
 }
 
@@ -394,21 +411,21 @@ func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.Receive
 	if m.errorable {
 		return nil, errors.New("consumer error")
 	}
-	return &sqs.ReceiveMessageOutput{Messages: []*sqs.Message{m.message}}, nil
+	return &sqs.ReceiveMessageOutput{Messages: []SqsMessage{m.message}}, nil
 }
 
-func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
+func (m *mockConsumer) DeleteMessage(in *sqsv1.DeleteMessageInput) (*sqsv1.DeleteMessageOutput, error) {
 	return nil, nil
 }
 
-func (m *mockProducer) SendMessage(ctx context.Context,body string) error {
+func (m *mockProducer) SendMessage(ctx context.Context, input *sqs.SendMessageInput) error {
 	m.mu.Lock()
-	m.message = body
+	m.message = *input.MessageBody
 	m.mu.Unlock()
 	return nil
 }
 
-func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
+func withMocks(errorable bool, msg *SqsMessage, f func(*mockProducer)) {
 	defaultClient := ssqs.DefaultClient
 	defaultSendMsg := sendMessage
 

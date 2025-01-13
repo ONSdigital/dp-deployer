@@ -10,20 +10,19 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
 
 	"github.com/pkg/errors"
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	// "github.com/ONSdigital/goamz/aws"
-	// "github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/cenkalti/backoff"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
@@ -82,6 +81,8 @@ type responseError struct {
 	Message string
 }
 
+var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)=  awsconfig.LoadDefaultConfig
+
 // New returns a new queue.
 func New(ctx context.Context,cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
@@ -102,8 +103,7 @@ func New(ctx context.Context,cfg *config.Configuration, hs HandlerFunc) (*Queue,
 		return nil, err
 	}
 
-	// a, err := aws.GetAuth("", "", "", time.Time{})
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
+	awsConfig, err := loadDefaultConfigFunc(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,7 @@ func Get() (*Configuration, error) {
 		PrivateKey:                 "",
 		VaultAddr:                  "http://localhost:8200",
 		VaultToken:                 "",
-		AWSRegion:                  "eu-west-1",
+		AWSRegion:                  "eu-west-2",
 		SecretsBucketName:          "",
 		DeploymentsBucketName:      "",
 		GracefulShutdownTimeout:    time.Second * 5,

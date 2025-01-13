@@ -18,18 +18,17 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	//"github.com/ONSdigital/goamz/aws"
-	// "github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
 
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
 const maxConcurrentHandlers = 50
 
-var sendMessage func(context.Context, string) error
+var sendMessage func(context.Context, *sqs.SendMessageInput) error
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -82,6 +81,8 @@ type responseError struct {
 	Message string
 }
 
+var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)=  awsconfig.LoadDefaultConfig
+
 // New returns a new engine.
 func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
 	if len(cfg.ConsumerQueue) < 1 {
@@ -102,12 +103,16 @@ func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFun
 		return nil, err
 	}
 
-	// a, err := aws.GetAuth("", "", "", time.Time{})
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
-
+	awsConfig, err := loadDefaultConfigFunc(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
 		return nil, err
 	}
+
+	if hs == nil {
+		err = &MissingHandlerError{}
+		return nil, err
+	}
+
 
 	e := &Engine{
 		config:    cfg,
@@ -241,14 +246,15 @@ func (e *Engine) reply(ctx context.Context, res *response) func() error {
 		if err != nil {
 			return err
 		}
-		if err := sendMessage(ctx,string(j)); err != nil {
+		body := string(j)
+		if err := sendMessage(ctx,&sqs.SendMessageInput{MessageBody: &body}); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-func (e *Engine) sendMessage(ctx context.Context,body string) error {
+func (e *Engine) sendMessage(ctx context.Context,input *sqs.SendMessageInput) error {
 
 	resultGet, err := e.producer.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
         QueueName: &e.config.ProducerQueue,
@@ -260,7 +266,7 @@ func (e *Engine) sendMessage(ctx context.Context,body string) error {
 
 	msgRes, err := e.producer.SendMessage(ctx, &sqs.SendMessageInput{
 		QueueUrl: queueURL,
-		MessageBody: &body,
+		MessageBody: input.MessageBody,
 	})
 
 	if err != nil {

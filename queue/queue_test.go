@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
@@ -19,9 +18,10 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	// goamz "github.com/ONSdigital/goamz/aws"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/smartystreets/goconvey/convey"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 )
 
 type handlerError struct {
@@ -161,11 +161,13 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
+		configfunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)
 		config   *config.Configuration
 		errMsg   string
 		isPrefix bool
 	}{
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueueNew:    "",
 				ConsumerQueueURLNew: "foo",
@@ -177,6 +179,7 @@ func TestNew(t *testing.T) {
 			false,
 		},
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "",
@@ -188,6 +191,7 @@ func TestNew(t *testing.T) {
 			false,
 		},
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
@@ -199,6 +203,7 @@ func TestNew(t *testing.T) {
 			false,
 		},
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
@@ -210,6 +215,9 @@ func TestNew(t *testing.T) {
 			false,
 		},
 		{
+			func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error){
+				return aws.Config{}, errors.New("authentication failed")
+			   },
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
@@ -217,10 +225,11 @@ func TestNew(t *testing.T) {
 				AWSRegion:           "qux",
 				VerificationKey:     publicKey,
 			},
-			"missing handler for message",
+			"authentication failed",
 			true,
 		},
 		{
+			nil,
 			&config.Configuration{
 				ConsumerQueueNew:    "foo",
 				ConsumerQueueURLNew: "bar",
@@ -233,14 +242,13 @@ func TestNew(t *testing.T) {
 		},
 	}
 	ctx := context.TODO()
-	// goamz.RetryingClient = &http.Client{
-	// 	// force the goamz http call (to AWS to get auth details for an instance role)
-	// 	// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-	// 	Transport: BadTransport{},
-	// }
-
 
 	for _, fixture := range fixtures {
+		origconfigfunc := loadDefaultConfigFunc
+		if fixture.configfunc !=nil {
+			loadDefaultConfigFunc=fixture.configfunc
+		}
+
 		Convey("an error is returned with invalid configuration", t, func() {
 			q, err := New(ctx, fixture.config, nil)
 			So(q, ShouldBeNil)
@@ -251,6 +259,7 @@ func TestNew(t *testing.T) {
 				So(err.Error(), ShouldEqual, fixture.errMsg)
 			}
 		})
+		loadDefaultConfigFunc=origconfigfunc
 	}
 
 	withEnv(func() {
