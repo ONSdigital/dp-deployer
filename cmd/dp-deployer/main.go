@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+
 var (
 	// BuildTime represents the time in which the service was built
 	BuildTime string
@@ -29,6 +30,7 @@ var (
 	// Version represents the version of the service that is running
 	Version string
 )
+
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -81,7 +83,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	e, err := engine.New(cfg, oldHandler)
+	e, err := engine.New(ctx,cfg, oldHandler)
 	if err != nil {
 		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)

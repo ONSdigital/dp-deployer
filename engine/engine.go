@@ -13,19 +13,27 @@ import (
 	"golang.org/x/crypto/openpgp/clearsign"
 
 	"github.com/cenkalti/backoff"
+	"github.com/pkg/errors"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	"github.com/ONSdigital/goamz/aws"
-	"github.com/ONSdigital/goamz/sqs"
+	// "github.com/ONSdigital/goamz/aws"
+	// "github.com/ONSdigital/goamz/sqs"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	 "github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/ONSdigital/log.go/v2/log"
 )
+
+
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
 const maxConcurrentHandlers = 50
 
-var sendMessage func(string) error
+var sendMessage func(context.Context, string) error
+
+var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)=  awsconfig.LoadDefaultConfig
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -50,7 +58,7 @@ type Engine struct {
 	consumer  *ssqs.Consumer
 	keyring   openpgp.EntityList
 	handlers  map[string]HandlerFunc
-	producer  *sqs.SQS
+	producer  *sqs.Client
 	semaphore chan struct{}
 	wg        sync.WaitGroup
 }
@@ -79,7 +87,7 @@ type responseError struct {
 }
 
 // New returns a new engine.
-func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
+func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
 	if len(cfg.ConsumerQueue) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
@@ -98,8 +106,12 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 		return nil, err
 	}
 
-	a, err := aws.GetAuth("", "", "", time.Time{})
+	awsConfig, err := loadDefaultConfigFunc(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
+		return nil, err
+	}
+	if hs == nil {
+		err = &MissingHandlerError{}
 		return nil, err
 	}
 
@@ -108,12 +120,12 @@ func New(cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) 
 		keyring:   k,
 		handlers:  hs,
 		semaphore: make(chan struct{}, maxConcurrentHandlers),
-		producer:  sqs.New(a, aws.Regions[cfg.AWSRegion]),
+		producer: sqs.NewFromConfig(awsConfig),
 		consumer: ssqs.New(&ssqs.Queue{
 			Name:              cfg.ConsumerQueue,
 			Region:            cfg.AWSRegion,
 			URL:               cfg.ConsumerQueueURL,
-			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
+			VisibilityTimeout: int32((time.Minute * 30).Seconds()),
 		}),
 	}
 
@@ -133,7 +145,7 @@ func (e *Engine) Start(ctx context.Context) {
 	e.wg.Add(1)
 	go func() {
 		defer e.wg.Done()
-		e.consumer.Start()
+		e.consumer.Start(ctx)
 	}()
 	e.run(ctx)
 }
@@ -214,44 +226,56 @@ func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 	}
 
 	backoff.RetryNotify(
-		e.reply(result),
+		e.reply(ctx,result),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
 	backoff.RetryNotify(
-		e.delete(msg),
+		e.delete(ctx,msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },
 	)
 }
 
-func (e *Engine) delete(msg *ssqs.Message) func() error {
-	return func() error { return e.consumer.Delete(msg) }
+func (e *Engine) delete(ctx context.Context, msg *ssqs.Message) func() error {
+	return func() error { return e.consumer.Delete(ctx,msg) }
 }
 
-func (e *Engine) reply(res *response) func() error {
+func (e *Engine) reply(ctx context.Context, res *response) func() error {
 	return func() error {
 		j, err := json.Marshal(res)
 		if err != nil {
 			return err
 		}
-		if err := sendMessage(string(j)); err != nil {
+		if err := sendMessage(ctx, string(j)); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-func (e *Engine) sendMessage(body string) error {
-	q, err := e.producer.GetQueue(e.config.ProducerQueue)
+
+func (e *Engine) sendMessage(ctx context.Context, body string) error {
+	resultGet, err := e.producer.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
+        QueueName: &e.config.ProducerQueue,
+    })
 	if err != nil {
 		return err
 	}
-	if _, err := q.SendMessage(body); err != nil {
+	queueURL := resultGet.QueueUrl
+	msgRes, err := e.producer.SendMessage(ctx, &sqs.SendMessageInput{
+		QueueUrl: queueURL,
+		MessageBody: &body,
+	})
+	if err != nil {
 		return err
+	}
+	if msgRes == nil {
+		return errors.New("msgRes was nil")
 	}
 	return nil
 }
+
 
 func (e *Engine) verifyMessage(rawMsg *ssqs.Message) ([]byte, error) {
 	decoded, _ := clearsign.Decode([]byte(rawMsg.Body))

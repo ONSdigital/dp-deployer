@@ -9,17 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	goamz "github.com/ONSdigital/goamz/aws"
-
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	. "github.com/smartystreets/goconvey/convey"
 )
+
 
 type handlerError struct {
 	Field1, Field2 string
@@ -116,31 +115,31 @@ YH0=
 =v09o
 -----END PGP SIGNATURE-----`
 
+ var squeue string = "100"
+
+
 var (
-	emptyMessage = &sqs.Message{
-		MessageId:     aws.String("100"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(emptyMessageBody),
+	emptyMessage = sqs.SendMessageInput{
+		QueueUrl:     &squeue,
+		MessageBody:  aws.String(emptyMessageBody),
 	}
 
-	validMessage = &sqs.Message{
-		MessageId:     aws.String("200"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(validMessageBody),
+	validMessage = sqs.SendMessageInput{
+		QueueUrl:     aws.String("200"),
+		MessageBody:  aws.String(validMessageBody),
 	}
 
-	invalidMessage = &sqs.Message{
-		MessageId:     aws.String("400"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(invalidMessageBody),
+	invalidMessage = sqs.SendMessageInput{
+		QueueUrl:     aws.String("400"),
+		MessageBody:  aws.String(invalidMessageBody),
 	}
 
-	unsignedMessage = &sqs.Message{
-		MessageId:     aws.String("300"),
-		ReceiptHandle: aws.String(""),
-		Body:          aws.String(`{"type": "test"}`),
+	unsignedMessage = sqs.SendMessageInput{
+		QueueUrl:     aws.String("300"),
+		MessageBody:  aws.String(`{"type": "test"}`),
 	}
 )
+
 
 var defaultErrHandler = ErrHandler
 
@@ -157,11 +156,12 @@ func TestNew(t *testing.T) {
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
+		configfunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)
 		config   *config.Configuration
 		errMsg   string
 		isPrefix bool
 	}{
-		{
+		{	nil,
 			&config.Configuration{
 				ConsumerQueue:    "",
 				ConsumerQueueURL: "foo",
@@ -172,7 +172,7 @@ func TestNew(t *testing.T) {
 			"missing consumer queue name",
 			false,
 		},
-		{
+		{	nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
@@ -183,7 +183,7 @@ func TestNew(t *testing.T) {
 			"missing consumer queue url",
 			false,
 		},
-		{
+		{	nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -194,7 +194,7 @@ func TestNew(t *testing.T) {
 			"missing producer queue name",
 			false,
 		},
-		{
+		{	nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -205,7 +205,9 @@ func TestNew(t *testing.T) {
 			"missing queue region",
 			false,
 		},
-		{
+		{	func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error){
+				return aws.Config{}, errors.New("authentication failed")
+		   		},
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -213,10 +215,10 @@ func TestNew(t *testing.T) {
 				AWSRegion:        "qux",
 				VerificationKey:  publicKey,
 			},
-			"No valid AWS authentication found",
+			"authentication failed",
 			true,
 		},
-		{
+		{	nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -229,15 +231,15 @@ func TestNew(t *testing.T) {
 		},
 	}
 
-	goamz.RetryingClient = &http.Client{
-		// force the goamz http call (to AWS to get auth details for an instance role)
-		// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-		Transport: BadTransport{},
-	}
+	ctx := context.TODO()
 
 	for _, fixture := range fixtures {
+		origconfigfunc := loadDefaultConfigFunc
+		if fixture.configfunc != nil {
+			loadDefaultConfigFunc = fixture.configfunc
+		}
 		Convey("an error is returned with invalid configuration", t, func() {
-			e, err := New(fixture.config, nil)
+			e, err := New(ctx, fixture.config, nil)
 			So(e, ShouldBeNil)
 			So(err, ShouldNotBeNil)
 			if fixture.isPrefix {
@@ -246,6 +248,7 @@ func TestNew(t *testing.T) {
 				So(err.Error(), ShouldEqual, fixture.errMsg)
 			}
 		})
+		loadDefaultConfigFunc = origconfigfunc
 	}
 
 	withEnv(func() {
@@ -258,9 +261,10 @@ func TestNew(t *testing.T) {
 				VerificationKey:  publicKey,
 			}
 
-			e, err := New(config, nil)
-			So(err, ShouldBeNil)
-			So(e, ShouldNotBeNil)
+			e, err := New(ctx,config, nil)
+			// So(err, ShouldBeNil)
+			So(err.Error(), ShouldStartWith, "missing handler for message")
+			So(e, ShouldBeNil)
 		})
 	})
 }
@@ -270,9 +274,9 @@ func TestStart(t *testing.T) {
 		Convey("start functions as expected", t, func(c C) {
 			ctx, cancel := context.WithCancel(context.Background())
 
-			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
+			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg sqs.SendMessageInput, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
 					So(err, ShouldBeNil)
 					So(e, ShouldNotBeNil)
 
@@ -337,7 +341,7 @@ func TestStart(t *testing.T) {
 
 			Convey("successful message handles are propogated as expected", func() {
 				withMocks(false, validMessage, func(producer *mockProducer) {
-					e, err := New(&config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
@@ -367,9 +371,9 @@ func withEnv(f func()) {
 
 type mockConsumer struct {
 	exhausted bool
-	sqsiface.SQSAPI
+	*sqs.Client
 	errorable bool
-	message   *sqs.Message
+	message   *ssqs.Message
 	mu        sync.Mutex
 }
 
@@ -378,7 +382,8 @@ type mockProducer struct {
 	mu      sync.Mutex
 }
 
-func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
+
+func (m *mockConsumer) ReceiveMessage(ctx context.Context,in *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error) {
 	m.mu.Lock()
 
 	defer func() {
@@ -392,21 +397,21 @@ func (m *mockConsumer) ReceiveMessage(in *sqs.ReceiveMessageInput) (*sqs.Receive
 	if m.errorable {
 		return nil, errors.New("consumer error")
 	}
-	return &sqs.ReceiveMessageOutput{Messages: []*sqs.Message{m.message}}, nil
+	return &sqs.ReceiveMessageOutput{Messages: *sqss.MessageBody  }, nil
 }
 
 func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
 	return nil, nil
 }
 
-func (m *mockProducer) SendMessage(body string) error {
+func (m *mockProducer) SendMessage(ctx context.Context, body string) error {
 	m.mu.Lock()
 	m.message = body
 	m.mu.Unlock()
 	return nil
 }
 
-func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
+func withMocks(errorable bool, msg sqs.SendMessageInput, f func(*mockProducer)) {
 	defaultClient := ssqs.DefaultClient
 	defaultSendMsg := sendMessage
 
@@ -415,8 +420,10 @@ func withMocks(errorable bool, msg *sqs.Message, f func(*mockProducer)) {
 		ssqs.DefaultClient = defaultClient
 	}()
 
-	ssqs.DefaultClient = func(q *ssqs.Queue) sqsiface.SQSAPI {
-		return &mockConsumer{errorable: errorable, message: msg}
+	ssqs.DefaultClient = func(q *ssqs.Queue) *sqs.Client {
+		return sqs.NewFromConfig(*aws.NewConfig())
+		
+		// mockConsumer { errorable: errorable, message: msg }
 	}
 
 	mockProducer := &mockProducer{}

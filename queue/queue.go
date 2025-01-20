@@ -1,3 +1,4 @@
+//This package is not being used
 // Package queue provides functionality for creating and running an engine.
 package queue
 
@@ -118,7 +119,7 @@ func New(cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 			Name:              cfg.ConsumerQueueNew,
 			Region:            cfg.AWSRegion,
 			URL:               cfg.ConsumerQueueURLNew,
-			VisibilityTimeout: int64((time.Minute * 30).Seconds()),
+			VisibilityTimeout: int32((time.Minute * 30).Seconds()),
 		}),
 	}
 
@@ -138,7 +139,7 @@ func (q *Queue) Start(ctx context.Context) {
 	q.wg.Add(1)
 	go func() {
 		defer q.wg.Done()
-		q.consumer.Start()
+		q.consumer.Start(ctx)
 	}()
 	q.run(ctx)
 }

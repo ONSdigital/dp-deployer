@@ -49,6 +49,7 @@ type Deployment struct {
 	timeout     time.Duration
 }
 
+
 // New returns a new deployment.
 func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *nomad.Client) *Deployment {
 
