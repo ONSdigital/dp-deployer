@@ -81,7 +81,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	e, err := engine.New(ctx,cfg, oldHandler)
+	e, err := engine.New(ctx, cfg, oldHandler)
 	if err != nil {
 		log.Fatal(ctx, "failed to create engine", err)
 		os.Exit(1)
@@ -93,7 +93,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	q, err := queue.New(ctx,cfg,h)
+	q, err := queue.New(ctx, cfg, h)
 	if err != nil {
 		log.Fatal(ctx, "failed to create queue", err)
 		os.Exit(1)

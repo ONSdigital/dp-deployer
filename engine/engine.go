@@ -18,10 +18,9 @@ import (
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	//"github.com/ONSdigital/goamz/aws"
-	// "github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 
 )
@@ -30,6 +29,8 @@ import (
 const maxConcurrentHandlers = 50
 
 var sendMessage func(context.Context, string) error
+
+var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error)=  awsconfig.LoadDefaultConfig
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -102,8 +103,7 @@ func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFun
 		return nil, err
 	}
 
-	// a, err := aws.GetAuth("", "", "", time.Time{})
-	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
+	awsConfig, err := loadDefaultConfigFunc(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 
 	if err != nil {
 		return nil, err
