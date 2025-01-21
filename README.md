@@ -1,10 +1,8 @@
-dp-deployer
-===========
+# dp-deployer
 
 Event handler for Digital Publishing CI
 
-Configuration
--------------
+## Configuration
 
 | Environment variable         | Default                | Description
 | ---------------------------- | ---------------------- | ---------------------------------------------
@@ -36,6 +34,41 @@ The application also expects your AWS credentials to be configured.
 On a development machine a request to the health check endpoint can be made by:
 
 `curl localhost:24300/health`
+
+### How to test the deployer in the environment
+
+There are various ways to test the deployer code. The [dp-operations guide](https://github.com/ONSdigital/dp-operations/blob/d156db0d5055fb7cce5b947fb68bd994996d5689/guides/deploying-the-deployer.md) gives you a brief introduction about the deployer and an overview about how to deploy it.
+
+This section shows you how to test the deployer code changes in the environment and how to rollback to previous version by just updating the `dp_deployer_version` in `dp-setup`  and running the `ansible-playbook` command for easy deployment.
+
+1. Update the deployer code and update the test as per requirement.
+2. Run `make test` and `make build` to check if your code is ready for testing
+3. Start colima by running the command `colima start`.
+4. Get the username and password by running the following command
+
+   ```bash
+   aws ecr get-login-password --region eu-west-2 --profile dp-ci | docker login --username AWS --password-stdin <CI Account id>.dkr.ecr.eu-west-2.amazonaws.com
+    ```
+
+5. Run `make deployment` and this should build an image for your new updated code, push the image to `ECR` and bundle it to s3.
+    **Note:** The tar bundle which includes a nomad plan can be seen in s3 which is always under production/ no matter which environment ansible is targetting. The nomad plan points to the ECR image.
+6. Go to `dp-setup` and check you are in the right environment to run ansible. It is recommended you stick with `sandbox` for testing. Amend the `dp_deployer_version` from the output of the `make deployment` command.
+
+    ```bash
+    vim +/dp_deployer_version dp-setup/ansible/roles/bootstrap-deployer/defaults/main.yml
+    ```
+
+7. After updating the `dp_deployer_version`, run the ansible-playbook command to bootstrap the deployer.
+
+    ```bash
+    export ONS_DP_ENV = sandbox
+    ansible-playbook --vault-id=$(ONS_DP_ENV)@.$(ONS_DP_ENV).pass -i inventories/$(ONS_DP_ENV) bootstrap-deployer.yml
+    ```
+
+8. Check [nomad-ui](https://nomad.dp.aws.onsdigital.uk/ui/jobs/dp-deployer/versions) if the deployer has been deployed successfully.
+9. Go to [concourse-ui](https://concourse.dp-ci.aws.onsdigital.uk/) and deploy the `dp-import-reporter` and then trigger `env-ship-it` to test the deployer code.
+10. If the previous step has been successful, trigger the secrets pipeline to confirm that it is working as expected.
+11. If it hasn't been successful, roll back to the previous version of the deployer, by updating the `dp-deployer-version` in `dp-setup` as mentioned in step 6 and run the `ansible-playbook bootstrap-deployer` command as shown in step 7.
 
 ### Licence
 

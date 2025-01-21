@@ -18,8 +18,6 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	// "github.com/ONSdigital/goamz/aws"
-	// "github.com/ONSdigital/goamz/sqs"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/cenkalti/backoff"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"

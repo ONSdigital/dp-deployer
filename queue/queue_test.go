@@ -19,7 +19,7 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
-	// goamz "github.com/ONSdigital/goamz/aws"
+
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -233,12 +233,6 @@ func TestNew(t *testing.T) {
 		},
 	}
 	ctx := context.TODO()
-	// goamz.RetryingClient = &http.Client{
-	// 	// force the goamz http call (to AWS to get auth details for an instance role)
-	// 	// to return failure and hence stops auth succeeding inside CI (when we need it to fail)
-	// 	Transport: BadTransport{},
-	// }
-
 
 	for _, fixture := range fixtures {
 		Convey("an error is returned with invalid configuration", t, func() {
