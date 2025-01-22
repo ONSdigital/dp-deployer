@@ -20,7 +20,6 @@ import (
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
 
-
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
 
@@ -151,19 +150,18 @@ func (nowt BadTransport) RoundTrip(*http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-
 func TestNew(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
 
 	fixtures := []struct {
-		configfunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config,error)
-		config   *config.Configuration
-		errMsg   string
-		isPrefix bool
+		configFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error)
+		config     *config.Configuration
+		errMsg     string
+		isPrefix   bool
 	}{
-		{   nil,
+		{nil,
 			&config.Configuration{
 				ConsumerQueue:    "",
 				ConsumerQueueURL: "foo",
@@ -174,7 +172,7 @@ func TestNew(t *testing.T) {
 			"missing consumer queue name",
 			false,
 		},
-		{   nil,
+		{nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "",
@@ -185,7 +183,7 @@ func TestNew(t *testing.T) {
 			"missing consumer queue url",
 			false,
 		},
-		{   nil,
+		{nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -196,7 +194,7 @@ func TestNew(t *testing.T) {
 			"missing producer queue name",
 			false,
 		},
-		{   nil,
+		{nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -207,9 +205,9 @@ func TestNew(t *testing.T) {
 			"missing queue region",
 			false,
 		},
-		{  func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error){
-				return aws.Config{}, errors.New("authentication failed")
-			},
+		{func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error) {
+			return aws.Config{}, errors.New("authentication failed")
+		},
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -220,7 +218,7 @@ func TestNew(t *testing.T) {
 			"authentication failed",
 			true,
 		},
-		{   nil,
+		{nil,
 			&config.Configuration{
 				ConsumerQueue:    "foo",
 				ConsumerQueueURL: "bar",
@@ -235,9 +233,9 @@ func TestNew(t *testing.T) {
 	ctx := context.TODO()
 
 	for _, fixture := range fixtures {
-		origconfigfunc := loadDefaultConfigFunc
-		if fixture.configfunc != nil {
-			loadDefaultConfigFunc = fixture.configfunc
+		origConfigFunc := loadDefaultConfigFunc
+		if fixture.configFunc != nil {
+			loadDefaultConfigFunc = fixture.configFunc
 		}
 		Convey("an error is returned with invalid configuration", t, func() {
 			e, err := New(ctx, fixture.config, nil)
@@ -249,7 +247,7 @@ func TestNew(t *testing.T) {
 				So(err.Error(), ShouldEqual, fixture.errMsg)
 			}
 		})
-		loadDefaultConfigFunc = origconfigfunc
+		loadDefaultConfigFunc = origConfigFunc
 	}
 
 	withEnv(func() {
@@ -403,7 +401,7 @@ func (m *mockConsumer) DeleteMessage(in *sqs.DeleteMessageInput) (*sqs.DeleteMes
 	return nil, nil
 }
 
-func (m *mockProducer) SendMessage(ctx context.Context,body string) error {
+func (m *mockProducer) SendMessage(ctx context.Context, body string) error {
 	m.mu.Lock()
 	m.message = body
 	m.mu.Unlock()

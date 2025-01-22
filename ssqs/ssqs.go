@@ -4,7 +4,6 @@ package ssqs
 import (
 	"time"
 
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -58,7 +57,7 @@ func (c *Consumer) Close() {
 }
 
 // Delete deletes a message from the queue.
-func (c *Consumer) Delete( m *Message) error {
+func (c *Consumer) Delete(m *Message) error {
 	input := &sqs.DeleteMessageInput{
 		QueueUrl:      &c.Queue.URL,
 		ReceiptHandle: &m.Receipt,

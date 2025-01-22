@@ -19,10 +19,9 @@ import (
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
 	"github.com/ONSdigital/log.go/v2/log"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
@@ -30,7 +29,7 @@ const maxConcurrentHandlers = 50
 
 var sendMessage func(context.Context, string) error
 
-var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error)=  awsconfig.LoadDefaultConfig
+var loadDefaultConfigFunc func(context.Context, ...func(*awsconfig.LoadOptions) error) (aws.Config, error) = awsconfig.LoadDefaultConfig
 
 // BackoffStrategy is the backoff strategy used when attempting retryable errors.
 var BackoffStrategy = func() backoff.BackOff {
@@ -84,7 +83,7 @@ type responseError struct {
 }
 
 // New returns a new engine.
-func New(ctx context.Context,cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
+func New(ctx context.Context, cfg *config.Configuration, hs map[string]HandlerFunc) (*Engine, error) {
 	if len(cfg.ConsumerQueue) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
@@ -220,7 +219,7 @@ func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 	}
 
 	backoff.RetryNotify(
-		e.reply(ctx,result),
+		e.reply(ctx, result),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
@@ -241,25 +240,25 @@ func (e *Engine) reply(ctx context.Context, res *response) func() error {
 		if err != nil {
 			return err
 		}
-		if err := sendMessage(ctx,string(j)); err != nil {
+		if err := sendMessage(ctx, string(j)); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-func (e *Engine) sendMessage(ctx context.Context,body string) error {
+func (e *Engine) sendMessage(ctx context.Context, body string) error {
 
 	resultGet, err := e.producer.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
-        QueueName: &e.config.ProducerQueue,
-    })
+		QueueName: &e.config.ProducerQueue,
+	})
 	if err != nil {
 		return err
 	}
 	queueURL := resultGet.QueueUrl
 
 	msgRes, err := e.producer.SendMessage(ctx, &sqs.SendMessageInput{
-		QueueUrl: queueURL,
+		QueueUrl:    queueURL,
 		MessageBody: &body,
 	})
 

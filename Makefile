@@ -113,3 +113,8 @@ bundle-push:
 	@echo "vim +/dp_deployer_version $(DP_SETUP)/ansible/roles/bootstrap-deployer/defaults/main.yml"
 	@echo "2. You then need to run the ansible:"
 	@echo "ansible-playbook --vault-id=$(ONS_DP_ENV)@.$(ONS_DP_ENV).pass -i inventories/$(ONS_DP_ENV) bootstrap-deployer.yml"
+
+.PHONY: prep-ecr
+prep-ecr:
+	aws ecr get-login-password --region eu-west-2 --profile dp-ci | docker login --username AWS --password-stdin 115533637771.dkr.ecr.eu-west-2.amazonaws.com
+	

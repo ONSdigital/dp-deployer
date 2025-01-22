@@ -1,5 +1,5 @@
 // Package queue provides functionality for creating and running an engine.
-//This queue package has not been implemented and the deployer still uses the old engine.
+// This queue package has not been implemented and the deployer still uses the old engine.
 package queue
 
 import (
@@ -13,15 +13,15 @@ import (
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 
-	"github.com/pkg/errors"
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/message"
 	"github.com/ONSdigital/dp-deployer/ssqs"
 	"github.com/ONSdigital/dp-net/request"
 	"github.com/ONSdigital/log.go/v2/log"
-	"github.com/cenkalti/backoff"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/cenkalti/backoff"
+	"github.com/pkg/errors"
 )
 
 // maxConcurrentHandlers limit on goroutines (each handling a message)
@@ -81,7 +81,7 @@ type responseError struct {
 }
 
 // New returns a new queue.
-func New(ctx context.Context,cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
+func New(ctx context.Context, cfg *config.Configuration, hs HandlerFunc) (*Queue, error) {
 	if len(cfg.ConsumerQueueNew) < 1 {
 		return nil, ErrMissingConsumerQueue
 	}
@@ -100,7 +100,6 @@ func New(ctx context.Context,cfg *config.Configuration, hs HandlerFunc) (*Queue,
 		return nil, err
 	}
 
-	// a, err := aws.GetAuth("", "", "", time.Time{})
 	awsConfig, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(cfg.AWSRegion))
 	if err != nil {
 		return nil, err
@@ -227,30 +226,30 @@ func (q *Queue) delete(msg *ssqs.Message) func() error {
 	return func() error { return q.consumer.Delete(msg) }
 }
 
-func (q *Queue) reply(ctx context.Context,res *response) func() error {
+func (q *Queue) reply(ctx context.Context, res *response) func() error {
 	return func() error {
 		j, err := json.Marshal(res)
 		if err != nil {
 			return err
 		}
-		if err := sendMessage(ctx,string(j)); err != nil {
+		if err := sendMessage(ctx, string(j)); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-func (q *Queue) sendMessage(ctx context.Context,body string) error {
+func (q *Queue) sendMessage(ctx context.Context, body string) error {
 	resultGet, err := q.producer.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
-        QueueName: &q.config.ProducerQueue,
-    })
+		QueueName: &q.config.ProducerQueue,
+	})
 	if err != nil {
 		return err
 	}
 	queueURL := resultGet.QueueUrl
 
 	msgRes, err := q.producer.SendMessage(ctx, &sqs.SendMessageInput{
-		QueueUrl: queueURL,
+		QueueUrl:    queueURL,
 		MessageBody: &body,
 	})
 
