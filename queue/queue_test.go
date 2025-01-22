@@ -1,6 +1,6 @@
 package queue
 
-//This queue package has not been implemented and the deployer still uses the old engine.
+// This queue package has not been implemented and the deployer still uses the old engine.
 
 import (
 	"context"

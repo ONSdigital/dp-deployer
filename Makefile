@@ -116,5 +116,4 @@ bundle-push:
 
 .PHONY: prep-ecr
 prep-ecr:
-	aws ecr get-login-password --region eu-west-2 --profile dp-ci | docker login --username AWS --password-stdin 115533637771.dkr.ecr.eu-west-2.amazonaws.com
-	
+	aws ecr get-login-password --region $(AWS_REGION) --profile $(CI_PROFILE) | docker login --username AWS --password-stdin $(AWS_ECR_URL)
