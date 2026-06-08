@@ -17,12 +17,12 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	job "github.com/ONSdigital/dp-deployer/nomad"
 	"github.com/ONSdigital/dp-deployer/s3"
+	"github.com/ONSdigital/dp-deployer/untar"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
-	"github.com/slimsag/untargz"
 )
 
 const (
@@ -78,8 +78,10 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	// will leak connections.
 	defer b.Close()
 
-	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
-		log.Error(ctx, "Deployment-Handler, untargz.Extract() error", err)
+	//	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
+	//  	log.Error(ctx, "Deployment-Handler, untarg.Extract() error", err)
+	if err := untar.Untar(b, fmt.Sprintf("%s/%s", d.root, msg.Service)); err != nil {
+		log.Error(ctx, "Deployment-Handler, untar.Untar() error", err)
 		return err
 	}
 	if err := d.plan(ctx, msg); err != nil {

@@ -15,8 +15,8 @@ LDFLAGS=-ldflags "-w -s -X 'main.Version=${VERSION}' -X 'main.BuildTime=$(BUILD_
 
 all: audit test build
 
-audit:
-	go list -m all | nancy sleuth --exclude-vulnerability-file ./.nancy-ignore
+audit: ## Runs checks for security vulnerabilities on dependencies (including transient ones)
+	dis-vulncheck
 
 build:
 	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)
