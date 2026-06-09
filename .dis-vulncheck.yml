@@ -2,19 +2,24 @@ ignore:
   - id: GO-2025-3510
     module: github.com/hashicorp/nomad
     reason: No drop-in fix is available for this repo. The public fix is in Nomad v1.9.7, but v1.9.x removes the jobspec.Parse parser this service uses to read bundled .nomad files, so remediation would require code changes and review or adjustment of existing .nomad files.
+    expiry: "2030-12-12"
 
   - id: GO-2025-3758
     module: github.com/hashicorp/nomad
     reason: No drop-in fix is available for this repo. The public fix is in Nomad v1.10.2, but the required upgrade is past v1.9.x where jobspec.Parse was removed, so remediation would require code changes and review or adjustment of existing .nomad files.
+    expiry: "2030-12-12"
 
   - id: GO-2026-4278
     module: github.com/hashicorp/nomad
     reason: No drop-in fix is available for this repo. The public fix is in Nomad v1.11.1, but the required upgrade is past v1.9.x where jobspec.Parse was removed, so remediation would require code changes and review or adjustment of existing .nomad files.
+    expiry: "2030-12-12"
 
   - id: GO-2024-3262
     module: github.com/hashicorp/nomad
     reason: "Fixed from public Nomad v1.9.2 onward, but this service reads bundled .nomad files using the older jobspec.Parse parser, and that parser disappears in v1.9.x. Fixing it is not a simple library update: it would require code changes and likely review or updates to existing .nomad files."
+    expiry: "2030-12-12"
 
   - id: GO-2024-3354
     module: github.com/hashicorp/nomad
     reason: "Fixed from public Nomad v1.9.4 onward, but this service reads bundled .nomad files using the older jobspec.Parse parser, and that parser disappears in v1.9.x. Fixing it is not a simple library update: it would require code changes and likely review or updates to existing .nomad files."
+    expiry: "2030-12-12"
