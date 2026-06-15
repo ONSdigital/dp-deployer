@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
@@ -78,12 +79,25 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	// will leak connections.
 	defer b.Close()
 
-	//	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
-	//  	log.Error(ctx, "Deployment-Handler, untarg.Extract() error", err)
+	fmt.Printf("tree before untar\n\n")
+	err = PrintTree(d.root)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		log.Error(ctx, "Deployment-Handler, printTree() error before untar.Untar()", err)
+		return err
+	}
 	if err := untar.Untar(b, fmt.Sprintf("%s/%s", d.root, msg.Service)); err != nil {
 		log.Error(ctx, "Deployment-Handler, untar.Untar() error", err)
 		return err
 	}
+	fmt.Printf("tree after untar\n\n")
+	err = PrintTree(d.root)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		log.Error(ctx, "Deployment-Handler, printTree() error after untar.Untar()", err)
+		return err
+	}
+
 	if err := d.plan(ctx, msg); err != nil {
 		log.Error(ctx, "Deployment-Handler, d.plan() error", err)
 		return err
@@ -524,4 +538,65 @@ func (d *Deployment) jsonFormat(msg *engine.Message) ([]byte, error) {
 	}
 
 	return j, nil
+}
+
+// PrintTree is the clean public function. The caller only needs to pass the path.
+func PrintTree(path string) error {
+	fmt.Println(path)
+	return printTreeRecursive(path, "", 1) // Start at depth 1 since root is printed
+}
+
+// printTreeRecursive is hidden from the caller and does the heavy lifting.
+func printTreeRecursive(path string, indent string, depth int) error {
+	if depth > 5 {
+		return nil
+	}
+
+	// Read all files and folders in the current path
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for i, entry := range entries {
+		// Check if this item is the last one in the current folder
+		isLast := i == len(entries)-1
+
+		// Pick the right visual branch symbol
+		branch := "├── "
+		if isLast {
+			branch = "└── "
+		}
+
+		// Figure out the size string if the entry is a file
+		sizeString := ""
+		if !entry.IsDir() {
+			info, err := entry.Info()
+			if err == nil {
+				// Format with 4 spaces of padding before the size and modification time (YYYY-MM-DD HH:MM:SS format)
+				modTime := info.ModTime().Format("2006-01-02 15:04:05")
+				sizeString = fmt.Sprintf("    (%d bytes, %s)", info.Size(), modTime)
+			}
+		}
+
+		// Print the current file or folder name
+		fmt.Println(indent + branch + entry.Name() + sizeString)
+
+		// If it's a folder, look inside it recursively
+		if entry.IsDir() {
+			nextIndent := indent
+			if isLast {
+				nextIndent += "    " // Add empty space if parent branch ended
+			} else {
+				nextIndent += "│   " // Add vertical line if parent branch continues
+			}
+
+			subPath := filepath.Join(path, entry.Name())
+			err := printTreeRecursive(subPath, nextIndent, depth+1)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
