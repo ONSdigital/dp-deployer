@@ -58,8 +58,7 @@ var (
 
 func TestNew(t *testing.T) {
 	os.Clearenv()
-	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
-	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
+	t.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 
 	withEnv(func() {
 		Convey("a deployment is returned", t, func() {

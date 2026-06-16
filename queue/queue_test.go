@@ -156,8 +156,7 @@ func (nowt BadTransport) RoundTrip(*http.Request) (*http.Response, error) {
 }
 func TestNew(t *testing.T) {
 	os.Clearenv()
-	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
-	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
+	t.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 
 	fixtures := []struct {
 		config   *config.Configuration
@@ -246,7 +245,7 @@ func TestNew(t *testing.T) {
 		})
 	}
 
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("an engine is returned with valid configuration", t, func() {
 			cfg := &config.Configuration{
 				ConsumerQueueNew:    "foo",
@@ -280,7 +279,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("start functions as expected", t, func(c C) {
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -364,11 +363,11 @@ func TestStart(t *testing.T) {
 	})
 }
 
-func withEnv(f func()) {
-	defer os.Clearenv()
-	os.Setenv("AWS_ACCESS_KEY_ID", "FOO")
-	os.Setenv("AWS_REGION", "BAR")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
+func withEnv(t *testing.T, f func()) {
+	t.Helper()
+	t.Setenv("AWS_ACCESS_KEY_ID", "FOO")
+	t.Setenv("AWS_REGION", "BAR")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "BAZ")
 	f()
 }
 

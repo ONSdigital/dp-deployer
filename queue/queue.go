@@ -210,12 +210,15 @@ func (q *Queue) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
 		result.Error = &responseError{Data: err, Message: err.Error()}
 	}
 
-	backoff.RetryNotify(
+	// Best-effort follow-up actions: intermediate retry failures are reported via
+	// ErrHandler, and postHandle intentionally ignores any terminal RetryNotify
+	// error because it has no error path to propagate it.
+	_ = backoff.RetryNotify(
 		q.reply(ctx, result),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
-	backoff.RetryNotify(
+	_ = backoff.RetryNotify(
 		q.delete(msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },

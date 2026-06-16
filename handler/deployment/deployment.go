@@ -78,7 +78,11 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) (interfac
 	}
 	// Make sure to close the body when done with it for S3 GetObject APIs or
 	// will leak connections.
-	defer b.Close()
+	defer func() {
+		if err := b.Close(); err != nil {
+			log.Error(ctx, "Deployment-Handler, b.Close() error", err)
+		}
+	}()
 
 	fmt.Printf("tree before untar\n\n")
 	err = PrintTree(d.root)
@@ -502,7 +506,11 @@ func (d *Deployment) doNomadReq(req *http.Request, v interface{}) error {
 }
 
 func unmarshalAPIResponse(r *http.Response, v interface{}) error {
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			log.Error(context.Background(), "Deployment-Handler, r.Body.Close() error", err)
+		}
+	}()
 
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -522,7 +530,11 @@ func jsonFromFile(jobPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Error(context.Background(), "Deployment-jsonFromFile, f.Close() error", err)
+		}
+	}()
 
 	p, err := jobspec.Parse(f)
 	if err != nil {
