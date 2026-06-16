@@ -32,6 +32,7 @@ const (
 	allocationsURL = "%s/v1/job/%s/allocations"
 	planURL        = "%s/v1/job/%s/plan"
 	runURL         = "%s/v1/jobs"
+	deployerName   = "dp-deployer"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -69,11 +70,11 @@ func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *no
 
 // Handler handles deployment messages that are delegated by the engine.
 // TODO This function will be removed once the new queue has been implemented
-func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
+func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) (interface{}, error) {
 	b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
 		log.Error(ctx, "Deployment-Handler, d.s3Client.Get() error", err)
-		return err
+		return nil, err
 	}
 	// Make sure to close the body when done with it for S3 GetObject APIs or
 	// will leak connections.
@@ -84,29 +85,29 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		log.Error(ctx, "Deployment-Handler, printTree() error before untar.Untar()", err)
-		return err
+		return nil, err
 	}
 	if err := untar.Untar(b, fmt.Sprintf("%s/%s", d.root, msg.Service)); err != nil {
 		log.Error(ctx, "Deployment-Handler, untar.Untar() error", err)
-		return err
+		return nil, err
 	}
 	fmt.Printf("tree after untar\n\n")
 	err = PrintTree(d.root)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		log.Error(ctx, "Deployment-Handler, printTree() error after untar.Untar()", err)
-		return err
+		return nil, err
 	}
 
 	if err := d.plan(ctx, msg); err != nil {
 		log.Error(ctx, "Deployment-Handler, d.plan() error", err)
-		return err
+		return nil, err
 	}
 	if err := d.run(ctx, msg); err != nil {
 		log.Error(ctx, "Deployment-Handler, d.run() error", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 // NewHandler change this to our way not using S3
@@ -178,6 +179,9 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 	}
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
 		return err
+	}
+	if msg.Service == deployerName {
+		return nil
 	}
 	if err := d.deploymentSuccessCheck(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
 		return err

@@ -195,6 +195,15 @@ func TestRun(t *testing.T) {
 				cancel()
 			})
 
+			Convey("dp-deployer self deployments return after job registration", func() {
+				serviceName := "dp-deployer"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
 			Convey("system allocations api errors handled correctly", func() {
 				serviceName := "test"
 				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))

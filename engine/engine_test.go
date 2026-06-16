@@ -315,7 +315,7 @@ func TestStart(t *testing.T) {
 
 			Convey("handler errors are propogated as expected", func() {
 				handlers := map[string]HandlerFunc{
-					"test": func(ctx context.Context, msg *Message) error { return &handlerError{"foo", "bar"} },
+					"test": func(ctx context.Context, msg *Message) (interface{}, error) { return nil, &handlerError{"foo", "bar"} },
 				}
 				expectedError := "handler error"
 				expectedMsgID := "200"
@@ -343,7 +343,7 @@ func TestStart(t *testing.T) {
 					So(e, ShouldNotBeNil)
 					So(err, ShouldBeNil)
 
-					hfunction := func(ctx context.Context, msg *Message) error { return nil }
+					hfunction := func(ctx context.Context, msg *Message) (interface{}, error) { return nil, nil }
 					e.handlers = map[string]HandlerFunc{"test": hfunction}
 					ErrHandler = defaultErrHandler
 
@@ -353,6 +353,30 @@ func TestStart(t *testing.T) {
 					pMessage := producer.message
 					producer.mu.Unlock()
 					So(pMessage, ShouldEqual, `{"ID":"200","Success":true}`)
+				})
+			})
+
+			Convey("handler reply data are propogated as expected", func() {
+				withMocks(false, validMessage, func(producer *mockProducer) {
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					So(e, ShouldNotBeNil)
+					So(err, ShouldBeNil)
+
+					hfunction := func(ctx context.Context, msg *Message) (interface{}, error) {
+						return struct {
+							BuildTime string `json:"BuildTime,omitempty"`
+							GitCommit string `json:"GitCommit,omitempty"`
+						}{BuildTime: "build-time", GitCommit: "git-commit"}, nil
+					}
+					e.handlers = map[string]HandlerFunc{"test": hfunction}
+					ErrHandler = defaultErrHandler
+
+					go time.AfterFunc(time.Second*1, cancel)
+					e.Start(ctx)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					So(pMessage, ShouldEqual, `{"ID":"200","Success":true,"Data":{"BuildTime":"build-time","GitCommit":"git-commit"}}`)
 				})
 			})
 		})

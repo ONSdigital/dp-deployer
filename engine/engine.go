@@ -68,13 +68,14 @@ type Message struct {
 	Type      string
 }
 
-// HandlerFunc represents a function that is applied to a consumed message.
-type HandlerFunc func(context.Context, *Message) error
+// HandlerFunc represents a function that is applied to a consumed message and may return reply data.
+type HandlerFunc func(context.Context, *Message) (interface{}, error)
 
 type response struct {
 	Error   *responseError `json:"Error,omitempty"`
 	ID      string
 	Success bool
+	Data    interface{} `json:"Data,omitempty"`
 }
 
 type responseError struct {
@@ -180,14 +181,14 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 		m, err := e.verifyMessage(rawMsg)
 		if err != nil {
 			log.Error(ctx, "handle(), e.verifyMessage(rawMsg) error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
 		engMsg := Message{ID: rawMsg.ID}
 		if err := json.Unmarshal(m, &engMsg); err != nil {
 			log.Error(ctx, "handle(), json.Unmarshal() error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
@@ -195,25 +196,26 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 		var ok bool
 		if handlerFunc, ok = e.handlers[engMsg.Type]; !ok {
 			log.Error(ctx, "handle(), e.handlers[engMsg.Type] error", err)
-			e.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
+			e.postHandle(ctx, rawMsg, nil, &MissingHandlerError{engMsg.Type})
 			return
 		}
-		if err := handlerFunc(ctx, &engMsg); err != nil {
+		data, err := handlerFunc(ctx, &engMsg)
+		if err != nil {
 			log.Error(ctx, "handle(), handlerFunc() error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
-		e.postHandle(ctx, rawMsg, nil)
+		e.postHandle(ctx, rawMsg, data, nil)
 	}()
 }
 
-func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
+func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, data interface{}, err error) {
 	if err != nil {
 		ErrHandler(ctx, "post handle error", err)
 	}
 
-	result := &response{ID: msg.ID, Success: err == nil}
+	result := &response{ID: msg.ID, Success: err == nil, Data: data}
 	if err != nil {
 		result.Error = &responseError{Data: err, Message: err.Error()}
 	}

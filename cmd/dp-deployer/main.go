@@ -30,6 +30,11 @@ var (
 	Version string
 )
 
+type pollResponse struct {
+	BuildTime string `json:"BuildTime,omitempty"`
+	GitCommit string `json:"GitCommit,omitempty"`
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	log.Namespace = "dp-deployer"
@@ -179,8 +184,13 @@ func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsCli
 
 	return map[string]engine.HandlerFunc{
 		"deployment": d.Handler,
+		"poll":       pollHandler,
 		"secret":     s.Handler,
 	}, nil
+}
+
+func pollHandler(context.Context, *engine.Message) (interface{}, error) {
+	return &pollResponse{BuildTime: BuildTime, GitCommit: GitCommit}, nil
 }
 
 func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (queue.HandlerFunc, error) {

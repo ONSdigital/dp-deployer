@@ -203,7 +203,7 @@ func TestContext(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
+			_, err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "aborted updating secrets for message")
 		})
