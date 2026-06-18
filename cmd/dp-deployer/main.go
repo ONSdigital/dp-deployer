@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -29,6 +30,8 @@ var (
 	// Version represents the version of the service that is running
 	Version string
 )
+
+const exitSignalCancelDelay = 5 * time.Second
 
 type pollResponse struct {
 	BuildTime string `json:"BuildTime,omitempty"`
@@ -137,6 +140,11 @@ func main() {
 	select {
 	case sig := <-sigC:
 		log.Error(ctx, "received exit signal", errors.New("received exit signal"), log.Data{"signal": sig})
+		// When the self-redeploy sends SIGTERM to the old single-instance deployer, it now gets an
+		// extra 5 seconds with its existing context still alive before shutdown starts propagating
+		// through the app. In your specific case, that gives the in-flight postHandle reply/delete
+		// path a better chance to finish pushing the SQS response before cancellation cuts it off.
+		time.Sleep(exitSignalCancelDelay)
 		cancel()
 	case <-ctx.Done():
 		log.Info(ctx, "context done")
