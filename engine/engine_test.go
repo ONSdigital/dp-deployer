@@ -378,6 +378,27 @@ func TestStart(t *testing.T) {
 					So(pMessage, ShouldEqual, `{"ID":"200","Success":true,"Data":{"BuildTime":"build-time","GitCommit":"git-commit"}}`)
 				})
 			})
+
+			Convey("handler job info is propogated as top-level response fields", func() {
+				withMocks(false, validMessage, func(producer *mockProducer) {
+					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, nil)
+					So(e, ShouldNotBeNil)
+					So(err, ShouldBeNil)
+
+					hfunction := func(ctx context.Context, msg *Message) (interface{}, error) {
+						return &JobInfo{CorrelationID: msg.ID, EvalID: "eval-id", Service: "dp-deployer", JobModifyIndex: "99"}, nil
+					}
+					e.handlers = map[string]HandlerFunc{"test": hfunction}
+					ErrHandler = defaultErrHandler
+
+					go time.AfterFunc(time.Second*1, cancel)
+					e.Start(ctx)
+					producer.mu.Lock()
+					pMessage := producer.message
+					producer.mu.Unlock()
+					So(pMessage, ShouldEqual, `{"ID":"200","Success":true,"Data":{"CorrelationID":"200","EvalID":"eval-id","Service":"dp-deployer","JobModifyIndex":"99"},"CorrelationID":"200","EvalID":"eval-id","Service":"dp-deployer","JobModifyIndex":"99"}`)
+				})
+			})
 		})
 	})
 }

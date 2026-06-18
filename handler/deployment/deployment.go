@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
@@ -107,8 +108,24 @@ func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) (interfac
 		log.Error(ctx, "Deployment-Handler, d.plan() error", err)
 		return nil, err
 	}
-	if err := d.run(ctx, msg); err != nil {
-		log.Error(ctx, "Deployment-Handler, d.run() error", err)
+	jobInfo, err := d.runWithJobInfo(ctx, msg)
+	if err != nil {
+		log.Error(ctx, "Deployment-Handler, d.runWithJobInfo() error", err)
+		return nil, err
+	}
+	return jobInfo, nil
+}
+
+func (d *Deployment) PollJobHandler(ctx context.Context, msg *engine.Message) (interface{}, error) {
+	service := msg.Service
+	correlationID := msg.CorrelationID
+	evalID := msg.EvalID
+	jobModifyIndex, err := strconv.ParseUint(msg.JobModifyIndex, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := d.successJobCheckByDeployment(ctx, correlationID, evalID, service, jobModifyIndex); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -174,6 +191,12 @@ func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
 
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
+	_, err := d.runWithJobInfo(ctx, msg)
+	return err
+}
+
+// TODO This function will be removed once the new queue has been implemented
+func (d *Deployment) runWithJobInfo(ctx context.Context, msg *engine.Message) (*engine.JobInfo, error) {
 	log.Info(ctx, "running job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
@@ -182,15 +205,20 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 		log.Error(ctx, "Error formatting to json", err)
 	}
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
-		return err
+		return nil, err
 	}
 	if msg.Service == deployerName {
-		return nil
+		return &engine.JobInfo{
+			CorrelationID:  msg.ID,
+			EvalID:         res.EvalID,
+			Service:        msg.Service,
+			JobModifyIndex: strconv.FormatUint(res.JobModifyIndex, 10),
+		}, nil
 	}
 	if err := d.deploymentSuccessCheck(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 // TODO This function will be removed once the new queue has been implemented
@@ -400,6 +428,52 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 				log.Warn(ctx, "deployment not found - will re-test", minLogData)
 			}
 		}
+	}
+}
+
+func (d *Deployment) successJobCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
+
+	var deployments []api.Deployment
+	if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, jobID), &deployments); err != nil {
+		return err
+	}
+	foundJobByIndex := false
+	for _, deployment := range deployments {
+		if deployment.JobSpecModifyIndex != jobSpecModifyIndex {
+			continue
+		}
+
+		logData := log.Data{
+			"evaluation":          evaluationID,
+			"job":                 deployment.JobID,
+			"job_spec_modify_idx": jobSpecModifyIndex,
+			"status":              deployment.Status,
+			"status_desc":         deployment.StatusDescription,
+		}
+
+		switch deployment.Status {
+		case structs.DeploymentStatusSuccessful:
+			log.Info(ctx, "deployment success", logData)
+			return nil
+		case structs.DeploymentStatusFailed,
+			structs.DeploymentStatusCancelled:
+			log.Error(ctx, "deployment failed", errors.New("deployment failed"), logData)
+			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+		default:
+			log.Info(ctx, fmt.Sprintf("Unhandled deployment.Status: %s", deployment.Status))
+		}
+		foundJobByIndex = true
+		break
+	}
+	if foundJobByIndex {
+		log.Warn(ctx, "job deployment incomplete - will re-test", minLogData)
+		// deploy-polled.sh relies on the bellow error string, so do not change it without updating deploy-polled.sh
+		return errors.New("deployment incomplete")
+	} else {
+		log.Warn(ctx, "job deployment not found - will re-test", minLogData)
+		// deploy-polled.sh relies on the bellow error string, so do not change it without updating deploy-polled.sh
+		return errors.New("deployment not found")
 	}
 }
 

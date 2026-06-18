@@ -61,26 +61,53 @@ type Engine struct {
 
 // Message represents a message that has been consumed.
 type Message struct {
-	Artifacts []string
-	Bucket    string
-	ID        string `json:"-"`
-	Service   string
-	Type      string
+	Artifacts      []string
+	Bucket         string
+	ID             string `json:"-"`
+	Service        string
+	Type           string
+	CorrelationID  string
+	EvalID         string
+	JobModifyIndex string
 }
 
 // HandlerFunc represents a function that is applied to a consumed message and may return reply data.
 type HandlerFunc func(context.Context, *Message) (interface{}, error)
 
+// JobInfo contains Nomad registration details returned for self-deployments.
+type JobInfo struct {
+	CorrelationID  string `json:"CorrelationID,omitempty"`
+	EvalID         string `json:"EvalID,omitempty"`
+	Service        string `json:"Service,omitempty"`
+	JobModifyIndex string `json:"JobModifyIndex,omitempty"`
+}
+
 type response struct {
-	Error   *responseError `json:"Error,omitempty"`
-	ID      string
-	Success bool
-	Data    interface{} `json:"Data,omitempty"`
+	Error          *responseError `json:"Error,omitempty"`
+	ID             string
+	Success        bool
+	Data           interface{} `json:"Data,omitempty"`
+	CorrelationID  string      `json:"CorrelationID,omitempty"`
+	EvalID         string      `json:"EvalID,omitempty"`
+	Service        string      `json:"Service,omitempty"`
+	JobModifyIndex string      `json:"JobModifyIndex,omitempty"`
 }
 
 type responseError struct {
 	Data    error
 	Message string
+}
+
+func jobInfoFromData(data interface{}) *JobInfo {
+	switch jobInfo := data.(type) {
+	case JobInfo:
+		copy := jobInfo
+		return &copy
+	case *JobInfo:
+		return jobInfo
+	default:
+		return nil
+	}
 }
 
 // New returns a new engine.
@@ -216,6 +243,12 @@ func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, data interfa
 	}
 
 	result := &response{ID: msg.ID, Success: err == nil, Data: data}
+	if jobInfo := jobInfoFromData(data); jobInfo != nil {
+		result.CorrelationID = jobInfo.CorrelationID
+		result.EvalID = jobInfo.EvalID
+		result.Service = jobInfo.Service
+		result.JobModifyIndex = jobInfo.JobModifyIndex
+	}
 	if err != nil {
 		result.Error = &responseError{Data: err, Message: err.Error()}
 	}

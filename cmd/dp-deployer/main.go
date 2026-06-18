@@ -12,10 +12,10 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-deployer/queue"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-net/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
-	"github.com/ONSdigital/dp-net/http"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -185,6 +185,7 @@ func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsCli
 	return map[string]engine.HandlerFunc{
 		"deployment": d.Handler,
 		"poll":       pollHandler,
+		"pollJob":    d.PollJobHandler,
 		"secret":     s.Handler,
 	}, nil
 }
