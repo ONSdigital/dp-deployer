@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -97,7 +96,7 @@ func TestNew(t *testing.T) {
 		So(err.Error(), ShouldEqual, io.EOF.Error())
 	})
 
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("a handler is returned with valid configuration", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "bar"}, &VaultClientMock{}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
@@ -107,7 +106,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestEntity(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("successfully creates openpgp entity", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "foo"}, &VaultClientMock{}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
@@ -122,7 +121,7 @@ func TestEntity(t *testing.T) {
 }
 
 func TestDearmor(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("successfully strips armor", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"}, &VaultClientMock{}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
@@ -138,7 +137,7 @@ func TestDearmor(t *testing.T) {
 }
 
 func TestDecrypt(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("successfully decrypts message", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"}, &VaultClientMock{}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
@@ -153,7 +152,7 @@ func TestDecrypt(t *testing.T) {
 }
 
 func TestWriteFails(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("given a failure writing to vault", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"},
 				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return errors.New("Error making API request") }}, &s3.ClientMock{})
@@ -174,7 +173,7 @@ func TestWriteFails(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("write functions as expected", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"},
 				&VaultClientMock{WriteFunc: func(string, map[string]interface{}) error { return nil }}, &s3.ClientMock{})
@@ -194,7 +193,7 @@ func TestWrite(t *testing.T) {
 }
 
 func TestContext(t *testing.T) {
-	withEnv(func() {
+	withEnv(t, func() {
 		Convey("handler functions as expected when context is cancelled", t, func() {
 			s, err := New(&config.Configuration{PrivateKey: testPrivateKey, AWSRegion: "eu-west-1"}, &VaultClientMock{}, &s3.ClientMock{})
 			So(err, ShouldBeNil)
@@ -203,15 +202,15 @@ func TestContext(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
+			_, err = s.Handler(ctx, &engine.Message{Artifacts: []string{"bla"}})
 			So(err, ShouldNotBeNil)
 			So(err.Error(), ShouldEqual, "aborted updating secrets for message")
 		})
 	})
 }
 
-func withEnv(f func()) {
-	defer os.Clearenv()
-	os.Setenv("VAULT_ADDR", "http://localhost:8200")
+func withEnv(t *testing.T, f func()) {
+	t.Helper()
+	t.Setenv("VAULT_ADDR", "http://localhost:8200")
 	f()
 }

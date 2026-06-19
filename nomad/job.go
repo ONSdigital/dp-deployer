@@ -67,7 +67,7 @@ func createTaskGroup(ctx context.Context, cfg *config.Configuration, name string
 	revision string) (*api.TaskGroup, error) {
 
 	if groupName != "web" && groupName != "publishing" {
-		err := errors.New("Not a valid group name")
+		err := errors.New("not a valid group name")
 		log.Error(ctx, "Not a valid group name", err, log.Data{"group_name": groupName})
 		return nil, err
 	}

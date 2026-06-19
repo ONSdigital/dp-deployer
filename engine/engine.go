@@ -61,25 +61,53 @@ type Engine struct {
 
 // Message represents a message that has been consumed.
 type Message struct {
-	Artifacts []string
-	Bucket    string
-	ID        string `json:"-"`
-	Service   string
-	Type      string
+	Artifacts      []string
+	Bucket         string
+	ID             string `json:"-"`
+	Service        string
+	Type           string
+	CorrelationID  string
+	EvalID         string
+	JobModifyIndex string
 }
 
-// HandlerFunc represents a function that is applied to a consumed message.
-type HandlerFunc func(context.Context, *Message) error
+// HandlerFunc represents a function that is applied to a consumed message and may return reply data.
+type HandlerFunc func(context.Context, *Message) (interface{}, error)
+
+// JobInfo contains Nomad registration details returned for self-deployments.
+type JobInfo struct {
+	CorrelationID  string `json:"CorrelationID,omitempty"`
+	EvalID         string `json:"EvalID,omitempty"`
+	Service        string `json:"Service,omitempty"`
+	JobModifyIndex string `json:"JobModifyIndex,omitempty"`
+}
 
 type response struct {
-	Error   *responseError `json:"Error,omitempty"`
-	ID      string
-	Success bool
+	Error          *responseError `json:"Error,omitempty"`
+	ID             string
+	Success        bool
+	Data           interface{} `json:"Data,omitempty"`
+	CorrelationID  string      `json:"CorrelationID,omitempty"`
+	EvalID         string      `json:"EvalID,omitempty"`
+	Service        string      `json:"Service,omitempty"`
+	JobModifyIndex string      `json:"JobModifyIndex,omitempty"`
 }
 
 type responseError struct {
 	Data    error
 	Message string
+}
+
+func jobInfoFromData(data interface{}) *JobInfo {
+	switch jobInfo := data.(type) {
+	case JobInfo:
+		copy := jobInfo
+		return &copy
+	case *JobInfo:
+		return jobInfo
+	default:
+		return nil
+	}
 }
 
 // New returns a new engine.
@@ -180,14 +208,14 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 		m, err := e.verifyMessage(rawMsg)
 		if err != nil {
 			log.Error(ctx, "handle(), e.verifyMessage(rawMsg) error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
 		engMsg := Message{ID: rawMsg.ID}
 		if err := json.Unmarshal(m, &engMsg); err != nil {
 			log.Error(ctx, "handle(), json.Unmarshal() error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
@@ -195,35 +223,44 @@ func (e *Engine) handle(ctx context.Context, rawMsg *ssqs.Message) {
 		var ok bool
 		if handlerFunc, ok = e.handlers[engMsg.Type]; !ok {
 			log.Error(ctx, "handle(), e.handlers[engMsg.Type] error", err)
-			e.postHandle(ctx, rawMsg, &MissingHandlerError{engMsg.Type})
+			e.postHandle(ctx, rawMsg, nil, &MissingHandlerError{engMsg.Type})
 			return
 		}
-		if err := handlerFunc(ctx, &engMsg); err != nil {
+		data, err := handlerFunc(ctx, &engMsg)
+		if err != nil {
 			log.Error(ctx, "handle(), handlerFunc() error", err)
-			e.postHandle(ctx, rawMsg, err)
+			e.postHandle(ctx, rawMsg, nil, err)
 			return
 		}
 
-		e.postHandle(ctx, rawMsg, nil)
+		e.postHandle(ctx, rawMsg, data, nil)
 	}()
 }
 
-func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, err error) {
+func (e *Engine) postHandle(ctx context.Context, msg *ssqs.Message, data interface{}, err error) {
 	if err != nil {
 		ErrHandler(ctx, "post handle error", err)
 	}
 
-	result := &response{ID: msg.ID, Success: err == nil}
+	result := &response{ID: msg.ID, Success: err == nil, Data: data}
+	if jobInfo := jobInfoFromData(data); jobInfo != nil {
+		result.CorrelationID = jobInfo.CorrelationID
+		result.EvalID = jobInfo.EvalID
+		result.Service = jobInfo.Service
+		result.JobModifyIndex = jobInfo.JobModifyIndex
+	}
 	if err != nil {
 		result.Error = &responseError{Data: err, Message: err.Error()}
 	}
 
-	backoff.RetryNotify(
+	// Best-effort follow-up actions: retry failures are reported via ErrHandler,
+	// and postHandle has no error path to propagate terminal retry errors.
+	_ = backoff.RetryNotify(
 		e.reply(ctx, result),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to send reply to sqs queue", err) },
 	)
-	backoff.RetryNotify(
+	_ = backoff.RetryNotify(
 		e.delete(msg),
 		backoff.WithContext(BackoffStrategy(), ctx),
 		func(err error, t time.Duration) { ErrHandler(ctx, "failed to delete message from sqs queue", err) },

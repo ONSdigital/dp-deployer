@@ -49,36 +49,40 @@ func New(cfg *config.Configuration, vc VaultClient, secretsClient s3.Client) (*S
 }
 
 // Handler handles secret messages that are delegated by the engine.
-func (s *Secret) Handler(ctx context.Context, msg *engine.Message) error {
+func (s *Secret) Handler(ctx context.Context, msg *engine.Message) (interface{}, error) {
 	for _, artifact := range msg.Artifacts {
 		select {
 		case <-ctx.Done():
 			log.Error(ctx, "bailing on updating secrets", errors.New("bailing on updating secrets"))
-			return &AbortedError{ID: msg.ID}
+			return nil, &AbortedError{ID: msg.ID}
 		default:
 			log.Info(ctx, "handling artifact", log.Data{"artifact": artifact})
 			b, _, err := s.s3Client.Get(artifact)
 			if err != nil {
 				log.Error(ctx, "Secret-Handler, s.s3Client.Get(artifact) error", err)
-				return err
+				return nil, err
 			}
 			// Make sure to close the body when done with it for S3 GetObject APIs or
 			// will leak connections.
-			defer b.Close()
+			defer func() {
+				if err := b.Close(); err != nil {
+					log.Error(context.Background(), "Secret-Handler, b.Close() error", err)
+				}
+			}()
 
 			d, err := s.decryptMessage(b)
 			if err != nil {
 				log.Error(ctx, "Secret-Handler, s.decryptMessage(b) error", err)
-				return err
+				return nil, err
 			}
 			log.Info(ctx, "writing secret", log.Data{"artifact": artifact})
 			if err := s.write(pathFor(artifact), d); err != nil {
 				log.Error(ctx, "Secret-Handler, s.write(pathFor) error", err)
-				return err
+				return nil, err
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *Secret) decryptMessage(message io.Reader) ([]byte, error) {

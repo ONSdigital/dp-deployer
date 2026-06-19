@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
@@ -17,12 +19,12 @@ import (
 	"github.com/ONSdigital/dp-deployer/message"
 	job "github.com/ONSdigital/dp-deployer/nomad"
 	"github.com/ONSdigital/dp-deployer/s3"
+	"github.com/ONSdigital/dp-deployer/untar"
 	nomad "github.com/ONSdigital/dp-nomad"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/jobspec"
 	"github.com/hashicorp/nomad/nomad/structs"
-	"github.com/slimsag/untargz"
 )
 
 const (
@@ -31,6 +33,7 @@ const (
 	allocationsURL = "%s/v1/job/%s/allocations"
 	planURL        = "%s/v1/job/%s/plan"
 	runURL         = "%s/v1/jobs"
+	deployerName   = "dp-deployer"
 )
 
 var jsonFrom func(string) ([]byte, error)
@@ -68,29 +71,64 @@ func New(cfg *config.Configuration, deploymentsClient s3.Client, nomadClient *no
 
 // Handler handles deployment messages that are delegated by the engine.
 // TODO This function will be removed once the new queue has been implemented
-func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) error {
+func (d *Deployment) Handler(ctx context.Context, msg *engine.Message) (interface{}, error) {
 	b, _, err := d.s3Client.Get(msg.Artifacts[0])
 	if err != nil {
 		log.Error(ctx, "Deployment-Handler, d.s3Client.Get() error", err)
-		return err
+		return nil, err
 	}
 	// Make sure to close the body when done with it for S3 GetObject APIs or
 	// will leak connections.
-	defer b.Close()
+	defer func() {
+		if err := b.Close(); err != nil {
+			log.Error(ctx, "Deployment-Handler, b.Close() error", err)
+		}
+	}()
 
-	if err := untargz.Extract(b, fmt.Sprintf("%s/%s", d.root, msg.Service), nil); err != nil {
-		log.Error(ctx, "Deployment-Handler, untargz.Extract() error", err)
-		return err
+	fmt.Printf("tree before untar\n\n")
+	err = PrintTree(d.root)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		log.Error(ctx, "Deployment-Handler, printTree() error before untar.Untar()", err)
+		return nil, err
 	}
+	if err := untar.Untar(b, fmt.Sprintf("%s/%s", d.root, msg.Service)); err != nil {
+		log.Error(ctx, "Deployment-Handler, untar.Untar() error", err)
+		return nil, err
+	}
+	fmt.Printf("tree after untar\n\n")
+	err = PrintTree(d.root)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		log.Error(ctx, "Deployment-Handler, printTree() error after untar.Untar()", err)
+		return nil, err
+	}
+
 	if err := d.plan(ctx, msg); err != nil {
 		log.Error(ctx, "Deployment-Handler, d.plan() error", err)
-		return err
+		return nil, err
 	}
-	if err := d.run(ctx, msg); err != nil {
-		log.Error(ctx, "Deployment-Handler, d.run() error", err)
-		return err
+	jobInfo, err := d.runWithJobInfo(ctx, msg)
+	if err != nil {
+		log.Error(ctx, "Deployment-Handler, d.runWithJobInfo() error", err)
+		return nil, err
 	}
-	return nil
+	return jobInfo, nil
+}
+
+func (d *Deployment) PollJobHandler(ctx context.Context, msg *engine.Message) (interface{}, error) {
+	service := msg.Service
+	correlationID := msg.CorrelationID
+	evalID := msg.EvalID
+	jobModifyIndex, err := strconv.ParseUint(msg.JobModifyIndex, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := d.successJobCheckByDeployment(ctx, correlationID, evalID, service, jobModifyIndex); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 // NewHandler change this to our way not using S3
@@ -153,6 +191,12 @@ func (d *Deployment) planNew(ctx context.Context, job api.Job) error {
 
 // TODO This function will be removed once the new queue has been implemented
 func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
+	_, err := d.runWithJobInfo(ctx, msg)
+	return err
+}
+
+// TODO This function will be removed once the new queue has been implemented
+func (d *Deployment) runWithJobInfo(ctx context.Context, msg *engine.Message) (*engine.JobInfo, error) {
 	log.Info(ctx, "running job", log.Data{"msg": msg, "service": msg.Service})
 
 	var res api.JobRegisterResponse
@@ -161,12 +205,20 @@ func (d *Deployment) run(ctx context.Context, msg *engine.Message) error {
 		log.Error(ctx, "Error formatting to json", err)
 	}
 	if err := d.post(fmt.Sprintf(runURL, d.endpoint), jsonFormat, &res); err != nil {
-		return err
+		return nil, err
+	}
+	if msg.Service == deployerName {
+		return &engine.JobInfo{
+			CorrelationID:  msg.ID,
+			EvalID:         res.EvalID,
+			Service:        msg.Service,
+			JobModifyIndex: strconv.FormatUint(res.JobModifyIndex, 10),
+		}, nil
 	}
 	if err := d.deploymentSuccessCheck(ctx, msg.ID, res.EvalID, msg.Service, res.JobModifyIndex); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 // TODO This function will be removed once the new queue has been implemented
@@ -379,6 +431,52 @@ func (d *Deployment) successCheckByDeployment(ctx context.Context, correlationID
 	}
 }
 
+func (d *Deployment) successJobCheckByDeployment(ctx context.Context, correlationID, evaluationID, jobID string, jobSpecModifyIndex uint64) error {
+	minLogData := log.Data{"evaluation": evaluationID, "job": jobID, "job_modify_index": jobSpecModifyIndex}
+
+	var deployments []api.Deployment
+	if err := d.get(fmt.Sprintf(deploymentURL, d.endpoint, jobID), &deployments); err != nil {
+		return err
+	}
+	foundJobByIndex := false
+	for _, deployment := range deployments {
+		if deployment.JobSpecModifyIndex != jobSpecModifyIndex {
+			continue
+		}
+
+		logData := log.Data{
+			"evaluation":          evaluationID,
+			"job":                 deployment.JobID,
+			"job_spec_modify_idx": jobSpecModifyIndex,
+			"status":              deployment.Status,
+			"status_desc":         deployment.StatusDescription,
+		}
+
+		switch deployment.Status {
+		case structs.DeploymentStatusSuccessful:
+			log.Info(ctx, "deployment success", logData)
+			return nil
+		case structs.DeploymentStatusFailed,
+			structs.DeploymentStatusCancelled:
+			log.Error(ctx, "deployment failed", errors.New("deployment failed"), logData)
+			return &AbortedError{EvaluationID: evaluationID, CorrelationID: correlationID}
+		default:
+			log.Info(ctx, fmt.Sprintf("Unhandled deployment.Status: %s", deployment.Status))
+		}
+		foundJobByIndex = true
+		break
+	}
+	if foundJobByIndex {
+		log.Warn(ctx, "job deployment incomplete - will re-test", minLogData)
+		// deploy-polled.sh relies on the bellow error string, so do not change it without updating deploy-polled.sh
+		return errors.New("deployment incomplete")
+	} else {
+		log.Warn(ctx, "job deployment not found - will re-test", minLogData)
+		// deploy-polled.sh relies on the bellow error string, so do not change it without updating deploy-polled.sh
+		return errors.New("deployment not found")
+	}
+}
+
 func (d *Deployment) successCheckByAllocations(ctx context.Context, correlationID, evaluationID, jobID string, jobVersion uint64) error {
 	ticker := time.NewTicker(time.Second * 1)
 	defer ticker.Stop()
@@ -482,7 +580,11 @@ func (d *Deployment) doNomadReq(req *http.Request, v interface{}) error {
 }
 
 func unmarshalAPIResponse(r *http.Response, v interface{}) error {
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			log.Error(context.Background(), "Deployment-Handler, r.Body.Close() error", err)
+		}
+	}()
 
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -502,7 +604,11 @@ func jsonFromFile(jobPath string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Error(context.Background(), "Deployment-jsonFromFile, f.Close() error", err)
+		}
+	}()
 
 	p, err := jobspec.Parse(f)
 	if err != nil {
@@ -522,4 +628,65 @@ func (d *Deployment) jsonFormat(msg *engine.Message) ([]byte, error) {
 	}
 
 	return j, nil
+}
+
+// PrintTree is the clean public function. The caller only needs to pass the path.
+func PrintTree(path string) error {
+	fmt.Println(path)
+	return printTreeRecursive(path, "", 1) // Start at depth 1 since root is printed
+}
+
+// printTreeRecursive is hidden from the caller and does the heavy lifting.
+func printTreeRecursive(path string, indent string, depth int) error {
+	if depth > 5 {
+		return nil
+	}
+
+	// Read all files and folders in the current path
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for i, entry := range entries {
+		// Check if this item is the last one in the current folder
+		isLast := i == len(entries)-1
+
+		// Pick the right visual branch symbol
+		branch := "├── "
+		if isLast {
+			branch = "└── "
+		}
+
+		// Figure out the size string if the entry is a file
+		sizeString := ""
+		if !entry.IsDir() {
+			info, err := entry.Info()
+			if err == nil {
+				// Format with 4 spaces of padding before the size and modification time (YYYY-MM-DD HH:MM:SS format)
+				modTime := info.ModTime().Format("2006-01-02 15:04:05")
+				sizeString = fmt.Sprintf("    (%d bytes, %s)", info.Size(), modTime)
+			}
+		}
+
+		// Print the current file or folder name
+		fmt.Println(indent + branch + entry.Name() + sizeString)
+
+		// If it's a folder, look inside it recursively
+		if entry.IsDir() {
+			nextIndent := indent
+			if isLast {
+				nextIndent += "    " // Add empty space if parent branch ended
+			} else {
+				nextIndent += "│   " // Add vertical line if parent branch continues
+			}
+
+			subPath := filepath.Join(path, entry.Name())
+			err := printTreeRecursive(subPath, nextIndent, depth+1)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

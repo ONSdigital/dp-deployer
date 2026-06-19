@@ -58,8 +58,7 @@ var (
 
 func TestNew(t *testing.T) {
 	os.Clearenv()
-	os.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
-	defer os.Unsetenv("AWS_CREDENTIAL_FILE")
+	t.Setenv("AWS_CREDENTIAL_FILE", "/i/hope/this/path/does/not/exist")
 
 	withEnv(func() {
 		Convey("a deployment is returned", t, func() {
@@ -192,6 +191,29 @@ func TestRun(t *testing.T) {
 				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
 				err := dep.run(ctx, &engine.Message{ID: "54321", Service: "test"})
 				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("dp-deployer self deployments return after job registration", func() {
+				serviceName := "dp-deployer"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				err := dep.run(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldBeNil)
+				cancel()
+			})
+
+			Convey("dp-deployer self deployments expose job info after job registration", func() {
+				serviceName := "dp-deployer"
+				httpmock.RegisterResponder("POST", fmt.Sprintf(runURL, nomadURL), httpmock.NewStringResponder(200, jobSuccess))
+				dep := &Deployment{endpoint: nomadURL, timeout: normalTimeout, nomadClient: nomadClient}
+				jobInfo, err := dep.runWithJobInfo(ctx, &engine.Message{ID: "54321", Service: serviceName})
+				So(err, ShouldBeNil)
+				So(jobInfo, ShouldNotBeNil)
+				So(jobInfo.CorrelationID, ShouldEqual, "54321")
+				So(jobInfo.EvalID, ShouldEqual, "12345")
+				So(jobInfo.Service, ShouldEqual, serviceName)
+				So(jobInfo.JobModifyIndex, ShouldEqual, "99")
 				cancel()
 			})
 

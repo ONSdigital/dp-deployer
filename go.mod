@@ -1,6 +1,15 @@
 module github.com/ONSdigital/dp-deployer
 
-go 1.23.2
+go 1.26.0
+
+// Nomad 1.8.4 requires github.com/armon/go-metrics v0.5.3, but its own module file also carries
+// this workaround:
+replace github.com/armon/go-metrics => github.com/armon/go-metrics v0.0.0-20230509193637-d9ca9af9f1f9
+
+// ^^ Go’s module reference says replace directives only apply in the main module or a go.work file,
+// so Nomad’s internal replace is ignored in your repo. That leaves the raw v0.5.3 requirement, and
+// that version declares itself as github.com/hashicorp/go-metrics, which is exactly why go mod tidy
+// fails without the above workaround.
 
 require (
 	github.com/ONSdigital/dp-healthcheck v1.6.3
@@ -15,14 +24,13 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.37.4
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.1
-	github.com/hashicorp/nomad v1.7.0
+	github.com/hashicorp/nomad v1.8.4
 	github.com/hashicorp/nomad/api v0.0.0-20241030141707-00b88bda741a
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pkg/errors v0.9.1
-	github.com/slimsag/untargz v0.0.0-20160915234413-d9b5a75313e0
 	github.com/smartystreets/goconvey v1.8.1
-	golang.org/x/crypto v0.28.0
+	golang.org/x/crypto v0.51.0
 )
 
 require (
@@ -38,6 +46,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.3 // indirect
 	github.com/aws/smithy-go v1.22.1 // indirect
+	github.com/hashicorp/go-kms-wrapping/v2 v2.0.16 // indirect
 )
 
 require (
@@ -45,12 +54,12 @@ require (
 	github.com/ONSdigital/dp-net v1.5.0
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
-	github.com/armon/go-metrics v0.4.1 // indirect
+	github.com/armon/go-metrics v0.5.3 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -68,7 +77,6 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect
-	github.com/hashicorp/go-msgpack v1.1.6-0.20240304204939-8824e8ccc35f // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.2 // indirect
@@ -123,13 +131,13 @@ require (
 	go.opentelemetry.io/otel/metric v1.31.0 // indirect
 	go.opentelemetry.io/otel/trace v1.31.0 // indirect
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
-	golang.org/x/mod v0.21.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.26.0 // indirect
+	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241021214115-324edc3d5d38 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect

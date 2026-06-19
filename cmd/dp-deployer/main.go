@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/ONSdigital/dp-deployer/config"
 	"github.com/ONSdigital/dp-deployer/engine"
@@ -12,10 +13,10 @@ import (
 	"github.com/ONSdigital/dp-deployer/handler/secret"
 	"github.com/ONSdigital/dp-deployer/queue"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	"github.com/ONSdigital/dp-net/http"
 	nomad "github.com/ONSdigital/dp-nomad"
 	s3client "github.com/ONSdigital/dp-s3"
 	vault "github.com/ONSdigital/dp-vault"
-	"github.com/ONSdigital/dp-net/http"
 	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -29,6 +30,13 @@ var (
 	// Version represents the version of the service that is running
 	Version string
 )
+
+const exitSignalCancelDelay = 5 * time.Second
+
+type pollResponse struct {
+	BuildTime string `json:"BuildTime,omitempty"`
+	GitCommit string `json:"GitCommit,omitempty"`
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -132,6 +140,11 @@ func main() {
 	select {
 	case sig := <-sigC:
 		log.Error(ctx, "received exit signal", errors.New("received exit signal"), log.Data{"signal": sig})
+		// When the self-redeploy sends SIGTERM to the old single-instance deployer, it now gets an
+		// extra 5 seconds with its existing context still alive before shutdown starts propagating
+		// through the app. In your specific case, that gives the in-flight postHandle reply/delete
+		// path a better chance to finish pushing the SQS response before cancellation cuts it off.
+		time.Sleep(exitSignalCancelDelay)
 		cancel()
 	case <-ctx.Done():
 		log.Info(ctx, "context done")
@@ -179,8 +192,14 @@ func initHandlersOld(cfg *config.Configuration, vc *vault.Client, deploymentsCli
 
 	return map[string]engine.HandlerFunc{
 		"deployment": d.Handler,
+		"poll":       pollHandler,
+		"pollJob":    d.PollJobHandler,
 		"secret":     s.Handler,
 	}, nil
+}
+
+func pollHandler(context.Context, *engine.Message) (interface{}, error) {
+	return &pollResponse{BuildTime: BuildTime, GitCommit: GitCommit}, nil
 }
 
 func initHandlers(cfg *config.Configuration, vc *vault.Client, deploymentsClient *s3client.S3, secretsClient *s3client.S3, nomadClient *nomad.Client) (queue.HandlerFunc, error) {
