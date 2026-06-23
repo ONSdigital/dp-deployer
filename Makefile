@@ -12,11 +12,24 @@ BUILD_TIME=$(shell date +%s)
 GIT_COMMIT=$(shell git rev-parse HEAD)
 VERSION ?= $(shell git tag --points-at HEAD | grep ^v | head -n 1)
 LDFLAGS=-ldflags "-w -s -X 'main.Version=${VERSION}' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.GitCommit=$(GIT_COMMIT)'"
+GOVULNCHECK_VERSION ?= v1.3.0
 
 all: audit test build
 
-audit:
-	go list -m all | nancy sleuth --exclude-vulnerability-file ./.nancy-ignore
+audit: ## Runs checks for security vulnerabilities on dependencies (including transient ones)
+	# dis-vulncheck
+	# when vulncheck 1.4.0 is fixed, the following can be commented out and above put back in
+	@tmp_dir=$$(mktemp -d) && \
+	printf '%s\n' \
+		'#!/bin/sh' \
+		'set -eu' \
+		'exec go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) "$$@"' \
+		> "$$tmp_dir/govulncheck" && \
+	chmod +x "$$tmp_dir/govulncheck" && \
+	PATH="$$tmp_dir:$$PATH" dis-vulncheck; \
+	exit_code=$$?; \
+	[ -n "$$tmp_dir" ] && rm -rf "$$tmp_dir"; \
+	exit $$exit_code
 
 build:
 	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)

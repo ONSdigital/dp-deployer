@@ -11,6 +11,8 @@ job "dp-deployer" {
   group "management" {
     count = "{{MANAGEMENT_TASK_COUNT}}"
 
+    shutdown_delay = "10s"
+
     restart {
       attempts = 3
       delay    = "15s"
@@ -20,6 +22,8 @@ job "dp-deployer" {
 
     task "dp-deployer" {
       driver = "docker"
+
+      kill_timeout = "15s"
 
       artifact {
         source = "s3::https://s3-eu-west-2.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-deployer/{{PROFILE}}/{{RELEASE}}.tar.gz"
