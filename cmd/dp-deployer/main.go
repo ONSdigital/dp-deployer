@@ -48,7 +48,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Info(ctx, "config on startup ...", log.Data{"config": cfg})
+	log.Info(ctx, "config on startup ..", log.Data{"config": cfg})
 
 	// Create vault client
 	var vc *vault.Client
