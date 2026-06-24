@@ -39,9 +39,22 @@ On a development machine a request to the health check endpoint can be made by:
 
 There are various ways to test the deployer code. The [dp-operations guide](https://github.com/ONSdigital/dp-operations/blob/main/guides/deploying-the-deployer.md) gives you a brief introduction about the deployer and an overview about how to deploy it.
 
-This section shows you how to test the deployer code changes in the environment and how to rollback to the previous version by just reverting the `dp_deployer_version` in `dp-setup`  and running the `ansible-playbook` command for easy deployment.
+This section shows you how to test the deployer code changes in the environment and how to rollback to the previous version by just reverting the `dp_deployer_version` in `dp-setup` and running the `ansible-playbook` command for easy deployment.
 
 Do this work on the develop branch in a feature branch.
+
+Before doing any changes, make a note of the current deployer version in Sandbox:
+
+Nomad ui/jobs/dp-deployer/definition
+
+- check what the concourse-release of the deployer is running at the moment
+- in the JSON, search for `Artifacts` object which has the sub-key `GetterSource`: this value ends similar to:
+   `.../dp-deployer/production/1.26.0.tar.gz` (in this case, concourse-release `1.26.0`)
+
+This version should match what is in: the key: `dp_deployer_version` in:
+`dp-setup/ansible/roles/bootstrap-deployer/defaults/main.yml`
+
+Then you can proceed with:
 
 1. Update the deployer code and update the tests as per requirement.
 2. Run `make test` and `make build` to check if your code is ready for testing
@@ -66,9 +79,14 @@ Do this work on the develop branch in a feature branch.
 9. Go to [concourse-ui](https://concourse.dp-ci.aws.onsdigital.uk/) and deploy the `dp-import-reporter` and then trigger `<env>-ship-it` to test the deployer code.
 10. If the previous step has been successful, trigger the `secrets` pipeline to confirm that it is working as expected.
 11. If it hasn't been successful, rollback to the previous version of the deployer, by reverting the `dp_deployer-version` in `dp-setup` as mentioned in step 6 and then re-apply the `bootstrap-deployer` playbook command as shown in step 7.
-12. When you are happy with your testing, issue a PR for your feature branch onto develop. When it is approved, merge into develop for it to deploy into sandbox and wait a few days.
-13. After a few days any you have seen other apps deploy ok into Sandbox: do a PR release into the master branch. When that is approved, merge it for it to be deployed into staging and wait a few days.
-14. After a few days any you have seen other apps deploy ok into Staging: in concourse trigger a new build for 'production-ship-it'.
+12. When you are happy with your testing proceed with the next section.
+
+### Rolling out new version of deployer
+
+1. Issue a PR for your feature branch onto develop. When it is approved, merge into develop for it to deploy into sandbox and wait a few days.
+2. Get (in sandbox) the nomad version in `GetterSource` (as done above) and create a feature branch in `dp-setup` to update the key: `dp_deployer_version` in `ansible/roles/bootstrap-deployer/defaults/main.yml` with the new version and commit the changes.
+3. After a few days any you have seen other apps deploy ok into Sandbox: do a PR release into the master branch. When that is approved, merge it for it to be deployed into staging and wait a few days.
+4. After a few days any you have seen other apps deploy ok into Staging: in concourse trigger a new build for 'production-ship-it'.
 
 ### Licence
 
