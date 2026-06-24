@@ -66,7 +66,9 @@ Do this work on the develop branch in a feature branch.
 9. Go to [concourse-ui](https://concourse.dp-ci.aws.onsdigital.uk/) and deploy the `dp-import-reporter` and then trigger `<env>-ship-it` to test the deployer code.
 10. If the previous step has been successful, trigger the `secrets` pipeline to confirm that it is working as expected.
 11. If it hasn't been successful, rollback to the previous version of the deployer, by reverting the `dp_deployer-version` in `dp-setup` as mentioned in step 6 and then re-apply the `bootstrap-deployer` playbook command as shown in step 7.
-12. When you are happy with your testing, issue a PR for your feature branch onto develop. When it is approved, merged and deployed ok in sandbox, do a PR release into the master branch. When that is approved, merged and deployed ok into staging; in concourse trigger a new build for 'production-ship-it'.
+12. When you are happy with your testing, issue a PR for your feature branch onto develop. When it is approved, merge into develop for it to deploy into sandbox and wait a few days.
+13. After a few days any you have seen other apps deploy ok into Sandbox: do a PR release into the master branch. When that is approved, merge it for it to be deployed into staging and wait a few days.
+14. After a few days any you have seen other apps deploy ok into Staging: in concourse trigger a new build for 'production-ship-it'.
 
 ### Licence
 
