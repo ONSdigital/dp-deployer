@@ -271,6 +271,15 @@ func TestStart(t *testing.T) {
 		Convey("start functions as expected", t, func(c C) {
 			ctx, cancel := context.WithCancel(context.Background())
 
+			runAndDrain := func(e *Engine) {
+				e.Start(ctx)
+				// Start returns when the context is cancelled, but handler goroutines may
+				// still be finishing reply/delete work. Close waits for that async work so
+				// the test does not race with mocked global cleanup or read producer state
+				// before the reply has been written.
+				e.Close()
+			}
+
 			doErrTest := func(handlers map[string]HandlerFunc, errorable bool, consumedMsg *sqs.Message, producedMsgID, producedMsgBody, engineErr string) {
 				withMocks(errorable, consumedMsg, func(producer *mockProducer) {
 					e, err := New(ctx, &config.Configuration{ConsumerQueue: "foo", ConsumerQueueURL: "bar", ProducerQueue: "baz", AWSRegion: "qux", VerificationKey: publicKey}, handlers)
@@ -283,7 +292,7 @@ func TestStart(t *testing.T) {
 						c.So(err.Error(), ShouldEqual, engineErr)
 					}
 
-					e.Start(ctx)
+					runAndDrain(e)
 					producer.mu.Lock()
 					pMessage := producer.message
 					producer.mu.Unlock()
@@ -347,7 +356,7 @@ func TestStart(t *testing.T) {
 					ErrHandler = defaultErrHandler
 
 					go time.AfterFunc(time.Second*1, cancel)
-					e.Start(ctx)
+					runAndDrain(e)
 					producer.mu.Lock()
 					pMessage := producer.message
 					producer.mu.Unlock()
@@ -371,7 +380,7 @@ func TestStart(t *testing.T) {
 					ErrHandler = defaultErrHandler
 
 					go time.AfterFunc(time.Second*1, cancel)
-					e.Start(ctx)
+					runAndDrain(e)
 					producer.mu.Lock()
 					pMessage := producer.message
 					producer.mu.Unlock()
@@ -392,7 +401,7 @@ func TestStart(t *testing.T) {
 					ErrHandler = defaultErrHandler
 
 					go time.AfterFunc(time.Second*1, cancel)
-					e.Start(ctx)
+					runAndDrain(e)
 					producer.mu.Lock()
 					pMessage := producer.message
 					producer.mu.Unlock()
