@@ -41,6 +41,8 @@ There are various ways to test the deployer code. The [dp-operations guide](http
 
 This section shows you how to test the deployer code changes in the environment and how to rollback to the previous version by just reverting the `dp_deployer_version` in `dp-setup`  and running the `ansible-playbook` command for easy deployment.
 
+Do this work on the develop branch in a feature branch.
+
 1. Update the deployer code and update the tests as per requirement.
 2. Run `make test` and `make build` to check if your code is ready for testing
 3. Start colima by running the command `colima start`.
@@ -64,6 +66,7 @@ This section shows you how to test the deployer code changes in the environment 
 9. Go to [concourse-ui](https://concourse.dp-ci.aws.onsdigital.uk/) and deploy the `dp-import-reporter` and then trigger `<env>-ship-it` to test the deployer code.
 10. If the previous step has been successful, trigger the `secrets` pipeline to confirm that it is working as expected.
 11. If it hasn't been successful, rollback to the previous version of the deployer, by reverting the `dp_deployer-version` in `dp-setup` as mentioned in step 6 and then re-apply the `bootstrap-deployer` playbook command as shown in step 7.
+12. When you are happy with your testing, issue a PR for your feature branch onto develop. When it is approved, merged and deployed ok in sandbox, do a PR release into the master branch. When that is approved, merged and deployed ok into staging; in concourse trigger a new build for 'production-ship-it'.
 
 ### Licence
 
