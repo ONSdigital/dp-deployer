@@ -14,6 +14,18 @@ ignore:
     reason: No drop-in fix is available for this repo. The public fix is in Nomad v1.11.1, but the required upgrade is past v1.9.x where jobspec.Parse was removed, so remediation would require code changes and review or adjustment of existing .nomad files.
     expiry: "2030-12-12"
 
+  # Fixed in Nomad 2.0.1, 1.11.5, and 1.10.11 (HCSEC-2026-14 / CVE-2026-6959).
+  - id: GO-2026-5076
+    module: github.com/hashicorp/nomad
+    reason: This finding is against the external Nomad client runtime, where allocation log named pipes can be abused through a symlink attack. dp-deployer only plans and submits jobs via /v1/jobs and does not implement or control the vulnerable log-pipe handling itself. There is no source-level fix in this repo; the real remediation is upgrading the deployed Nomad cluster from 0.12.9 to a patched runtime release.
+    expiry: "2030-12-12"
+
+  # Fixed in Nomad 2.0.1, 1.11.5, and 1.10.11 (HCSEC-2026-15 / CVE-2026-7474).
+  - id: GO-2026-5445
+    module: github.com/hashicorp/nomad
+    reason: This issue affects Nomad's Dynamic Host Volumes host-volume-create path in versions 1.10.0 through 2.0.0. dp-deployer only parses job specs and calls the job plan/run APIs; it does not submit host-volume-create requests or plugin_id values, and the deployed Nomad runtime is 0.12.9, which is outside the affected version range described by HashiCorp.
+    expiry: "2030-12-12"
+
   - id: GO-2024-3262
     module: github.com/hashicorp/nomad
     reason: "Fixed from public Nomad v1.9.2 onward, but this service reads bundled .nomad files using the older jobspec.Parse parser, and that parser disappears in v1.9.x. Fixing it is not a simple library update: it would require code changes and likely review or updates to existing .nomad files."
