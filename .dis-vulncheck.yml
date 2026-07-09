@@ -35,3 +35,8 @@ ignore:
     module: github.com/hashicorp/nomad
     reason: "Fixed from public Nomad v1.9.4 onward, but this service reads bundled .nomad files using the older jobspec.Parse parser, and that parser disappears in v1.9.x. Fixing it is not a simple library update: it would require code changes and likely review or updates to existing .nomad files."
     expiry: "2030-12-12"
+
+  - id: GO-2026-5932
+    module: golang.org/x/crypto
+    reason: "This repo's current use of OpenPGP is limited to internal, organisation-generated artifacts and signatures. Thus low risk"
+    expiry: "2027-01-31"

@@ -12,7 +12,7 @@ BUILD_TIME=$(shell date +%s)
 GIT_COMMIT=$(shell git rev-parse HEAD)
 VERSION ?= $(shell git tag --points-at HEAD | grep ^v | head -n 1)
 LDFLAGS=-ldflags "-w -s -X 'main.Version=${VERSION}' -X 'main.BuildTime=$(BUILD_TIME)' -X 'main.GitCommit=$(GIT_COMMIT)'"
-GOVULNCHECK_VERSION ?= v1.3.0
+GOVULNCHECK_VERSION ?= v1.5.0
 
 all: audit test build
 
